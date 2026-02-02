@@ -1,1 +1,4 @@
 # devfrontend
+
+## Contributors
+- Shiba

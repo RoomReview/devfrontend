@@ -1,67 +1,99 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import AuthContainer from '../components/layout/AuthContainer';
+import Input from '../components/common/Input';
+import Button from '../components/common/Button';
+import Logo from '../components/common/Logo';
+import { H2, Body } from '../components/common/Typography';
+import { GoogleIcon, FacebookIcon } from '../components/common/Icons';
+import backgroundImage from "../assets/bgimage.png";
 
 const LoginPage = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [emailError, setEmailError] = useState('');
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Basic validation
+    if (!email.includes('@')) {
+      setEmailError('Invalid');
+      return;
+    }
+    setEmailError('');
+    
     console.log('Login:', { email, password });
   };
 
   return (
-    <div className="min-h-[calc(100vh-200px)] flex items-center justify-center py-12 px-4">
-      <div className="max-w-md w-full space-y-8">
-        <div className="text-center">
-          <h2 className="text-3xl font-bold">Sign in to RoomReview</h2>
-          <p className="mt-2 text-gray-600">
-            Or{' '}
-            <Link to="/register" className="text-primary-600 hover:underline">
-              create a new account
+    <AuthContainer 
+    backgroundImage={backgroundImage}
+    >
+      {/* Logo */}
+      <div className="mb-6 sm:mb-10">
+        <Logo size="sm" linkTo="/" />
+      </div>
+
+      {/* Title */}
+      <H2 className="mb-2 text-primary text-2xl sm:text-3xl">Welcome back</H2>
+      <Body className="mb-6 sm:mb-8 text-sm sm:text-base">
+        Don't have an account?{' '}
+        <Link to="/register" className="text-primary font-semibold hover:underline">
+          Sign Up
+        </Link>
+      </Body>
+
+      {/* Form */}
+      <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-5">
+        <Input
+          label="Email"
+          type="email"
+          placeholder="Email@domain.com"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          error={emailError}
+        />
+
+        <div>
+          <Input
+            label="Password"
+            type="password"
+            placeholder="Enter your password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
+          <div className="text-right mt-2">
+            <Link to="/forgot-password" className="text-sm text-secondary font-medium hover:underline">
+              Forgot password?
             </Link>
-          </p>
+          </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="mt-8 space-y-6">
-          <div className="space-y-4">
-            <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-                Email address
-              </label>
-              <input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-              />
-            </div>
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-                Password
-              </label>
-              <input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-              />
-            </div>
-          </div>
+        <Button type="submit" className="w-full">
+          SIGN IN
+        </Button>
+      </form>
 
-          <button
-            type="submit"
-            className="w-full py-3 px-4 bg-primary-600 text-white font-semibold rounded-lg hover:bg-primary-700 transition-colors"
-          >
-            Sign in
-          </button>
-        </form>
+      {/* Divider */}
+      <div className="flex items-center my-4 sm:my-6">
+        <div className="flex-1 border-t border-gray-light"></div>
+        <span className="px-3 sm:px-4 text-xs sm:text-sm text-gray-dark/50">Or Sign In with</span>
+        <div className="flex-1 border-t border-gray-light"></div>
       </div>
-    </div>
+
+      {/* Social Login */}
+      <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
+        <Button variant="outline" className="flex-1" type="button">
+          <GoogleIcon />
+          <span className="text-sm sm:text-base">GOOGLE</span>
+        </Button>
+        <Button variant="outline" className="flex-1" type="button">
+          <FacebookIcon />
+          <span className="text-sm sm:text-base">FACEBOOK</span>
+        </Button>
+      </div>
+    </AuthContainer>
   );
 };
 

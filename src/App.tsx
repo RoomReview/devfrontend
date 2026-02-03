@@ -10,12 +10,15 @@ import NotFoundPage from './pages/NotFoundPage';
 function App() {
   return (
     <Routes>
+      {/* Auth pages without layout */}
+      <Route path="login" element={<LoginPage />} />
+      <Route path="register" element={<RegisterPage />} />
+      
+      {/* Main pages with layout */}
       <Route path="/" element={<Layout />}>
         <Route index element={<HomePage />} />
         <Route path="reviews" element={<ReviewsPage />} />
         <Route path="property/:id" element={<PropertyPage />} />
-        <Route path="login" element={<LoginPage />} />
-        <Route path="register" element={<RegisterPage />} />
         <Route path="*" element={<NotFoundPage />} />
       </Route>
     </Routes>

@@ -1,12 +1,12 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import AuthContainer from '../components/layout/AuthContainer';
-import Input from '../components/common/Input';
-import Button from '../components/common/Button';
-import Logo from '../components/common/Logo';
-import { H2, Body } from '../components/common/Typography';
-import { GoogleIcon, FacebookIcon } from '../components/common/Icons';
-import backgroundImage from "../assets/bgimage.png";
+import AuthContainer from '../../components/layout/AuthContainer';
+import Input from '../../components/common/Input';
+import Button from '../../components/common/Button';
+import Logo from '../../components/common/Logo';
+import { H2, Body } from '../../components/common/Typography';
+import { GoogleIcon, FacebookIcon } from '../../components/common/Icons';
+import backgroundImage from "../../assets/bgimage.png";
 
 const LoginPage = () => {
   const [email, setEmail] = useState('');

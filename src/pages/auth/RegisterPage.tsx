@@ -1,16 +1,17 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
-import AuthContainer from '../components/layout/AuthContainer';
-import Input from '../components/common/Input';
-import Button from '../components/common/Button';
-import Logo from '../components/common/Logo';
-import { H2, Body, Small } from '../components/common/Typography';
-import { GoogleIcon, FacebookIcon } from '../components/common/Icons';
-import backgroundImage from "../assets/bgimage.png";
+import { Link, useNavigate } from 'react-router-dom';
+import AuthContainer from '../../components/layout/AuthContainer';
+import Input from '../../components/common/Input';
+import Button from '../../components/common/Button';
+import Logo from '../../components/common/Logo';
+import { H2, Body, Small } from '../../components/common/Typography';
+import { GoogleIcon, FacebookIcon } from '../../components/common/Icons';
+import backgroundImage from "../../assets/bgimage.png";
 
 type UserType = 'tenant' | 'agency';
 
 const RegisterPage = () => {
+  const navigate = useNavigate();
   const [userType, setUserType] = useState<UserType>('tenant');
   const [formData, setFormData] = useState({
     firstName: '',
@@ -27,6 +28,9 @@ const RegisterPage = () => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     console.log('Register:', { userType, ...formData });
+    
+    // Navigate to verify email page
+    navigate(`/verify-email?email=${encodeURIComponent(formData.email)}&type=${userType}`);
   };
 
   const descriptions = {

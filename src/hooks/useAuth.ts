@@ -21,8 +21,8 @@ export const useAuth = () => {
 
   const login = async (email: string, password: string) => {
     const response = await authService.login({ email, password });
-    localStorage.setItem('token', response.token);
-    setUser(response.user);
+    localStorage.setItem('token', response?.data?.session?.accessToken);
+    setUser(response?.data?.user);
     return response;
   };
 

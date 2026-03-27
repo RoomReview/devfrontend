@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import Logo from '../../components/common/Logo';
 import Button from '../../components/common/Button';
 import { H2, Body } from '../../components/common/Typography';
@@ -12,7 +12,7 @@ const PasswordResetSuccessPage = () => {
   };
 
   return (
-    <div 
+    <div
       className="min-h-screen flex items-center justify-center px-4 py-8 bg-cover bg-center bg-no-repeat"
       style={{ backgroundImage: `url(${backgroundImage})` }}
     >

@@ -1,4 +1,4 @@
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route } from 'react-router';
 import Layout from './components/layout/Layout';
 import HomePage from './pages/HomePage';
 import ReviewsPage from './pages/ReviewsPage';
@@ -25,7 +25,7 @@ function App() {
       <Route path="reset-password" element={<ResetPasswordPage />} />
       <Route path="password-reset-sent" element={<PasswordResetSentPage />} />
       <Route path="password-reset-success" element={<PasswordResetSuccessPage />} />
-      
+
       {/* Main pages with layout */}
       <Route path="/" element={<Layout />}>
         <Route index element={<HomePage />} />

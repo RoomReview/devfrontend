@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router';
 import AuthContainer from '../../components/layout/AuthContainer';
 import Input from '../../components/common/Input';
 import Button from '../../components/common/Button';
@@ -11,7 +11,7 @@ const ResetPasswordPage = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const token = searchParams.get('token') || '';
-  
+
   const [formData, setFormData] = useState({
     password: '',
     confirmPassword: '',
@@ -31,12 +31,12 @@ const ResetPasswordPage = () => {
 
   const handleChange = (field: string, value: string) => {
     setFormData({ ...formData, [field]: value });
-    
+
     if (field === 'password') {
       const passwordError = validatePassword(value);
       setErrors({ ...errors, password: passwordError });
     }
-    
+
     if (field === 'confirmPassword') {
       const confirmError = value !== formData.password ? 'Passwords do not match' : '';
       setErrors({ ...errors, confirmPassword: confirmError });
@@ -45,18 +45,18 @@ const ResetPasswordPage = () => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     const passwordError = validatePassword(formData.password);
-    const confirmError = formData.confirmPassword !== formData.password 
-      ? 'Passwords do not match' 
-      : !formData.confirmPassword 
+    const confirmError = formData.confirmPassword !== formData.password
+      ? 'Passwords do not match'
+      : !formData.confirmPassword
         ? 'Please confirm your password'
         : '';
-    
+
     setErrors({ password: passwordError, confirmPassword: confirmError });
-    
+
     if (passwordError || confirmError) return;
-    
+
     console.log('Reset password:', { token, password: formData.password });
     navigate('/password-reset-success');
   };
@@ -70,7 +70,7 @@ const ResetPasswordPage = () => {
 
       {/* Title */}
       <H2 className="text-primary mb-3">Welcome back</H2>
-      
+
       {/* Description */}
       <Body className="text-gray-dark/80 mb-8">
         Create a new password for your account.

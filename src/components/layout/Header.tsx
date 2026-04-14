@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+import { Link } from 'react-router';
 import { Home, Search, User } from 'lucide-react';
 
 const Header = () => {

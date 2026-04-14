@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router';
 import AuthContainer from '../../components/layout/AuthContainer';
 import Input from '../../components/common/Input';
 import Button from '../../components/common/Button';
@@ -28,7 +28,7 @@ const RegisterPage = () => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     console.log('Register:', { userType, ...formData });
-    
+
     // Navigate to verify email page
     navigate(`/verify-email?email=${encodeURIComponent(formData.email)}&type=${userType}`);
   };
@@ -60,22 +60,20 @@ const RegisterPage = () => {
         <button
           type="button"
           onClick={() => setUserType('tenant')}
-          className={`flex-1 py-2 px-4 rounded-full text-sm font-medium transition-all ${
-            userType === 'tenant'
+          className={`flex-1 py-2 px-4 rounded-full text-sm font-medium transition-all ${userType === 'tenant'
               ? 'bg-secondary text-white'
               : 'text-secondary hover:bg-gray-light'
-          }`}
+            }`}
         >
           Tenant
         </button>
         <button
           type="button"
           onClick={() => setUserType('agency')}
-          className={`flex-1 py-2 px-4 rounded-full text-sm font-medium transition-all ${
-            userType === 'agency'
+          className={`flex-1 py-2 px-4 rounded-full text-sm font-medium transition-all ${userType === 'agency'
               ? 'bg-secondary text-white'
               : 'text-secondary hover:bg-gray-light'
-          }`}
+            }`}
         >
           Agency
         </button>

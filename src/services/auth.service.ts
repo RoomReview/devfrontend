@@ -17,7 +17,7 @@ interface AuthResponse {
   token: string;
 }
 
-interface AuthLoginResponse {
+export interface AuthLoginResponse {
   data: {
     session: {
       accessToken: string;

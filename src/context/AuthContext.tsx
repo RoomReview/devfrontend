@@ -1,12 +1,13 @@
 import { createContext, useContext, ReactNode } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { User } from '../types';
+import { AuthLoginResponse } from '../services/auth.service';
 
 interface AuthContextType {
   user: User | null;
   loading: boolean;
   isAuthenticated: boolean;
-  login: (email: string, password: string) => Promise<{ user: User; token: string }>;
+  login: (email: string, password: string) => Promise<AuthLoginResponse>;
   register: (username: string, email: string, password: string) => Promise<{ user: User; token: string }>;
   logout: () => void;
 }

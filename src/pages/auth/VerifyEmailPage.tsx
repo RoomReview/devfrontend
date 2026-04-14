@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useSearchParams, useNavigate } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router';
 import Logo from '../../components/common/Logo';
 import Button from '../../components/common/Button';
 import CodeInput from '../../components/common/CodeInput';
@@ -11,7 +11,7 @@ const VerifyEmailPage = () => {
   const navigate = useNavigate();
   const email = searchParams.get('email') || '[email]';
   const userType = searchParams.get('type') || 'tenant';
-  
+
   const [code, setCode] = useState('');
   const [error, setError] = useState('');
   const [isResending, setIsResending] = useState(false);
@@ -23,14 +23,14 @@ const VerifyEmailPage = () => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (code.length !== 5) {
       setError('Please enter the complete code');
       return;
     }
-    
+
     console.log('Verify:', { code, email, userType });
-    
+
     // Navigate to email verified page
     navigate(`/email-verified?type=${userType}`);
   };
@@ -45,7 +45,7 @@ const VerifyEmailPage = () => {
   };
 
   return (
-    <div 
+    <div
       className="min-h-screen flex items-center justify-center px-4 py-8 bg-cover bg-center bg-no-repeat"
       style={{ backgroundImage: `url(${backgroundImage})` }}
     >

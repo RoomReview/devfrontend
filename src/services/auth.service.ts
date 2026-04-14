@@ -17,14 +17,33 @@ interface AuthResponse {
   token: string;
 }
 
+export interface AuthLoginResponse {
+  data: {
+    session: {
+      accessToken: string;
+      refreshToken: string;
+      sessionId: number
+    },
+    user: {
+      userId: string;
+      email: string;
+      firstName: string;
+      lastName: string;
+      isActive: Boolean;
+      isEmailVerified: Boolean;
+      role: string;
+    }
+  }
+}
+
 export const authService = {
-  login: async (credentials: LoginCredentials): Promise<AuthResponse> => {
-    const response = await api.post('/auth/login', credentials);
+  login: async (credentials: LoginCredentials): Promise<AuthLoginResponse> => {
+    const response = await api.post('v1/auth/login', credentials);
     return response.data;
   },
 
   register: async (data: RegisterData): Promise<AuthResponse> => {
-    const response = await api.post('/auth/register', data);
+    const response = await api.post('v1/auth/register', data);
     return response.data;
   },
 

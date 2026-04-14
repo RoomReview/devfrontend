@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router';
 import AuthContainer from '../../components/layout/AuthContainer';
 import Input from '../../components/common/Input';
 import Button from '../../components/common/Button';
@@ -7,28 +7,40 @@ import Logo from '../../components/common/Logo';
 import { H2, Body } from '../../components/common/Typography';
 import { GoogleIcon, FacebookIcon } from '../../components/common/Icons';
 import backgroundImage from "../../assets/bgimage.png";
+import { useAuth } from '@/hooks/useAuth';
 
 const LoginPage = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [emailError, setEmailError] = useState('');
+  const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
+  const { login } = useAuth();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
+    setLoading(true);
     e.preventDefault();
-    
+
     // Basic validation
     if (!email.includes('@')) {
       setEmailError('Invalid');
       return;
     }
     setEmailError('');
-    
+
     console.log('Login:', { email, password });
+    try {
+      await login(email, password);
+      setLoading(false);
+      navigate('/')
+    } catch (error) {
+      setLoading(false);
+    }
   };
 
   return (
-    <AuthContainer 
-    backgroundImage={backgroundImage}
+    <AuthContainer
+      backgroundImage={backgroundImage}
     >
       {/* Logo */}
       <div className="mb-6 sm:mb-10">
@@ -70,7 +82,7 @@ const LoginPage = () => {
           </div>
         </div>
 
-        <Button type="submit" className="w-full">
+        <Button type="submit" className="w-full" disabled={loading}>
           SIGN IN
         </Button>
       </form>
@@ -84,11 +96,11 @@ const LoginPage = () => {
 
       {/* Social Login */}
       <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
-        <Button variant="outline" className="flex-1" type="button">
+        <Button variant="outline" className="flex-1" type="button" disabled>
           <GoogleIcon />
           <span className="text-sm sm:text-base">GOOGLE</span>
         </Button>
-        <Button variant="outline" className="flex-1" type="button">
+        <Button variant="outline" className="flex-1" type="button" disabled>
           <FacebookIcon />
           <span className="text-sm sm:text-base">FACEBOOK</span>
         </Button>

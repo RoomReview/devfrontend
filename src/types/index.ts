@@ -1,8 +1,11 @@
 export interface User {
-  id: string;
+  userId: string;
   email: string;
-  username: string;
-  createdAt: string;
+  firstName: string;
+  lastName: string;
+  isActive: Boolean;
+  isEmailVerified: Boolean;
+  role: string;
 }
 
 export interface Property {

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import AuthContainer from '../../components/layout/AuthContainer';
 import Input from '../../components/common/Input';
 import Button from '../../components/common/Button';
@@ -14,17 +14,17 @@ const ForgotPasswordPage = () => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!email) {
       setError('Email is required');
       return;
     }
-    
+
     if (!/\S+@\S+\.\S+/.test(email)) {
       setError('Please enter a valid email');
       return;
     }
-    
+
     console.log('Reset password for:', email);
     navigate(`/password-reset-sent?email=${encodeURIComponent(email)}`);
   };
@@ -38,7 +38,7 @@ const ForgotPasswordPage = () => {
 
       {/* Title */}
       <H2 className="text-primary mb-3">Reset your password</H2>
-      
+
       {/* Description */}
       <Body className="text-gray-dark/80 mb-8">
         Enter the email associated with your account, and we'll send you instructions to reset your password.

@@ -6,12 +6,24 @@ import Button from '../../components/common/Button';
 import Logo from '../../components/common/Logo';
 import { H2, Body, Small } from '../../components/common/Typography';
 import { GoogleIcon, FacebookIcon } from '../../components/common/Icons';
-import backgroundImage from "../../assets/bgimage.png";
+import backgroundImage from '../../assets/bgimage.png';
+import { useRegister } from '@/hooks/auth/useRegister';
+import type { UserRole } from '@/types/user.types';
+
+// Map the UI tab labels to the backend role enum values
+const ROLE_MAP: Record<string, UserRole> = {
+  tenant:   'TENANT',
+  agency:   'AGENCY',
+  agent:    'AGENT',
+  landlord: 'LANDLORD',
+};
 
 type UserType = 'tenant' | 'agency' | 'agent' | 'landlord';
 
 const RegisterPage = () => {
   const navigate = useNavigate();
+  const { mutate: register, isPending } = useRegister();
+
   const [userType, setUserType] = useState<UserType>('tenant');
   const [formData, setFormData] = useState({
     firstName: '',
@@ -28,20 +40,37 @@ const RegisterPage = () => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+
     if (formData.password !== formData.confirmPassword) {
-      alert("Passwords do not match");
+      // Inline validation — toast is reserved for API errors
       return;
     }
-    console.log('Register:', { userType, ...formData });
 
-    // Navigate to verify email page
-    navigate(`/verify-email?email=${encodeURIComponent(formData.email)}&type=${userType}`);
+    register(
+      {
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        email: formData.email,
+        password: formData.password,
+        role: ROLE_MAP[userType],
+        // Agency-specific fields
+        ...(userType === 'agency' && {
+          agencyName: formData.companyName,
+        }),
+      },
+      {
+        onSuccess: () => {
+          navigate(`/verify-email?email=${encodeURIComponent(formData.email)}&type=${userType}`);
+        },
+        // onError handled by hook (toast)
+      },
+    );
   };
 
   const descriptions = {
-    tenant: 'Find better places to live with trusted reviews from real tenants.',
-    agency: 'Create a public profile, receive reviews, and build trust in your brand.',
-    agent: 'Join your agency, manage properties, and receive feedback from tenants.',
+    tenant:   'Find better places to live with trusted reviews from real tenants.',
+    agency:   'Create a public profile, receive reviews, and build trust in your brand.',
+    agent:    'Join your agency, manage properties, and receive feedback from tenants.',
     landlord: 'Manage your properties, collect reviews, and build trust with tenants.',
   };
 
@@ -139,10 +168,15 @@ const RegisterPage = () => {
           placeholder="Enter your password"
           value={formData.confirmPassword}
           onChange={handleChange}
+          error={
+            formData.confirmPassword && formData.password !== formData.confirmPassword
+              ? 'Passwords do not match'
+              : ''
+          }
         />
 
-        <Button type="submit" className="w-full mt-2 shrink-0">
-          SIGN UP
+        <Button type="submit" className="w-full mt-2 shrink-0" disabled={isPending}>
+          {isPending ? 'CREATING ACCOUNT...' : 'SIGN UP'}
         </Button>
       </form>
 
@@ -155,11 +189,11 @@ const RegisterPage = () => {
 
       {/* Social Login */}
       <div className="flex flex-col sm:flex-row gap-4">
-        <Button variant="outline" className="flex-1 border-gray-light hover:border-gray-dark text-secondary" type="button">
+        <Button variant="outline" className="flex-1 border-gray-light hover:border-gray-dark text-secondary" type="button" disabled>
           <GoogleIcon />
           <span className="text-sm sm:text-base font-bold text-secondary">GOOGLE</span>
         </Button>
-        <Button variant="outline" className="flex-1 border-gray-light hover:border-gray-dark text-secondary" type="button">
+        <Button variant="outline" className="flex-1 border-gray-light hover:border-gray-dark text-secondary" type="button" disabled>
           <FacebookIcon />
           <span className="text-sm sm:text-base font-bold text-secondary">FACEBOOK</span>
         </Button>

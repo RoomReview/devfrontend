@@ -1,9 +1,11 @@
 import { Link, useLocation } from "react-router";
 import logoReview from "../../assets/logoReview.png";
+import { useAuth } from "@/hooks/useAuth";
 
 const Header = () => {
   const location = useLocation();
   const currentPath = location.pathname;
+  const { user, isAuthenticated, logout } = useAuth();
 
   const navItems = [
     { label: "Reviews", path: "/reviews" },
@@ -50,32 +52,54 @@ const Header = () => {
         })}
       </nav>
 
-      {/* Action Buttons */}
+      {/* Action Buttons — conditional on auth state */}
       <div className="flex items-center space-x-4">
-        <Link
-          to="/register"
-          className="bg-[#8B0202] text-white px-8 py-3 rounded-xl text-base font-semibold hover:bg-[#6A0101] transition-colors shadow-sm"
-        >
-          Register
-        </Link>
-        <Link
-          to="/login"
-          className="bg-[#1E293B] text-white px-8 py-3 rounded-xl text-base font-semibold hover:bg-[#0F172A] transition-colors shadow-sm"
-        >
-          Log in
-        </Link>
+        {isAuthenticated ? (
+          <>
+            {/* User avatar showing initials */}
+            <div
+              className="w-10 h-10 rounded-full bg-[#8B0202] text-white flex items-center justify-center text-sm font-bold select-none"
+              title={`${user?.firstName} ${user?.lastName}`}
+            >
+              Hi
+            </div>
+
+            {/* Logout button */}
+            <button
+              onClick={logout}
+              className="bg-[#1E293B] text-white px-8 py-3 rounded-xl text-base font-semibold hover:bg-[#0F172A] transition-colors shadow-sm"
+            >
+              Log out
+            </button>
+          </>
+        ) : (
+          <>
+            <Link
+              to="/register"
+              className="bg-[#8B0202] text-white px-8 py-3 rounded-xl text-base font-semibold hover:bg-[#6A0101] transition-colors shadow-sm"
+            >
+              Register
+            </Link>
+            <Link
+              to="/login"
+              className="bg-[#1E293B] text-white px-8 py-3 rounded-xl text-base font-semibold hover:bg-[#0F172A] transition-colors shadow-sm"
+            >
+              Log in
+            </Link>
+          </>
+        )}
       </div>
     </header>
   );
 };
 
-function constructRoundedCorners(currentIndex, maxIndex, minIndex) {
-  if (currentIndex === maxIndex) {
-    return "rounded-r-md";
-  }
-  if (currentIndex === minIndex) {
-    return "rounded-l-md";
-  }
+function constructRoundedCorners(
+  currentIndex: number,
+  maxIndex: number,
+  minIndex: number,
+): string {
+  if (currentIndex === maxIndex) return "rounded-r-md";
+  if (currentIndex === minIndex) return "rounded-l-md";
   return "rounded-md";
 }
 

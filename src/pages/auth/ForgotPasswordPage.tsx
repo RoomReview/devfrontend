@@ -6,9 +6,12 @@ import Button from '../../components/common/Button';
 import Logo from '../../components/common/Logo';
 import { H2, Body } from '../../components/common/Typography';
 import backgroundImage from '../../assets/bgimage.png';
+import { useForgotPassword } from '@/hooks/auth/useForgotPassword';
 
 const ForgotPasswordPage = () => {
   const navigate = useNavigate();
+  const { mutate: forgotPassword, isPending } = useForgotPassword();
+
   const [email, setEmail] = useState('');
   const [error, setError] = useState('');
 
@@ -19,14 +22,21 @@ const ForgotPasswordPage = () => {
       setError('Email is required');
       return;
     }
-
     if (!/\S+@\S+\.\S+/.test(email)) {
       setError('Please enter a valid email');
       return;
     }
 
-    console.log('Reset password for:', email);
-    navigate(`/password-reset-sent?email=${encodeURIComponent(email)}`);
+    setError('');
+
+    forgotPassword(
+      { email },
+      {
+        onSuccess: () =>
+          navigate(`/password-reset-sent?email=${encodeURIComponent(email)}`),
+        // onError handled by hook (toast)
+      },
+    );
   };
 
   return (
@@ -58,8 +68,8 @@ const ForgotPasswordPage = () => {
           error={error}
         />
 
-        <Button type="submit" className="w-full">
-          SUBMIT
+        <Button type="submit" className="w-full" disabled={isPending}>
+          {isPending ? 'SENDING...' : 'SUBMIT'}
         </Button>
       </form>
     </AuthContainer>

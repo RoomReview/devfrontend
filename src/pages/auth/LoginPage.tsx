@@ -6,42 +6,36 @@ import Button from '../../components/common/Button';
 import Logo from '../../components/common/Logo';
 import { H2, Body } from '../../components/common/Typography';
 import { GoogleIcon, FacebookIcon } from '../../components/common/Icons';
-import backgroundImage from "../../assets/bgimage.png";
-import { useAuth } from '@/hooks/useAuth';
+import backgroundImage from '../../assets/bgimage.png';
+import { useLogin } from '@/hooks/auth/useLogin';
 
 const LoginPage = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [emailError, setEmailError] = useState('');
-  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
-  const { login } = useAuth();
+  const { mutate: login, isPending } = useLogin();
 
   const handleSubmit = async (e: React.FormEvent) => {
-    setLoading(true);
     e.preventDefault();
 
-    // Basic validation
     if (!email.includes('@')) {
-      setEmailError('Invalid');
+      setEmailError('Please enter a valid email address');
       return;
     }
     setEmailError('');
 
-    console.log('Login:', { email, password });
-    try {
-      await login(email, password);
-      setLoading(false);
-      navigate('/')
-    } catch (error) {
-      setLoading(false);
-    }
+    login(
+      { email, password },
+      {
+        onSuccess: () => navigate('/'),
+        // onError is handled by the hook (toast) — no need to duplicate here
+      },
+    );
   };
 
   return (
-    <AuthContainer
-      backgroundImage={backgroundImage}
-    >
+    <AuthContainer backgroundImage={backgroundImage}>
       {/* Logo */}
       <div className="mb-6 sm:mb-10">
         <Logo size="sm" linkTo="/" />
@@ -82,8 +76,8 @@ const LoginPage = () => {
           </div>
         </div>
 
-        <Button type="submit" className="w-full" disabled={loading}>
-          SIGN IN
+        <Button type="submit" className="w-full" disabled={isPending}>
+          {isPending ? 'SIGNING IN...' : 'SIGN IN'}
         </Button>
       </form>
 

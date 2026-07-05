@@ -12,6 +12,7 @@ import ResetPasswordPage from './pages/auth/ResetPasswordPage';
 import PasswordResetSentPage from './pages/auth/PasswordResetSentPage';
 import PasswordResetSuccessPage from './pages/auth/PasswordResetSuccessPage';
 import NotFoundPage from './pages/NotFoundPage';
+import BoroughDetailPage from './pages/BoroughDetailPage';
 
 function App() {
   return (
@@ -31,6 +32,7 @@ function App() {
         <Route index element={<HomePage />} />
         <Route path="reviews" element={<ReviewsPage />} />
         <Route path="property/:id" element={<PropertyPage />} />
+        <Route path="boroughs/:id" element={<BoroughDetailPage />} />
         <Route path="*" element={<NotFoundPage />} />
       </Route>
     </Routes>

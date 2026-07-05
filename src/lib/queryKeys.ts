@@ -35,4 +35,12 @@ export const queryKeys = {
   /** All reviews for a specific property */
   propertyReviews: (propertyId: string) =>
     ['reviews', 'property', propertyId] as const,
+
+  // ── Boroughs ──────────────────────────────────────────────────────────
+  /** All boroughs list */
+  boroughs: ['boroughs'] as const,
+  /** Single borough by ID */
+  borough: (id: string) => ['boroughs', id] as const,
+  /** Single borough by slug */
+  boroughBySlug: (slug: string) => ['boroughs', 'slug', slug] as const,
 } as const;

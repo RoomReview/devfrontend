@@ -1,153 +1,116 @@
+import { useState, useMemo } from "react";
 import {
   Search,
   ArrowLeft,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
+  AlertCircle,
 } from "lucide-react";
 import { H1, H2, H3, Body } from "../components/common/Typography";
 import BoroughCard from "../components/common/BoroughCard";
+import { useBoroughs } from "../hooks/boroughs/useBoroughs";
 
 // Figma Burgundy: #8B0202
 // Figma Dark Blue: #1A2B3C
 // Figma Warm Beige: #F3E6DE
 
-const MOCK_BOROUGHS = [
-  {
-    id: "1",
-    name: "Barking and Dagenham",
-    zones: "Zones 4–5",
-    rating: 4.9,
-    reviewCount: 12,
-    avgRent: "£1,450",
-    trend: "2.1%",
-    imageSrc:
-      "https://images.unsplash.com/photo-1513635269975-59663e0ac1ad?q=80&w=400&auto=format&fit=crop",
-  },
-  {
-    id: "2",
-    name: "Barnet",
-    zones: "Zones 3–5",
-    rating: 4.9,
-    reviewCount: 12,
-    avgRent: "£1,850",
-    trend: "1.5%",
-    imageSrc:
-      "https://images.unsplash.com/photo-1449034446853-66c86144b0ad?q=80&w=400&auto=format&fit=crop",
-  },
-  {
-    id: "3",
-    name: "Bexley",
-    zones: "Zones 5–6",
-    rating: 4.9,
-    reviewCount: 12,
-    avgRent: "£1,350",
-    trend: "0.8%",
-    imageSrc:
-      "https://images.unsplash.com/photo-1549144511-f099e773c147?q=80&w=400&auto=format&fit=crop",
-  },
-  {
-    id: "4",
-    name: "Brent",
-    zones: "Zones 2–4",
-    rating: 4.9,
-    reviewCount: 12,
-    avgRent: "£1,750",
-    trend: "3.2%",
-    imageSrc:
-      "https://images.unsplash.com/photo-1506744038136-46273834b3fb?q=80&w=400&auto=format&fit=crop",
-  },
-  {
-    id: "5",
-    name: "Bromley",
-    zones: "Zones 3–6",
-    rating: 4.9,
-    reviewCount: 12,
-    avgRent: "£1,650",
-    trend: "1.1%",
-    imageSrc:
-      "https://images.unsplash.com/photo-1501785888041-af3ef285b470?q=80&w=400&auto=format&fit=crop",
-  },
-  {
-    id: "6",
-    name: "Camden",
-    zones: "Zones 1–2",
-    rating: 4.9,
-    reviewCount: 12,
-    avgRent: "£2,450",
-    trend: "4.5%",
-    imageSrc:
-      "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?q=80&w=400&auto=format&fit=crop",
-  },
-  {
-    id: "7",
-    name: "Croydon",
-    zones: "Zones 4–6",
-    rating: 4.9,
-    reviewCount: 12,
-    avgRent: "£1,550",
-    trend: "1.9%",
-    imageSrc:
-      "https://images.unsplash.com/photo-1470770841072-f978cf4d019e?q=80&w=400&auto=format&fit=crop",
-  },
-  {
-    id: "8",
-    name: "Ealing",
-    zones: "Zones 3–4",
-    rating: 4.9,
-    reviewCount: 12,
-    avgRent: "£1,950",
-    trend: "2.8%",
-    imageSrc:
-      "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?q=80&w=400&auto=format&fit=crop",
-  },
-  {
-    id: "9",
-    name: "Hammersmith and Fulham",
-    zones: "Zones 1–2",
-    rating: 4.9,
-    reviewCount: 12,
-    avgRent: "£2,350",
-    trend: "3.1%",
-    imageSrc:
-      "https://images.unsplash.com/photo-1472214103451-9374bd1c798e?q=80&w=400&auto=format&fit=crop",
-  },
-  {
-    id: "10",
-    name: "Haringey",
-    zones: "Zones 2–3",
-    rating: 4.9,
-    reviewCount: 12,
-    avgRent: "£1,850",
-    trend: "2.4%",
-    imageSrc:
-      "https://images.unsplash.com/photo-1444464666168-49d633b867ad?q=80&w=400&auto=format&fit=crop",
-  },
-  {
-    id: "11",
-    name: "Harrow",
-    zones: "Zones 4–5",
-    rating: 4.9,
-    reviewCount: 12,
-    avgRent: "£1,650",
-    trend: "1.2%",
-    imageSrc:
-      "https://images.unsplash.com/photo-1433086966358-54859d0ed716?q=80&w=400&auto=format&fit=crop",
-  },
-  {
-    id: "12",
-    name: "Havering",
-    zones: "Zones 6–7",
-    rating: 4.9,
-    reviewCount: 12,
-    avgRent: "£1,450",
-    trend: "0.9%",
-    imageSrc:
-      "https://images.unsplash.com/photo-1502082553048-f009c37129b9?q=80&w=400&auto=format&fit=crop",
-  },
-];
+const ITEMS_PER_PAGE = 12;
+
+type SortOption = "name-asc" | "name-desc";
+
+const SORT_LABELS: Record<SortOption, string> = {
+  "name-asc": "Alphabetical (A → Z)",
+  "name-desc": "Alphabetical (Z → A)",
+};
+
+/** Skeleton placeholder while boroughs are loading */
+const BoroughCardSkeleton = () => (
+  <div className="w-full max-w-[392px] rounded-[20px] border border-[#dcd7d7] bg-white shadow-[1px_1px_24.9px_0px_#e9ebed] overflow-hidden flex flex-col animate-pulse">
+    <div className="h-[200px] bg-gray-200" />
+    <div className="p-5 flex flex-col gap-3">
+      <div className="h-5 bg-gray-200 rounded w-3/4" />
+      <div className="h-4 bg-gray-100 rounded w-full" />
+      <div className="h-4 bg-gray-100 rounded w-5/6" />
+      <div className="mt-auto pt-3 border-t border-[#f0eded] flex gap-4">
+        <div className="h-3 bg-gray-100 rounded w-16" />
+        <div className="h-3 bg-gray-100 rounded w-12" />
+      </div>
+    </div>
+  </div>
+);
 
 const HomePage = () => {
+  // ── API data ─────────────────────────────────────────────────────────
+  const { data: boroughs, isLoading, isError, refetch } = useBoroughs();
+
+  // ── Local UI state ───────────────────────────────────────────────────
+  const [searchTerm, setSearchTerm] = useState("");
+  const [sortOption, setSortOption] = useState<SortOption>("name-asc");
+  const [page, setPage] = useState(1);
+  const [isSortOpen, setIsSortOpen] = useState(false);
+
+  // ── Client-side pipeline: filter → sort → paginate ───────────────────
+  const filteredAndSorted = useMemo(() => {
+    if (!boroughs) return [];
+
+    let result = [...boroughs];
+
+    // Filter by search term
+    if (searchTerm.trim()) {
+      const term = searchTerm.toLowerCase().trim();
+      result = result.filter((b) =>
+        b.name.toLowerCase().includes(term)
+      );
+    }
+
+    // Sort
+    result.sort((a, b) => {
+      switch (sortOption) {
+        case "name-asc":
+          return a.name.localeCompare(b.name);
+        case "name-desc":
+          return b.name.localeCompare(a.name);
+        default:
+          return 0;
+      }
+    });
+
+    return result;
+  }, [boroughs, searchTerm, sortOption]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredAndSorted.length / ITEMS_PER_PAGE));
+  const paginatedBoroughs = filteredAndSorted.slice(
+    (page - 1) * ITEMS_PER_PAGE,
+    page * ITEMS_PER_PAGE
+  );
+
+  // Reset to page 1 when search changes
+  const handleSearchChange = (value: string) => {
+    setSearchTerm(value);
+    setPage(1);
+  };
+
+  const handleSortChange = (option: SortOption) => {
+    setSortOption(option);
+    setIsSortOpen(false);
+    setPage(1);
+  };
+
+  // ── Pagination range (show up to 5 pages) ────────────────────────────
+  const pageNumbers = useMemo(() => {
+    const pages: number[] = [];
+    const maxVisible = 5;
+    let start = Math.max(1, page - Math.floor(maxVisible / 2));
+    const end = Math.min(totalPages, start + maxVisible - 1);
+    start = Math.max(1, end - maxVisible + 1);
+
+    for (let i = start; i <= end; i++) {
+      pages.push(i);
+    }
+    return pages;
+  }, [page, totalPages]);
+
   return (
     <div className="w-full relative overflow-hidden bg-white font-montserrat">
       {/* Hero Section */}
@@ -267,16 +230,31 @@ const HomePage = () => {
             <div className="relative border border-[#dcd7d7] rounded-[10px] shadow-[1px_1px_24.9px_0px_#e9ebed] bg-white flex items-center px-6 py-3 hover:border-gray-300 transition-colors cursor-text">
               <Search className="w-6 h-6 text-[#1A2B3C] shrink-0 mr-3" />
               <input
+                id="borough-search-input"
                 type="text"
                 placeholder="Search boroughs (e.g. Camden, Hackney)"
                 className="w-full text-base text-[#1A2B3C] placeholder:text-[#b7adad] focus:outline-none bg-transparent"
-                readOnly
+                value={searchTerm}
+                onChange={(e) => handleSearchChange(e.target.value)}
               />
+              {searchTerm && (
+                <button
+                  onClick={() => handleSearchChange("")}
+                  className="ml-2 text-[#b7adad] hover:text-[#1A2B3C] transition-colors"
+                  aria-label="Clear search"
+                >
+                  ✕
+                </button>
+              )}
             </div>
           </div>
 
-          <div className="flex items-center gap-2 shrink-0">
-            <button className="flex items-center gap-2 hover:opacity-80 transition-opacity font-bold">
+          <div className="relative flex items-center gap-2 shrink-0">
+            <button
+              id="borough-sort-toggle"
+              className="flex items-center gap-2 hover:opacity-80 transition-opacity font-bold"
+              onClick={() => setIsSortOpen(!isSortOpen)}
+            >
               <div className="w-6 h-6 flex items-center justify-center">
                 <svg
                   width="24"
@@ -293,41 +271,135 @@ const HomePage = () => {
               </div>
               <span className="text-[#0b0b0b] text-base">Sort by:</span>
               <span className="text-[#0b0b0b] text-base font-normal flex items-center gap-1">
-                Alphabetical (A → Z)
-                <ChevronDown className="w-4 h-4 text-[#0b0b0b]" />
+                {SORT_LABELS[sortOption]}
+                <ChevronDown
+                  className={`w-4 h-4 text-[#0b0b0b] transition-transform ${isSortOpen ? "rotate-180" : ""}`}
+                />
               </span>
             </button>
+
+            {/* Sort Dropdown */}
+            {isSortOpen && (
+              <div className="absolute top-full right-0 mt-2 bg-white border border-[#dcd7d7] rounded-lg shadow-lg z-20 min-w-[220px]">
+                {(Object.entries(SORT_LABELS) as [SortOption, string][]).map(
+                  ([value, label]) => (
+                    <button
+                      key={value}
+                      id={`sort-option-${value}`}
+                      className={`w-full text-left px-4 py-3 text-sm hover:bg-gray-50 transition-colors first:rounded-t-lg last:rounded-b-lg ${
+                        sortOption === value
+                          ? "text-[#8B0202] font-semibold"
+                          : "text-[#0b0b0b]"
+                      }`}
+                      onClick={() => handleSortChange(value)}
+                    >
+                      {label}
+                    </button>
+                  )
+                )}
+              </div>
+            )}
           </div>
         </div>
 
-        {/* Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8 mb-16 justify-items-center">
-          {MOCK_BOROUGHS.map((borough) => (
-            <BoroughCard key={borough.id} {...borough} />
-          ))}
-        </div>
+        {/* Loading State */}
+        {isLoading && (
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8 mb-16 justify-items-center">
+            {Array.from({ length: ITEMS_PER_PAGE }).map((_, i) => (
+              <BoroughCardSkeleton key={i} />
+            ))}
+          </div>
+        )}
 
-        {/* Pagination */}
-        <div className="flex justify-center items-center gap-16 mt-8">
-          <button
-            className="p-2 disabled:opacity-30 transition-opacity"
-            disabled
-          >
-            <ChevronLeft className="w-6 h-6 text-[#8B0202]" />
-          </button>
-          <div className="flex items-center gap-8">
-            <button className="font-bold text-2xl text-[#8B0202]">1</button>
-            <button className="font-bold text-2xl text-[#b7adad] hover:text-gray-500 transition-colors">
-              2
-            </button>
-            <button className="font-bold text-2xl text-[#b7adad] hover:text-gray-500 transition-colors">
-              3
+        {/* Error State */}
+        {isError && (
+          <div className="flex flex-col items-center justify-center py-16 gap-4">
+            <AlertCircle className="w-12 h-12 text-[#8B0202]" />
+            <p className="text-[#0b0b0b] text-lg font-medium">
+              Failed to load boroughs
+            </p>
+            <p className="text-[#6b6b6b] text-sm">
+              Please check your connection and try again.
+            </p>
+            <button
+              onClick={() => refetch()}
+              className="mt-2 bg-[#8B0202] text-white px-6 py-2 rounded-lg font-bold uppercase tracking-[0.64px] hover:bg-[#691313] transition-colors text-sm"
+            >
+              Try again
             </button>
           </div>
-          <button className="p-2 hover:opacity-80 transition-opacity">
-            <ChevronRight className="w-6 h-6 text-[#8B0202]" />
-          </button>
-        </div>
+        )}
+
+        {/* Empty Search State */}
+        {!isLoading &&
+          !isError &&
+          boroughs &&
+          filteredAndSorted.length === 0 && (
+            <div className="flex flex-col items-center justify-center py-16 gap-3">
+              <Search className="w-10 h-10 text-[#b7adad]" />
+              <p className="text-[#0b0b0b] text-lg font-medium">
+                No boroughs found
+              </p>
+              <p className="text-[#6b6b6b] text-sm">
+                Try a different search term.
+              </p>
+              <button
+                onClick={() => handleSearchChange("")}
+                className="mt-2 text-[#8B0202] font-semibold hover:underline text-sm"
+              >
+                Clear search
+              </button>
+            </div>
+          )}
+
+        {/* Borough Grid */}
+        {!isLoading && !isError && paginatedBoroughs.length > 0 && (
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8 mb-16 justify-items-center">
+              {paginatedBoroughs.map((borough) => (
+                <BoroughCard key={borough.boroughId} borough={borough} />
+              ))}
+            </div>
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="flex justify-center items-center gap-16 mt-8">
+                <button
+                  id="pagination-prev"
+                  className="p-2 disabled:opacity-30 transition-opacity"
+                  disabled={page <= 1}
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                >
+                  <ChevronLeft className="w-6 h-6 text-[#8B0202]" />
+                </button>
+                <div className="flex items-center gap-8">
+                  {pageNumbers.map((num) => (
+                    <button
+                      key={num}
+                      id={`pagination-page-${num}`}
+                      className={`font-bold text-2xl transition-colors ${
+                        num === page
+                          ? "text-[#8B0202]"
+                          : "text-[#b7adad] hover:text-gray-500"
+                      }`}
+                      onClick={() => setPage(num)}
+                    >
+                      {num}
+                    </button>
+                  ))}
+                </div>
+                <button
+                  id="pagination-next"
+                  className="p-2 disabled:opacity-30 transition-opacity"
+                  disabled={page >= totalPages}
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                >
+                  <ChevronRight className="w-6 h-6 text-[#8B0202]" />
+                </button>
+              </div>
+            )}
+          </>
+        )}
       </section>
 
       {/* Insights Section */}

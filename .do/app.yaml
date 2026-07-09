@@ -1,0 +1,35 @@
+alerts:
+  - rule: DEPLOYMENT_FAILED
+  - rule: DOMAIN_FAILED
+
+domains:
+  - domain: dev.roomreview.co.uk
+    type: PRIMARY
+    zone: roomreview.co.uk
+
+features:
+  - buildpack-stack=ubuntu-22
+
+ingress:
+  rules:
+    - component:
+        name: web
+      match:
+        path:
+          prefix: /
+
+name: roomreview-frontend
+region: lon
+
+static_sites:
+  - name: web
+    github:
+      repo: RoomReview/devfrontend
+      branch: alam-1
+      deploy_on_push: true
+    source_dir: /
+    build_command: pnpm build
+    output_dir: dist
+    envs:
+      - key: VITE_API_URL
+        value: https://your-backend-domain.com/api

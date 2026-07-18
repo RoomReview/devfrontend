@@ -1,153 +1,79 @@
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Search,
   ArrowLeft,
+  Check,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
 import { H1, H2, H3, Body } from "../components/common/Typography";
 import BoroughCard from "../components/common/BoroughCard";
+import { MOCK_BOROUGHS } from "../constant/boroughs";
 
 // Figma Burgundy: #8B0202
 // Figma Dark Blue: #1A2B3C
 // Figma Warm Beige: #F3E6DE
 
-const MOCK_BOROUGHS = [
-  {
-    id: "1",
-    name: "Barking and Dagenham",
-    zones: "Zones 4–5",
-    rating: 4.9,
-    reviewCount: 12,
-    avgRent: "£1,450",
-    trend: "2.1%",
-    imageSrc:
-      "https://images.unsplash.com/photo-1513635269975-59663e0ac1ad?q=80&w=400&auto=format&fit=crop",
-  },
-  {
-    id: "2",
-    name: "Barnet",
-    zones: "Zones 3–5",
-    rating: 4.9,
-    reviewCount: 12,
-    avgRent: "£1,850",
-    trend: "1.5%",
-    imageSrc:
-      "https://images.unsplash.com/photo-1449034446853-66c86144b0ad?q=80&w=400&auto=format&fit=crop",
-  },
-  {
-    id: "3",
-    name: "Bexley",
-    zones: "Zones 5–6",
-    rating: 4.9,
-    reviewCount: 12,
-    avgRent: "£1,350",
-    trend: "0.8%",
-    imageSrc:
-      "https://images.unsplash.com/photo-1549144511-f099e773c147?q=80&w=400&auto=format&fit=crop",
-  },
-  {
-    id: "4",
-    name: "Brent",
-    zones: "Zones 2–4",
-    rating: 4.9,
-    reviewCount: 12,
-    avgRent: "£1,750",
-    trend: "3.2%",
-    imageSrc:
-      "https://images.unsplash.com/photo-1506744038136-46273834b3fb?q=80&w=400&auto=format&fit=crop",
-  },
-  {
-    id: "5",
-    name: "Bromley",
-    zones: "Zones 3–6",
-    rating: 4.9,
-    reviewCount: 12,
-    avgRent: "£1,650",
-    trend: "1.1%",
-    imageSrc:
-      "https://images.unsplash.com/photo-1501785888041-af3ef285b470?q=80&w=400&auto=format&fit=crop",
-  },
-  {
-    id: "6",
-    name: "Camden",
-    zones: "Zones 1–2",
-    rating: 4.9,
-    reviewCount: 12,
-    avgRent: "£2,450",
-    trend: "4.5%",
-    imageSrc:
-      "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?q=80&w=400&auto=format&fit=crop",
-  },
-  {
-    id: "7",
-    name: "Croydon",
-    zones: "Zones 4–6",
-    rating: 4.9,
-    reviewCount: 12,
-    avgRent: "£1,550",
-    trend: "1.9%",
-    imageSrc:
-      "https://images.unsplash.com/photo-1470770841072-f978cf4d019e?q=80&w=400&auto=format&fit=crop",
-  },
-  {
-    id: "8",
-    name: "Ealing",
-    zones: "Zones 3–4",
-    rating: 4.9,
-    reviewCount: 12,
-    avgRent: "£1,950",
-    trend: "2.8%",
-    imageSrc:
-      "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?q=80&w=400&auto=format&fit=crop",
-  },
-  {
-    id: "9",
-    name: "Hammersmith and Fulham",
-    zones: "Zones 1–2",
-    rating: 4.9,
-    reviewCount: 12,
-    avgRent: "£2,350",
-    trend: "3.1%",
-    imageSrc:
-      "https://images.unsplash.com/photo-1472214103451-9374bd1c798e?q=80&w=400&auto=format&fit=crop",
-  },
-  {
-    id: "10",
-    name: "Haringey",
-    zones: "Zones 2–3",
-    rating: 4.9,
-    reviewCount: 12,
-    avgRent: "£1,850",
-    trend: "2.4%",
-    imageSrc:
-      "https://images.unsplash.com/photo-1444464666168-49d633b867ad?q=80&w=400&auto=format&fit=crop",
-  },
-  {
-    id: "11",
-    name: "Harrow",
-    zones: "Zones 4–5",
-    rating: 4.9,
-    reviewCount: 12,
-    avgRent: "£1,650",
-    trend: "1.2%",
-    imageSrc:
-      "https://images.unsplash.com/photo-1433086966358-54859d0ed716?q=80&w=400&auto=format&fit=crop",
-  },
-  {
-    id: "12",
-    name: "Havering",
-    zones: "Zones 6–7",
-    rating: 4.9,
-    reviewCount: 12,
-    avgRent: "£1,450",
-    trend: "0.9%",
-    imageSrc:
-      "https://images.unsplash.com/photo-1502082553048-f009c37129b9?q=80&w=400&auto=format&fit=crop",
-  },
-];
+const SORT_OPTIONS = [
+  { key: "alphabetical", label: "Alphabetical (A → Z)" },
+  { key: "popular", label: "Most popular" },
+  { key: "zone", label: "Zone" },
+  { key: "safest", label: "Safest" },
+] as const;
+
+type SortKey = (typeof SORT_OPTIONS)[number]["key"];
+
+const parseLeadingZone = (zones: string): number => {
+  const match = zones.match(/\d+/);
+  return match ? parseInt(match[0], 10) : 0;
+};
+
+const sortBoroughs = (list: typeof MOCK_BOROUGHS, key: SortKey) => {
+  const sorted = [...list];
+  switch (key) {
+    case "alphabetical":
+      return sorted.sort((a, b) => a.name.localeCompare(b.name));
+    case "popular":
+      return sorted.sort(
+        (a, b) => b.rating - a.rating || b.reviewCount - a.reviewCount
+      );
+    case "zone":
+      return sorted.sort(
+        (a, b) => parseLeadingZone(a.zones) - parseLeadingZone(b.zones)
+      );
+    case "safest":
+      return sorted.sort(
+        (a, b) => parseFloat(a.trend) - parseFloat(b.trend)
+      );
+    default:
+      return sorted;
+  }
+};
 
 const HomePage = () => {
+  const [searchQuery, setSearchQuery] = useState("");
+  const [sortKey, setSortKey] = useState<SortKey>("alphabetical");
+  const [sortOpen, setSortOpen] = useState(false);
+  const sortRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (sortRef.current && !sortRef.current.contains(event.target as Node)) {
+        setSortOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const visibleBoroughs = useMemo(() => {
+    const filtered = MOCK_BOROUGHS.filter((borough) =>
+      borough.name.toLowerCase().includes(searchQuery.trim().toLowerCase())
+    );
+    return sortBoroughs(filtered, sortKey);
+  }, [searchQuery, sortKey]);
+
   return (
     <div className="w-full relative overflow-hidden bg-white font-montserrat">
       {/* Hero Section */}
@@ -270,13 +196,17 @@ const HomePage = () => {
                 type="text"
                 placeholder="Search boroughs (e.g. Camden, Hackney)"
                 className="w-full text-base text-[#1A2B3C] placeholder:text-[#b7adad] focus:outline-none bg-transparent"
-                readOnly
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
               />
             </div>
           </div>
 
-          <div className="flex items-center gap-2 shrink-0">
-            <button className="flex items-center gap-2 hover:opacity-80 transition-opacity font-bold">
+          <div className="relative flex items-center gap-2 shrink-0" ref={sortRef}>
+            <button
+              onClick={() => setSortOpen((open) => !open)}
+              className="flex items-center gap-2 hover:opacity-80 transition-opacity font-bold"
+            >
               <div className="w-6 h-6 flex items-center justify-center">
                 <svg
                   width="24"
@@ -293,19 +223,49 @@ const HomePage = () => {
               </div>
               <span className="text-[#0b0b0b] text-base">Sort by:</span>
               <span className="text-[#0b0b0b] text-base font-normal flex items-center gap-1">
-                Alphabetical (A → Z)
-                <ChevronDown className="w-4 h-4 text-[#0b0b0b]" />
+                {SORT_OPTIONS.find((option) => option.key === sortKey)?.label}
+                <ChevronDown
+                  className={`w-4 h-4 text-[#0b0b0b] transition-transform ${
+                    sortOpen ? "rotate-180" : ""
+                  }`}
+                />
               </span>
             </button>
+
+            {sortOpen && (
+              <div className="absolute right-0 top-full mt-2 z-20 bg-white border border-[#dcd7d7] rounded-[10px] shadow-[1px_1px_12.45px_0px_#e9ebed] px-[10px] py-4 w-[201px] flex flex-col gap-2">
+                {SORT_OPTIONS.map((option) => (
+                  <button
+                    key={option.key}
+                    onClick={() => {
+                      setSortKey(option.key);
+                      setSortOpen(false);
+                    }}
+                    className="flex items-center gap-2 w-full text-left text-[#0b0b0b] text-base hover:text-[#8B0202] transition-colors"
+                  >
+                    <span className="flex-1">{option.label}</span>
+                    {sortKey === option.key && (
+                      <Check className="w-4 h-4 shrink-0" />
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 
         {/* Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8 mb-16 justify-items-center">
-          {MOCK_BOROUGHS.map((borough) => (
-            <BoroughCard key={borough.id} {...borough} />
-          ))}
-        </div>
+        {visibleBoroughs.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8 mb-16 justify-items-center">
+            {visibleBoroughs.map((borough) => (
+              <BoroughCard key={borough.id} {...borough} />
+            ))}
+          </div>
+        ) : (
+          <Body className="text-center text-[#b7adad] mb-16">
+            No boroughs match "{searchQuery}".
+          </Body>
+        )}
 
         {/* Pagination */}
         <div className="flex justify-center items-center gap-16 mt-8">

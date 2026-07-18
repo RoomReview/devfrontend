@@ -1,42 +1,47 @@
-import { useState, useEffect } from 'react';
-import { User } from '../types';
-import { authService } from '../services/auth.service';
+/**
+ * useAuth.ts
+ *
+ * Thin session-state orchestrator.
+ *
+ * Responsibilities (this hook only):
+ *   - Read the current user from the React Query cache (via useCurrentUser)
+ *   - Provide a logout function that clears tokens + cache
+ *
+ * Network calls for login / register / verify / etc. live in their own
+ * dedicated hooks under hooks/auth/. This keeps concerns separated and
+ * each hook independently testable.
+ */
+
+import { useQueryClient } from '@tanstack/react-query';
+import { useCurrentUser } from './auth/useCurrentUser';
+import { authService } from '@/services/auth.service';
+import { TOKEN_KEY, REFRESH_TOKEN_KEY } from '@/lib/apiClient';
+import { queryKeys } from '@/lib/queryKeys';
 
 export const useAuth = () => {
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
+  const { data: user, isLoading: loading } = useCurrentUser();
 
-  useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      authService
-        .getCurrentUser()
-        .then(setUser)
-        .catch(() => localStorage.removeItem('token'))
-        .finally(() => setLoading(false));
-    } else {
-      setLoading(false);
+  const logout = async () => {
+    const userId = user?.userId;
+    try {
+      if (userId) {
+        await authService.logout(userId);
+      }
+    } finally {
+      // Always clear local state, even if the server request fails.
+      localStorage.removeItem(TOKEN_KEY);
+      localStorage.removeItem(REFRESH_TOKEN_KEY);
+      // Set cached user to null and notify all subscribers so the UI
+      // re-renders immediately (undefined is a no-op in React Query).
+      queryClient.setQueryData(queryKeys.me, null);
     }
-  }, []);
-
-  const login = async (email: string, password: string) => {
-    const response = await authService.login({ email, password });
-    localStorage.setItem('token', response?.data?.session?.accessToken);
-    setUser(response?.data?.user);
-    return response;
   };
 
-  const register = async (username: string, email: string, password: string) => {
-    const response = await authService.register({ username, email, password });
-    localStorage.setItem('token', response.token);
-    setUser(response.user);
-    return response;
+  return {
+    user: user ?? null,
+    loading,
+    isAuthenticated: !!user,
+    logout,
   };
-
-  const logout = () => {
-    authService.logout();
-    setUser(null);
-  };
-
-  return { user, loading, login, register, logout, isAuthenticated: !!user };
 };

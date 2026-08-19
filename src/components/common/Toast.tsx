@@ -84,7 +84,6 @@ export const ToastProvider = ({ children }: ToastProviderProps) => {
     
     setToasts((prev) => [...prev, newToast]);
 
-    // Auto-remove after 4 seconds
     setTimeout(() => {
       setToasts((prev) => prev.filter((t) => t.id !== id));
     }, 4000);
@@ -97,7 +96,6 @@ export const ToastProvider = ({ children }: ToastProviderProps) => {
   return (
     <ToastContext.Provider value={{ toasts, showToast, removeToast }}>
       {children}
-      {/* Toast container */}
       <div className="fixed top-4 right-4 z-50 flex flex-col gap-2 max-w-sm">
         {toasts.map((toast) => (
           <ToastItem key={toast.id} toast={toast} onRemove={removeToast} />

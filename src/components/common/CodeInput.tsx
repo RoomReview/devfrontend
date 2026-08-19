@@ -29,10 +29,8 @@ const CodeInput = ({
   const handleChange = (index: number, e: ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     
-    // Only allow single digit
     if (value.length > 1) return;
     
-    // Only allow numbers
     if (value && !/^\d$/.test(value)) return;
 
     const newValues = [...values];
@@ -42,12 +40,10 @@ const CodeInput = ({
     const code = newValues.join('');
     onChange?.(code);
 
-    // Move to next input if value entered
     if (value && index < length - 1) {
       focusInput(index + 1);
     }
 
-    // Check if complete
     if (code.length === length && !code.includes('')) {
       onComplete?.(code);
     }
@@ -56,7 +52,6 @@ const CodeInput = ({
   const handleKeyDown = (index: number, e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Backspace') {
       if (!values[index] && index > 0) {
-        // Move to previous input if current is empty
         focusInput(index - 1);
         const newValues = [...values];
         newValues[index - 1] = '';
@@ -84,7 +79,6 @@ const CodeInput = ({
       const code = newValues.join('');
       onChange?.(code);
       
-      // Focus the next empty input or last input
       const nextEmptyIndex = newValues.findIndex(v => !v);
       focusInput(nextEmptyIndex === -1 ? length - 1 : nextEmptyIndex);
       

@@ -59,3 +59,4 @@ export const TitleBlock = ({ title, subtitle, className = '' }: TitleBlockProps)
     {subtitle && <Body>{subtitle}</Body>}
   </div>
 );
+

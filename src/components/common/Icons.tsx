@@ -77,3 +77,4 @@ export const ArrowRightIcon = ({ className = 'w-5 h-5' }: IconProps) => (
     <polyline points="12 5 19 12 12 19"/>
   </svg>
 );
+

@@ -10,7 +10,9 @@
     "module": "ESNext",
     "skipLibCheck": true,
     "moduleResolution": "bundler",
+    "baseUrl": ".",
     "allowImportingTsExtensions": true,
+    "ignoreDeprecations": "6.0",
     "resolveJsonModule": true,
     "isolatedModules": true,
     "noEmit": true,
@@ -44,6 +46,9 @@
       ],
       "@context/*": [
         "./src/context/*"
+      ],
+      "@img/*": [
+        "../img/*"
       ]
     }
   },

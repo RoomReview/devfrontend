@@ -1,44 +1,14 @@
-export interface User {
-  userId: string;
-  email: string;
-  firstName: string;
-  lastName: string;
-  isActive: Boolean;
-  isEmailVerified: Boolean;
-  role: string;
-}
+/**
+ * types/index.ts
+ *
+ * Barrel re-export for all domain types.
+ * Consumers can import from '@/types' without knowing the file split.
+ *
+ */
 
-export interface Property {
-  id: string;
-  address: string;
-  postcode: string;
-  city: string;
-  propertyType: string;
-  averageRating?: number;
-  reviewCount?: number;
-}
+export type * from './api.types';
+export type * from './auth.types';
+export type * from './user.types';
+export type * from './property.types';
+export type * from './review.types';
 
-export interface Review {
-  id: string;
-  propertyId: string;
-  userId: string;
-  rating: number;
-  title: string;
-  content: string;
-  pros?: string[];
-  cons?: string[];
-  createdAt: string;
-  updatedAt: string;
-  user?: User;
-  property?: Property;
-}
-
-export interface PaginatedResponse<T> {
-  data: T[];
-  pagination: {
-    page: number;
-    limit: number;
-    total: number;
-    totalPages: number;
-  };
-}

@@ -26,3 +26,4 @@ export const getAverageRating = (ratings: number[]): number => {
   const sum = ratings.reduce((acc, rating) => acc + rating, 0);
   return Math.round((sum / ratings.length) * 10) / 10;
 };
+

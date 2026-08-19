@@ -1,4 +1,4 @@
-import { Link } from 'react-router';
+import { Link } from 'react-router-dom';
 import logoIcon from '../../assets/logo.png'
 
 interface LogoProps {
@@ -38,3 +38,4 @@ const Logo = ({ showText = true, size = 'md', linkTo = '/' }: LogoProps) => {
 };
 
 export default Logo;
+

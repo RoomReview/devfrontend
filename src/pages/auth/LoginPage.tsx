@@ -1,53 +1,44 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router';
+import { Link, useNavigate } from 'react-router-dom';
 import AuthContainer from '../../components/layout/AuthContainer';
 import Input from '../../components/common/Input';
 import Button from '../../components/common/Button';
 import Logo from '../../components/common/Logo';
 import { H2, Body } from '../../components/common/Typography';
 import { GoogleIcon, FacebookIcon } from '../../components/common/Icons';
-import backgroundImage from "../../assets/bgimage.png";
-import { useAuth } from '@/hooks/useAuth';
+import backgroundImage from '../../assets/bgimage.png';
+import { useLogin } from '@/hooks/auth/useLogin';
 
 const LoginPage = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [emailError, setEmailError] = useState('');
-  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
-  const { login } = useAuth();
+  const { mutate: login, isPending } = useLogin();
 
   const handleSubmit = async (e: React.FormEvent) => {
-    setLoading(true);
     e.preventDefault();
 
-    // Basic validation
     if (!email.includes('@')) {
-      setEmailError('Invalid');
+      setEmailError('Please enter a valid email address');
       return;
     }
     setEmailError('');
 
-    console.log('Login:', { email, password });
-    try {
-      await login(email, password);
-      setLoading(false);
-      navigate('/')
-    } catch (error) {
-      setLoading(false);
-    }
+    login(
+      { email, password },
+      {
+        onSuccess: () => navigate('/'),
+      },
+    );
   };
 
   return (
-    <AuthContainer
-      backgroundImage={backgroundImage}
-    >
-      {/* Logo */}
+    <AuthContainer backgroundImage={backgroundImage}>
       <div className="mb-6 sm:mb-10">
         <Logo size="sm" linkTo="/" />
       </div>
 
-      {/* Title */}
       <H2 className="mb-2 text-primary text-2xl sm:text-3xl">Welcome back</H2>
       <Body className="mb-6 sm:mb-8 text-sm sm:text-base">
         Don't have an account?{' '}
@@ -56,7 +47,6 @@ const LoginPage = () => {
         </Link>
       </Body>
 
-      {/* Form */}
       <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-5">
         <Input
           label="Email"
@@ -82,19 +72,17 @@ const LoginPage = () => {
           </div>
         </div>
 
-        <Button type="submit" className="w-full" disabled={loading}>
-          SIGN IN
+        <Button type="submit" className="w-full" disabled={isPending}>
+          {isPending ? 'SIGNING IN...' : 'SIGN IN'}
         </Button>
       </form>
 
-      {/* Divider */}
       <div className="flex items-center my-4 sm:my-6">
         <div className="flex-1 border-t border-gray-light"></div>
         <span className="px-3 sm:px-4 text-xs sm:text-sm text-gray-dark/50">Or Sign In with</span>
         <div className="flex-1 border-t border-gray-light"></div>
       </div>
 
-      {/* Social Login */}
       <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
         <Button variant="outline" className="flex-1" type="button" disabled>
           <GoogleIcon />

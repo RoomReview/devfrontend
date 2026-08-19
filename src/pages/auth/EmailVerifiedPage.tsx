@@ -60,3 +60,4 @@ const EmailVerifiedPage = () => {
 };
 
 export default EmailVerifiedPage;
+

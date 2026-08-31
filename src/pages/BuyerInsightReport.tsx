@@ -600,7 +600,9 @@ export const BuyerInsightReport: React.FC<BuyerInsightReportProps> = ({
           <div className="grid grid-cols-3 gap-3">
             <div className="bg-sky-50/60 p-4 rounded-2xl text-center border border-sky-100">
               <span className="text-[10px] text-slate-400 font-semibold block uppercase">Safety Score</span>
-              <span className="text-xl font-extrabold text-[#8B0000]">{crimeAndSafety.safetyScore}/100</span>
+              <span className="text-xl font-extrabold text-[#8B0000]">
+                {crimeAndSafety.safetyScore}{typeof crimeAndSafety.safetyScore === 'number' ? '/100' : ''}
+              </span>
             </div>
             <div className="bg-sky-50/60 p-4 rounded-2xl text-center border border-sky-100">
               <span className="text-[10px] text-slate-400 font-semibold block uppercase">Crime Rate Trend</span>

@@ -1,9 +1,10 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { ArrowLeft, MapPin, BarChart3, Star, Shield, ArrowUpRight } from 'lucide-react';
 import { H1, H2, H3, Body, } from '../components/common/Typography';
 import Button from '../components/common/Button';
 import { usePostcodeData } from '@/hooks/postcode/usePostcodeData';
+import { scoreReportService } from '@/services/score-report.service';
 import ScoreReportPanel from '@/components/score-reports/ScoreReportPanel';
 
 const PostcodePage = () => {
@@ -15,6 +16,7 @@ const PostcodePage = () => {
 
   const { data, isLoading, isError, error } = usePostcodeData(normalized);
   const [selectedPostcode, setSelectedPostcode] = useState(normalized || '');
+  const [overallScore, setOverallScore] = useState<number | null>(null);
 
   const postcodeData = data?.postcode ?? null;
   const rentData = data?.rentData ?? [];
@@ -27,7 +29,33 @@ const PostcodePage = () => {
   const avgRent = rentData.length
     ? `£${Number((rentData[0] as any).rent ?? 0).toLocaleString()}`
     : 'N/A';
-  const score = String((postcodeData?.metrics as any)?.reviewScore ?? '—');
+  useEffect(() => {
+    let isCurrent = true;
+
+    const loadScore = async () => {
+      if (!postcodeData?.postcode_id) {
+        setOverallScore(null);
+        return;
+      }
+
+      try {
+        const preview = await scoreReportService.preview({
+          postcodeId: postcodeData.postcode_id,
+          boroughId: postcodeData.boroughId || undefined,
+        });
+        if (isCurrent) setOverallScore(preview.overallScore ?? null);
+      } catch {
+        if (isCurrent) setOverallScore(null);
+      }
+    };
+
+    void loadScore();
+    return () => {
+      isCurrent = false;
+    };
+  }, [postcodeData]);
+
+  const score = overallScore == null ? '—' : String(overallScore);
   const isSafe = Boolean((postcodeData?.metrics as any)?.safe);
   const reviewCount = 0;
   const priceLabel = `${avgRent}`;
@@ -432,3 +460,4 @@ const PostcodePage = () => {
 };
 
 export default PostcodePage;
+

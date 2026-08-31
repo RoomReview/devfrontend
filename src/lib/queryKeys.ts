@@ -4,7 +4,7 @@
  * Single source of truth for all React Query cache keys.
  *
  * Rules:
- *   - Always use these factories — never write inline string arrays in hooks.
+ *   - Always use these factories never write inline string arrays in hooks.
  *   - Key hierarchy: [domain, ...identifiers]
  *   - Invalidating a parent key (e.g. queryKeys.properties) automatically
  *     invalidates all children (e.g. queryKeys.property('123')).

@@ -1,4 +1,5 @@
 import type { BuyerInsightReportData } from '../pages/BuyerInsightReport.types';
+import type { InvestorReportData } from '../types/investorReport';
 import apiClient from '@/lib/apiClient';
 
 /**
@@ -57,9 +58,20 @@ export const generateBuyerReport = async (formData: Record<string, unknown>): Pr
       day: 'numeric',
     });
 
-    const overallScore = previewData.overallScore || 72;
-    const boroughScore = previewData.boroughScore || 72;
-    const postcodeScore = previewData.postcodeScore || 72;
+    if (previewData.overallScore == null) {
+      throw new Error('A real RoomReview score cannot be calculated because borough scoring metrics are missing');
+    }
+
+    const overallScore = previewData.overallScore;
+    const boroughScore = previewData.boroughScore ?? overallScore;
+    const postcodeScore = previewData.postcodeScore ?? boroughScore;
+    const boroughBreakdown = (previewData.scoreBreakdown?.borough ?? {}) as Record<string, unknown>;
+    const safetyScore = Number(boroughBreakdown.safety);
+    const affordabilityScore = Number(boroughBreakdown.affordability);
+    const reportSafetyScore: number | string = Number.isFinite(safetyScore) ? safetyScore : 'No data';
+    const affordabilityTag = Number.isFinite(affordabilityScore)
+      ? affordabilityScore >= 67 ? 'Good' : affordabilityScore >= 34 ? 'Moderate' : 'Challenging'
+      : 'No data';
 
     const reportData: BuyerInsightReportData = {
       meta: {
@@ -67,8 +79,8 @@ export const generateBuyerReport = async (formData: Record<string, unknown>): Pr
         postcode: previewData.postcode || postcodeCodeRaw,
         areaName: previewData.borough || 'Area',
         overallScore,
-        safetyScore: Math.floor(overallScore * 0.95), // Estimate safety score
-        affordabilityTag: overallScore > 75 ? 'Good' : overallScore > 50 ? 'Moderate' : 'Challenging',
+        safetyScore: reportSafetyScore,
+        affordabilityTag,
         livabilityScore: overallScore,
         generatedDateText,
         versionText: '1.0',
@@ -150,7 +162,7 @@ export const generateBuyerReport = async (formData: Record<string, unknown>): Pr
         disclaimerText: 'Rental data based on area averages. Individual property performance may vary.',
       },
       crimeAndSafety: {
-        safetyScore: Math.floor(overallScore * 0.95),
+        safetyScore: reportSafetyScore,
         crimeRateTrendPercent: 1.0,
         vsBoroughPercent: 0,
         crimeCategories: [],
@@ -264,3 +276,82 @@ export const generateBuyerReport = async (formData: Record<string, unknown>): Pr
     throw error;
   }
 };
+
+export const generateInvestorReport = async (formData: Record<string, unknown>): Promise<InvestorReportData> => {
+  const postcodeInput = String(formData.propertyAddress || '').trim();
+  if (!postcodeInput) {
+    throw new Error('Property address or postcode is required to generate a report');
+  }
+
+  const postcodeCode = postcodeInput.toUpperCase().replace(/\s+/g, '');
+  const reportResponse = await apiClient.get(`/postcodes/code/${encodeURIComponent(postcodeCode)}/report-data`);
+  const reportPayload = reportResponse.data?.data;
+  const postcode = reportPayload?.postcode;
+  if (!postcode || !reportPayload) throw new Error(`Postcode "${postcodeInput}" not found in database`);
+
+  const postcodeId = postcode.postcodeId || postcode.postcode_id;
+  const boroughId = postcode.boroughId || postcode.borough_id;
+  const previewResponse = await apiClient.post('/score-reports/preview', { postcodeId, boroughId: boroughId || undefined });
+  const preview = previewResponse.data?.data;
+  if (!preview) throw new Error('Failed to generate investor report preview');
+
+  if (preview.overallScore == null) {
+    throw new Error('A real RoomReview score cannot be calculated because borough scoring metrics are missing');
+  }
+
+  const score = Number(preview.overallScore);
+  const bedrooms = Number(formData.bedrooms) || 0;
+  const area = Number(formData.floorArea) || 0;
+  const propertyValue = reportPayload.propertyValueData?.find((item: any) => item.value > 0)?.value;
+  const rentRows = (reportPayload.rentData ?? []).filter((item: any) => Number(item.rent) > 0);
+  const averageRent = rentRows.find((item: any) => String(item.type).toLowerCase() === 'average')?.rent ?? rentRows[0]?.rent;
+  const boroughMetrics = reportPayload.borough?.metrics ?? {};
+  const rentGrowthValue = boroughMetrics.annualGrowth ?? boroughMetrics.annualIncrease ?? boroughMetrics.trend;
+  const rentGrowth = Number(String(rentGrowthValue ?? '').replace(/[^0-9.\-]+/g, ''));
+  const demandLevel = boroughMetrics.demandLevel ?? boroughMetrics.demand;
+  const yieldPercent = propertyValue && averageRent ? (Number(averageRent) * 12 / Number(propertyValue)) * 100 : 0;
+  const boroughName = reportPayload.borough?.name || 'Area';
+  const propertyValueHistory = (reportPayload.propertyValueData ?? [])
+    .filter((item: any) => Number(item.value) > 0)
+    .map((item: any) => ({ year: Number(item.label), price: Number(item.value) }))
+    .filter((item: any) => Number.isFinite(item.year));
+  const scoreBreakdown = Object.entries(preview.scoreBreakdown?.borough ?? {})
+    .map(([category, value]) => ({
+      category,
+      weight: ({ safety: 20, affordability: 20, transport: 18, amenities: 16, health: 13, education: 13 } as Record<string, number>)[category] ?? 0,
+      score: Number(value),
+    }))
+    .filter((item) => Number.isFinite(item.score));
+
+  return {
+    reportDate: new Date().toLocaleDateString('en-GB', { year: 'numeric', month: 'long', day: 'numeric' }),
+    property: {
+      address: postcodeInput,
+      postcode: preview.postcode || postcode.code || postcodeInput,
+      borough: preview.borough || boroughName,
+      propertyType: String(formData.propertyType || 'Property'),
+      bedrooms,
+      sizeSqFt: area,
+      tenure: String(formData.tenure || 'Unknown'),
+      modelledEstimate: Number(propertyValue) || 0,
+      areaMedian: Number(propertyValue) || 0,
+      boroughMedian: Number(propertyValue) || 0,
+    },
+    metrics: {
+      score,
+      maxScore: 100,
+      yieldPercent,
+      monthlyRent: Number(averageRent) || 0,
+      historicalGrowthPercent: Number.isFinite(rentGrowth) ? rentGrowth : 0,
+      demandLevel: demandLevel ? String(demandLevel) : 'No data available',
+      avgDaysToLet: 0,
+    },
+    comparables: [],
+    priceTrajectory: propertyValueHistory,
+    regenerationProjects: [],
+    stations: [],
+    postcodeRanks: [],
+    scoreBreakdown,
+  };
+};
+

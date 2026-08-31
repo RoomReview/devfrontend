@@ -118,7 +118,7 @@ export interface BuyerInsightReportData {
     postcode: string;
     areaName: string;
     overallScore: number;
-    safetyScore: number;
+    safetyScore: number | string;
     affordabilityTag: string;
     livabilityScore: number;
     generatedDateText: string;
@@ -165,7 +165,7 @@ export interface BuyerInsightReportData {
     disclaimerText: string;
   };
   crimeAndSafety: {
-    safetyScore: number;
+    safetyScore: number | string;
     crimeRateTrendPercent: number;
     vsBoroughPercent: number;
     crimeCategories: ChartBarData[];

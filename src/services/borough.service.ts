@@ -2,9 +2,10 @@ import apiClient from '@/lib/apiClient';
 import type { BoroughApiResponse } from '@/types/borough.types';
 
 export interface BoroughListItem {
-  id: string;
+  id?: string;
+  boroughId: string;
   name: string;
-  code?: string;
+  slug: string;
   [key: string]: any;
 }
 

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Home, Construction, GraduationCap, ShieldAlert } from 'lucide-react';
 import * as Recharts from 'recharts';
 
-import type { BoroughDashboardData, MainCategory } from '../types/boroughDashboard';
+import type { BoroughDashboardData, MainCategory, ScatterPoint, InfrastructureProject, BarRankingItem } from '../types/boroughDashboard';
 
 interface Props {
   data: BoroughDashboardData;
@@ -10,7 +10,7 @@ interface Props {
   onTabChange?: (tab: MainCategory) => void;
 }
 
-const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
+const StatusBadge: React.FC<{ status: string }> = ({ status }: { status: string }) => {
   const normalized = status.toLowerCase();
   const className =
     normalized.includes('approved')
@@ -45,7 +45,7 @@ export const BoroughTabsDashboard: React.FC<Props> = ({ data, initialTab = 'hous
           { id: 'infrastructure', label: 'Infrastructure', icon: Construction },
           { id: 'education', label: 'Education', icon: GraduationCap },
           { id: 'policing', label: 'Policing', icon: ShieldAlert },
-        ].map((tab) => {
+        ].map((tab: { id: string; label: string; icon: React.FC<{ className?: string }> }) => {
           const Icon = tab.icon;
           const isActive = activeCategory === tab.id;
           return (
@@ -102,7 +102,7 @@ export const BoroughTabsDashboard: React.FC<Props> = ({ data, initialTab = 'hous
               { id: 'history', label: 'Historical Price Growth' },
               { id: 'stock', label: 'Housing Stock & Delivery' },
               { id: 'affordable', label: 'Affordable Housing' },
-            ].map((sub) => (
+            ].map((sub: { id: string; label: string }) => (
               <button
                 key={sub.id}
                 onClick={() => setHousingSubTab(sub.id as 'price' | 'history' | 'stock' | 'affordable')}
@@ -122,7 +122,7 @@ export const BoroughTabsDashboard: React.FC<Props> = ({ data, initialTab = 'hous
               <div className="h-72 w-full mt-4">
                 <Recharts.ResponsiveContainer width="100%" height="100%">
                   <Recharts.LineChart
-                    data={housingData.priceGrowthScatter.map((point) => ({
+                    data={housingData.priceGrowthScatter.map((point: ScatterPoint) => ({
                       xGrowthPct: point.xGrowthPct,
                       yPrice: point.yPrice,
                       borough: point.borough,
@@ -184,7 +184,7 @@ export const BoroughTabsDashboard: React.FC<Props> = ({ data, initialTab = 'hous
                   </div>
 
                   <div className="mt-5 max-h-72 space-y-2 overflow-y-auto pr-2">
-                    {housingData.stockRanking.map((item) => {
+                    {housingData.stockRanking.map((item: BarRankingItem) => {
                       const maximum = housingData.stockRanking[0]?.value || 1;
                       return (
                         <div key={item.label} className={`flex items-center gap-3 rounded-md px-2 py-1.5 text-[11px] ${item.isFocusBorough ? 'bg-[#FCF0ED] font-bold text-[#991B1B]' : 'text-slate-700'}`}>
@@ -223,7 +223,7 @@ export const BoroughTabsDashboard: React.FC<Props> = ({ data, initialTab = 'hous
 
       {activeCategory === 'infrastructure' && (
         <section className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-          {infrastructureData.projects.map((proj, i) => (
+          {infrastructureData.projects.map((proj: InfrastructureProject, i: number) => (
             <div key={i} className="p-4 border border-slate-200 rounded-lg bg-slate-50/50 flex justify-between items-start">
               <div>
                 <h4 className="font-bold text-slate-900">{proj.title}</h4>
@@ -242,7 +242,7 @@ export const BoroughTabsDashboard: React.FC<Props> = ({ data, initialTab = 'hous
               { id: 'performance', label: 'Academic Performance' },
               { id: 'quality', label: 'School Quality' },
               { id: 'availability', label: 'School Availability' },
-            ].map((sub) => (
+            ].map((sub: { id: string; label: string }) => (
               <button
                 key={sub.id}
                 onClick={() => setEducationSubTab(sub.id as 'performance' | 'quality' | 'availability')}
@@ -280,7 +280,7 @@ export const BoroughTabsDashboard: React.FC<Props> = ({ data, initialTab = 'hous
             {[
               { id: 'trend', label: 'Crime Trend' },
               { id: 'ranking', label: 'Borough Ranking' },
-            ].map((sub) => (
+            ].map((sub: { id: string; label: string }) => (
               <button
                 key={sub.id}
                 onClick={() => setPolicingSubTab(sub.id as 'trend' | 'ranking')}

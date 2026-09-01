@@ -2,7 +2,7 @@
  * auth.service.ts
  *
  * Pure async functions for every auth endpoint.
- * No state, no hooks just HTTP calls via apiClient.
+ * No state, no hooks — just HTTP calls via apiClient.
  *
  * Endpoint reference (backend auth.routes.ts):
  *   POST   /auth/register
@@ -28,6 +28,8 @@ import type {
   RegisterResponse,
 } from '@/types/auth.types';
 import type { User } from '@/types/user.types';
+
+export type { AuthLoginResponse, RegisterResponse };
 
 export const authService = {
   /** POST /auth/login */

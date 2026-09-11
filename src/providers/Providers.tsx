@@ -40,4 +40,3 @@ const Providers = ({ children }: ProvidersProps) => {
 };
 
 export default Providers;
-

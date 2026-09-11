@@ -1,454 +1,584 @@
-import { Link } from 'react-router-dom';
+import { useEffect, useState, type FC } from 'react';
 import heroImage from '@img/homepage2.jpg';
-import starterImage from '@img/secondimage.jpg';
-import tipsImage1 from '@img/Tenant tips & Area highlights1.jpg';
-import tipsImage2 from '@img/Tenant tips & Area highlights2.jpg';
-import tipsImage3 from '@img/Tenant tips & Area highlights3.jpg';
-import newsletterImage from '@img/Stay updated with Tips.jpg';
-import readyImage from '@img/Ready to get started.jpg';
+import experienceImage from '@img/homepage3.jpg';
+import firstImage from '@img/Tenant tips & Area highlights1.jpg';
+import secondImage from '@img/Tenant tips & Area highlights2.jpg';
+import thirdImage from '@img/Tenant tips & Area highlights3.jpg';
+import { BarChart3, Bus, Home, Search, Shield, Star, ThumbsDown, ThumbsUp, TreePine, User, Users } from 'lucide-react';
+import { boroughService } from '@/services/borough.service';
+import type { BoroughApiResponse } from '@/types/borough.types';
 
-const tips = [
-  {
-    title: 'How to move out without losing your security deposit',
-    date: '29 January, 2026',
-    image: tipsImage1,
-  },
-  {
-    title: 'How to choose the right London flat: Noise, neighbours, safety & local issues',
-    date: '26 January, 2026',
-    image: tipsImage2,
-  },
-  {
-    title: 'Furnished vs unfurnished rentals: What’s common in the UK',
-    date: '23 January, 2026',
-    image: tipsImage3,
-    tag: 'Recommendation',
-  },
-];
+export const LandingPage: FC = () => {
+  const [searchQuery, setSearchQuery] = useState('');
+  const [boroughData, setBoroughData] = useState<BoroughApiResponse | null>(null);
 
-const HomePage = () => {
+  useEffect(() => {
+    const loadDashboardData = async () => {
+      try {
+        const boroughs = await boroughService.getAll();
+        const selectedBorough = boroughs.find((borough) => borough.name.toLowerCase() === 'hackney') ?? boroughs[0];
+
+        if (selectedBorough) {
+          setBoroughData(await boroughService.getById(selectedBorough.boroughId));
+        }
+      } catch {
+        setBoroughData(null);
+      }
+    };
+
+    void loadDashboardData();
+  }, []);
+
+  const propertyValues = (boroughData?.propertyValueData ?? [])
+    .map((item) => ({ label: item.label, value: Number(item.value) }))
+    .filter((item) => Number.isFinite(item.value) && item.value > 0)
+    .slice(-6);
+  const latestPropertyValue = propertyValues[propertyValues.length - 1]?.value;
+  const averageRent = boroughData?.rentData?.find((item) => item.type.toLowerCase() === 'average')?.rent;
+  const crimeRate = boroughData?.crimeData?.find((item) => item.label.toLowerCase().includes('total'))?.value;
+  const totalDwellings = boroughData?.housingStockData?.find((item) => item.label === 'Total dwellings')?.value;
+  const formatCurrency = (value: number | undefined) => value === undefined
+    ? 'Unavailable'
+    : new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP', maximumFractionDigits: 0 }).format(value);
+  const formatNumber = (value: number | undefined) => value === undefined
+    ? 'Unavailable'
+    : new Intl.NumberFormat('en-GB', { maximumFractionDigits: 0 }).format(value);
+  const chartMin = 450000;
+  const chartMax = 600000;
+  const chartPlotLeft = 42;
+  const chartPlotRight = 500;
+  const chartPlotTop = 10;
+  const chartPlotBottom = 110;
+  const chartTicks = [600000, 530000, 490000, 450000];
+  const chartPath = propertyValues.length > 1
+    ? propertyValues.map((item, index) => {
+        const x = chartPlotLeft + (index / (propertyValues.length - 1)) * (chartPlotRight - chartPlotLeft);
+        const boundedValue = Math.min(chartMax, Math.max(chartMin, item.value));
+        const y = chartPlotBottom - ((boundedValue - chartMin) / (chartMax - chartMin)) * (chartPlotBottom - chartPlotTop);
+        return `${index === 0 ? 'M' : 'L'} ${x} ${y}`;
+      }).join(' ')
+    : '';
+
+  const reviews = [
+    {
+      location: 'SW9 – Brixton',
+      rating: 4,
+      text: 'Lorem ipsum dolor sit amet consectetur. In hac velit tellus lorem non nisl arcu sed aliquam. Justo nisi ut auctor faucibus velit. Pharetra ultrices volutpat cras sed turpis urna etiam iaculis a. Et morbi consequat tincidunt ultrices quis.',
+      pros: 'Lorem ipsum dolor sit amet consectetur. In hac velit tellus lorem non nisl arcu sed aliquam.',
+      cons: 'Lorem ipsum dolor sit amet consectetur. In hac velit tellus lorem non nisl arcu sed aliquam.',
+      author: 'James Moris',
+      time: '2 days ago',
+      avatar: null,
+    },
+    {
+      location: 'NW2 4FM – Camden',
+      rating: 4,
+      text: 'Lorem ipsum dolor sit amet consectetur. In hac velit tellus lorem non nisl arcu sed aliquam.',
+      pros: 'Lorem ipsum dolor sit amet consectetur. In hac velit tellus lorem non nisl arcu sed aliquam.',
+      cons: 'Lorem ipsum dolor sit amet consectetur. In hac velit tellus lorem non nisl arcu sed aliquam.',
+      author: 'Anonymous',
+      time: '2 months ago',
+      avatar: null,
+    },
+    {
+      location: 'SE22 0RS – Southwark',
+      rating: 3,
+      text: 'Lorem ipsum dolor sit amet consectetur. In hac velit tellus lorem non nisl arcu sed aliquam.',
+      pros: 'Lorem ipsum dolor sit amet consectetur. In hac velit tellus lorem non nisl arcu sed aliquam.',
+      cons: 'Lorem ipsum dolor sit amet consectetur.',
+      author: 'Anastasia Kosheva',
+      time: '14 February 2025',
+      avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80',
+    },
+  ];
+
+  const blogs = [
+    {
+      date: 'Jun 9',
+      tags: ['Recommendation', 'Tenants'],
+      title: 'B2R vs. Traditional Private Landlords: Which is Better?',
+      desc: 'The UK rental market is undergoing its biggest shake-up in a generation. Between skyrocketing monthly costs, a severe...',
+      image: firstImage,
+    },
+    {
+      date: 'May 22',
+      tags: ['Recommendation', 'Tenants'],
+      title: 'How RoomReview Is Helping UK Renters Make Smarter Choices',
+      desc: 'Finding a place to rent in the UK can be one of the most stressful things you’ve ever...',
+      image: secondImage,
+    },
+    {
+      date: 'May 7',
+      tags: ['Recommendation', 'Tenants'],
+      title: 'Why EPC Ratings are the New "Must-Have" for UK Renters in 2026',
+      desc: 'In the UK rental market of 2026, the way people choose their homes has shifted...',
+      image: thirdImage,
+    },
+  ];
+
   return (
-    <div className="bg-white text-slate-950">
-      <section className="overflow-hidden bg-white">
-        <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
-          <div className="grid gap-10 lg:grid-cols-[1.4fr_1fr] lg:items-start">
-            <div className="space-y-6">
-              <h1 className="text-4xl font-extrabold uppercase tracking-[-0.035em] text-slate-950 sm:text-5xl lg:text-[4.25rem] leading-[0.95]">
-                FIND A TRUSTED
-                <br />
-                RENTAL HOME
-                <br />
-                IN LONDON
-              </h1>
-            </div>
-            <div className="flex min-h-[280px] flex-col justify-between">
-              <p className="max-w-xl text-lg leading-9 text-slate-700 sm:text-xl sm:leading-[2rem]">
-                RoomReview helps renters discover what it’s really like to live in different UK postcodes and neighborhoods. Read honest reviews from tenants about safety, transport, and community vibe, so you can choose your next home with confidence.
-              </p>
-              <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
-                <Link
-                  to="/reviews"
-                  className="inline-flex h-14 w-full items-center justify-center rounded-full bg-primary px-8 text-base font-semibold text-white shadow-lg shadow-primary/20 transition hover:bg-primary/90 sm:w-auto"
-                >
-                  SEARCH REVIEWS
-                </Link>
-                <Link
-                  to="/report"
-                  className="inline-flex h-14 w-full items-center justify-center rounded-full border border-slate-300 bg-white px-8 text-base font-semibold text-slate-950 text-center shadow-sm transition hover:border-slate-400 hover:bg-slate-50 sm:w-auto"
-                >
-                  WRITE A REVIEW
-                </Link>
+    <div className="min-h-screen bg-white font-sans text-[#2B363B] antialiased">
+      
+      {/* 1. HERO SECTION */}
+      <section className="mx-auto max-w-[1100px] px-6 py-16">
+        <div className="grid grid-cols-1 items-center gap-12 lg:grid-cols-2">
+          
+          {/* Hero Left Content */}
+          <div className="space-y-6">
+            <h1 className="text-4xl font-extrabold tracking-tight text-[#1A202C] sm:text-5xl leading-[1.15]">
+              Understand the area before you buy or invest
+            </h1>
+            <p className="text-sm text-[#5F6D7A] leading-relaxed max-w-[460px]">
+              RoomReview brings together property data, local area insights and resident experiences to help you understand a postcode, borough or property before making an important decision.
+            </p>
+            
+            {/* Search Box */}
+            <div className="space-y-4 pt-2">
+              <div className="relative max-w-[440px]">
+                <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search boroughs (e.g. Camden, Hackney)"
+                  className="w-full rounded-xl border border-gray-200 py-3 pl-10 pr-4 text-xs shadow-sm transition focus:border-[#8B0000] focus:outline-none focus:ring-1 focus:ring-[#8B0000]"
+                />
               </div>
+              <button
+                type="button"
+                className="rounded-xl bg-[#8B0000] px-6 py-3 text-xs font-bold uppercase tracking-wider text-white shadow-md transition hover:bg-[#700000]"
+              >
+                Explore the Area
+              </button>
             </div>
           </div>
-        </div>
-      </section>
 
-      <section className="bg-white">
-        <div className="mx-auto max-w-7xl px-4 pb-12 sm:px-6 lg:px-8">
-          <div className="overflow-hidden rounded-[2rem] bg-white shadow-[0_30px_90px_-40px_rgba(0,0,0,0.35)]">
+          {/* Hero Right Visual Mockup */}
+          <div className="relative rounded-2xl overflow-hidden shadow-2xl bg-slate-100 group">
             <img
               src={heroImage}
-              alt="London terraced houses street view"
-              className="h-[420px] w-full object-cover sm:h-[520px]"
+              alt="Property"
+              className="h-[360px] w-full object-cover"
             />
-          </div>
-        </div>
-      </section>
+            
+            {/* Floating Card: RoomReview Score */}
+            <div className="absolute left-6 top-6 flex items-center gap-3 rounded-2xl bg-white/95 px-4 py-3 shadow-lg backdrop-blur-sm">
+              <span className="text-xl font-black text-[#8B0000]">78</span>
+              <div className="text-[10px] leading-tight text-[#4A5568]">
+                <strong className="block font-bold text-[#1A202C]">RoomReview Score</strong>
+                <span>out of 100</span>
+              </div>
+            </div>
 
-      <section className="bg-white">
-        <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8 lg:py-24">
-          <div className="grid gap-10 lg:grid-cols-[0.95fr_1fr_0.5fr] lg:items-start">
-            <div className="flex items-center">
-              <img src={starterImage} alt="Brick house covered in red ivy" className="h-72 w-full rounded-[1.5rem] object-cover" />
+            {/* Floating Card: Avg Monthly Rent */}
+            <div className="absolute right-6 top-6 rounded-2xl bg-white/95 px-4 py-2.5 text-right shadow-lg backdrop-blur-sm">
+              <span className="block text-[9px] font-bold uppercase text-gray-400">Avg. Monthly Rent</span>
+              <div className="text-xs font-bold text-[#1A202C]">
+                £2,150 <span className="text-[10px] text-emerald-600 font-semibold">+3.2%</span>
+              </div>
             </div>
-            <div className="flex flex-col justify-center items-start">
-              <div className="space-y-5">
-                <h2 className="text-3xl font-bold tracking-tight text-slate-950 sm:text-4xl leading-[1.05]">
-                  Share your experience.
-                  <br />
-                  Help others, stay anonymous.
-                </h2>
-                <p className="max-w-xl text-base leading-8 text-slate-900 sm:text-lg">
-                  Have you had a great (or terrible) renting experience in London? Share your story with RoomReview. We’ll turn it into an anonymous social media Reel to spread awareness and protect other tenants from scams, hidden fees, and bad landlords.
-                </p>
+
+            {/* Floating Card: Resident Rating */}
+            <div className="absolute left-6 bottom-6 rounded-2xl bg-white/95 px-4 py-2.5 shadow-lg backdrop-blur-sm">
+              <span className="block text-[9px] font-bold uppercase text-gray-400">Resident Rating</span>
+              <div className="flex items-center gap-1 text-amber-400 text-xs">
+                ★ ★ ★ ★ <span className="text-gray-300">★</span>
               </div>
-              <Link
-                to="/register"
-                className="mt-4 inline-flex h-14 items-center justify-center rounded-full bg-primary px-6 text-base font-semibold text-white shadow-sm transition hover:bg-primary/90"
-              >
-                WRITE A REVIEW
-              </Link>
             </div>
-            <div className="hidden flex-col gap-4 lg:flex">
-              <div className="rounded-[2rem] bg-sky-100 px-5 py-4 text-sm font-medium italic text-slate-900 shadow-sm transform -rotate-2">
-                very safe area
-              </div>
-              <div className="rounded-[2rem] bg-sky-100 px-5 py-4 text-sm font-medium italic text-slate-900 shadow-sm transform rotate-3">
-                good neighborhoods
-              </div>
-              <div className="rounded-[2rem] bg-sky-100 px-5 py-4 text-sm font-medium italic text-slate-900 shadow-sm transform -rotate-1">
-                convenient transport
+
+            {/* Floating Card: Transport Score */}
+            <div className="absolute right-6 bottom-6 flex items-center gap-2 rounded-2xl bg-white/95 px-4 py-2.5 shadow-lg backdrop-blur-sm">
+              <Bus className="h-4 w-4 text-[#8B0000]" />
+              <div className="text-[10px] leading-none text-[#4A5568]">
+                <span className="block text-[8px] uppercase text-gray-400">Transport Score</span>
+                <strong className="text-xs font-bold text-[#1A202C]">91 <span className="text-[9px] font-normal text-gray-500">/ 100</span></strong>
               </div>
             </div>
           </div>
+
         </div>
       </section>
 
-      <section className="bg-[#E8F3FF]">
-        <div className="mx-auto max-w-[90rem] px-4 py-16 sm:px-6 lg:px-8 lg:py-24">
-          <div className="space-y-10">
-            <div className="max-w-[40rem] space-y-4">
-              <h2 className="text-3xl font-bold tracking-tight text-slate-950 sm:text-4xl">
-                Why RoomReview?
-              </h2>
-              <h3 className="text-3xl font-semibold tracking-tight text-slate-950 sm:text-4xl sm:whitespace-nowrap">
-                (Trust & Transparency)
-              </h3>
-              <p className="text-base leading-8 text-slate-700 sm:text-lg">
-                Discover a smarter way to find and secure your next home in London. Our platform combines verified listings, local market expertise, and a fully online booking experience so you can move in with confidence and ease.
-              </p>
-            </div>
-
-            <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-[repeat(3,minmax(0,30rem))]">
-              <div className="w-full rounded-[1.75rem] bg-white p-8 shadow-sm">
-                <div className="mb-6 inline-flex h-14 w-14 items-center justify-center text-4xl text-slate-950">
-                  ✅
-                </div>
-                <h3 className="text-xl font-semibold text-[#8B0202] sm:whitespace-nowrap">Verified reviews</h3>
-                <p className="mt-4 text-base leading-7 text-slate-700">
-                  Written by actual tenants who lived in the property — every review is verified to keep trolls and fake listings out. Use real experiences to judge safety, transport and landlord reliability before you book a viewing.
-                </p>
-              </div>
-
-              <div className="w-full rounded-[1.75rem] bg-white p-8 shadow-sm">
-                <div className="mb-6 inline-flex h-14 w-14 items-center justify-center text-4xl text-slate-950">
-                  👥
-                </div>
-                <h3 className="text-xl font-semibold text-[#8B0202]">Community-powered</h3>
-                <p className="mt-4 text-base leading-7 text-slate-700">
-                  Built by renters, for renters — our community shares tips and warnings to keep everyone safer. Share your experience to protect others from hidden fees, dodgy agents and poor landlords.
-                </p>
-              </div>
-
-              <div className="w-full rounded-[1.75rem] bg-white p-8 shadow-sm">
-                <div className="mb-6 inline-flex h-14 w-14 items-center justify-center text-4xl text-slate-950">
-                  📰
-                </div>
-                <h3 className="text-xl font-semibold text-[#8B0202]">Local transparency</h3>
-                <p className="mt-4 text-base leading-7 text-slate-700">
-                  Honest, postcode-level insights so you know the reality behind the listing photos. From late-night noise to transport links, get the local facts that matter when choosing a home.
-                </p>
-              </div>
-            </div>
-          </div>
+      {/* 2. WHY ROOMREVIEW? */}
+      <section className="mx-auto max-w-[1100px] px-6 py-16 space-y-8">
+        <div className="space-y-3">
+          <h2 className="text-2xl font-bold tracking-tight text-[#1A202C] sm:text-3xl">Why RoomReview?</h2>
+          <p className="text-xs text-[#5F6D7A] max-w-[600px] leading-relaxed">
+            Property decisions should not be based on price alone. RoomReview helps you explore the factors that can influence everyday life, property demand and long-term suitability.
+          </p>
         </div>
-      </section>
 
-      <section className="bg-white">
-        <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8 lg:py-24">
-          <div className="max-w-4xl space-y-6">
-            <h2 className="text-3xl font-bold tracking-tight text-slate-950 sm:text-4xl">
-              Latest tenant reviews
-            </h2>
-            <p className="text-base leading-8 text-slate-700 sm:text-lg">
-              Real rental experiences from tenants across the UK. Discover first-hand reviews of properties, landlords, and letting agents to help you make smarter, more confident renting decisions. For more reviews, visit the{' '}
-              <Link to="/reviews" className="text-primary underline decoration-primary decoration-2 underline-offset-2">
-                Reviews page
-              </Link>{' '}
-              and search by postcode.
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+          
+          {/* Card 1 */}
+          <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm space-y-3 text-left hover:shadow-md transition">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#EBF8FF] text-blue-600">
+              <BarChart3 className="h-4 w-4" />
+            </div>
+            <h3 className="text-xs font-bold text-[#1A202C] uppercase tracking-wider">Area Data</h3>
+            <p className="text-[11px] text-[#718096] leading-relaxed">
+              Explore property prices, rents, safety, transport, demographics, environmental risks and local development.
             </p>
           </div>
 
-          <div className="mt-10 grid gap-6 lg:grid-cols-3">
-            <article className="rounded-[2rem] border border-slate-200 bg-white p-8 shadow-sm">
-              <div className="space-y-4">
-                <h3 className="text-xl font-semibold text-[#8B0202]">SW9 - Brixton</h3>
-                <div className="flex items-center gap-1 text-amber-500">
-                  <span>★</span>
-                  <span>★</span>
-                  <span>★</span>
-                  <span>★</span>
-                  <span className="text-slate-300">★</span>
-                  <span className="ml-2 text-sm text-slate-500">4.0</span>
-                </div>
-                <p className="text-sm leading-7 text-slate-700">
-                  Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed nec velit vitae nibh suscipit vehicula. Integer euismod purus ut lectus tristique, eu scelerisque risus consequat.
-                </p>
-              </div>
-
-              <div className="mt-4">
-                <Link to="/reviews" className="text-sm font-semibold text-primary underline decoration-primary decoration-2 underline-offset-2">
-                  Read more
-                </Link>
-              </div>
-
-              <div className="mt-6 space-y-4">
-                <div>
-                  <p className="text-sm font-semibold text-emerald-600">👍 Pros</p>
-                  <p className="mt-2 text-sm leading-6 text-slate-700">Friendly neighbours and great transport links.</p>
-                </div>
-                <div>
-                  <p className="text-sm font-semibold text-rose-600">👎 Cons</p>
-                  <p className="mt-2 text-sm leading-6 text-slate-700">Higher rent for the area.</p>
-                </div>
-              </div>
-
-              <div className="mt-8 flex items-center gap-3 border-t border-slate-100 pt-6">
-                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-200 text-xl text-slate-700">
-                  👤
-                </div>
-                <div className="text-sm text-slate-600">
-                  <p className="font-semibold text-slate-950">James Moris</p>
-                  <p>2 days ago</p>
-                </div>
-              </div>
-            </article>
-
-            <article className="rounded-[2rem] border border-slate-200 bg-white p-8 shadow-sm">
-              <div className="space-y-4">
-                <h3 className="text-xl font-semibold text-[#8B0202]">NW2 4FM - Camden</h3>
-                <div className="flex items-center gap-1 text-amber-500">
-                  <span>★</span>
-                  <span>★</span>
-                  <span>★</span>
-                  <span>★</span>
-                  <span className="text-slate-300">★</span>
-                  <span className="ml-2 text-sm text-slate-500">4.0</span>
-                </div>
-                <p className="text-sm leading-7 text-slate-700">
-                  Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed nec velit vitae nibh suscipit vehicula. Integer euismod purus ut lectus tristique, eu scelerisque risus consequat.
-                </p>
-              </div>
-
-              <div className="mt-6 space-y-4">
-                <div>
-                  <p className="text-sm font-semibold text-emerald-600">👍 Pros</p>
-                  <p className="mt-2 text-sm leading-6 text-slate-700">Good nightlife and safe streets.</p>
-                </div>
-                <div>
-                  <p className="text-sm font-semibold text-rose-600">👎 Cons</p>
-                  <p className="mt-2 text-sm leading-6 text-slate-700">Small bedrooms.</p>
-                </div>
-              </div>
-
-              <div className="mt-8 flex items-center gap-3 border-t border-slate-100 pt-6">
-                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-200 text-xl text-slate-700">
-                  👤
-                </div>
-                <div className="text-sm text-slate-600">
-                  <p className="font-semibold text-slate-950">Anonymous</p>
-                  <p>2 months ago</p>
-                </div>
-              </div>
-            </article>
-
-            <article className="rounded-[2rem] border border-slate-200 bg-white p-8 shadow-sm">
-              <div className="space-y-4">
-                <h3 className="text-xl font-semibold text-[#8B0202]">SE22 0RS - Southwark</h3>
-                <div className="flex items-center gap-1 text-amber-500">
-                  <span>★</span>
-                  <span>★</span>
-                  <span>★</span>
-                  <span className="text-slate-300">★</span>
-                  <span className="text-slate-300">★</span>
-                  <span className="ml-2 text-sm text-slate-500">3.0</span>
-                </div>
-                <p className="text-sm leading-7 text-slate-700">
-                  Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed nec velit vitae nibh suscipit vehicula. Integer euismod purus ut lectus tristique, eu scelerisque risus consequat.
-                </p>
-              </div>
-
-              <div className="mt-6 space-y-4">
-                <div>
-                  <p className="text-sm font-semibold text-emerald-600">👍 Pros</p>
-                  <p className="mt-2 text-sm leading-6 text-slate-700">Convenient transport and nice local cafes.</p>
-                </div>
-                <div>
-                  <p className="text-sm font-semibold text-rose-600">👎 Cons</p>
-                  <p className="mt-2 text-sm leading-6 text-slate-700">Limited parking.</p>
-                </div>
-              </div>
-
-              <div className="mt-8 flex items-center gap-3 border-t border-slate-100 pt-6">
-                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-slate-500 to-slate-700 text-sm font-semibold text-white">
-                  AK
-                </div>
-                <div className="text-sm text-slate-600">
-                  <p className="font-semibold text-slate-950">Anastasia Kosheva</p>
-                  <p>14 February 2025</p>
-                </div>
-              </div>
-            </article>
+          {/* Card 2 */}
+          <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm space-y-3 text-left hover:shadow-md transition">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-50 text-amber-500">
+              <Star className="h-4 w-4" />
+            </div>
+            <h3 className="text-xs font-bold text-[#1A202C] uppercase tracking-wider">Resident Reviews</h3>
+            <p className="text-[11px] text-[#718096] leading-relaxed">
+              Discover experiences shared by people who know the area and understand what living there can really be like.
+            </p>
           </div>
 
-          <div className="mt-8 flex items-center justify-center gap-3">
-            <button className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700">
-              &lt;
-            </button>
-            <button className="h-3 w-3 rounded-full bg-red-600" aria-label="current slide" />
-            <button className="h-3 w-3 rounded-full bg-slate-200" aria-label="slide 2" />
-            <button className="h-3 w-3 rounded-full bg-slate-200" aria-label="slide 3" />
-            <button className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700">
-              &gt;
-            </button>
+          {/* Card 3 */}
+          <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm space-y-3 text-left hover:shadow-md transition">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-rose-50 text-[#8B0000]">
+              <Shield className="h-4 w-4" />
+            </div>
+            <h3 className="text-xs font-bold text-[#1A202C] uppercase tracking-wider">RoomReview Score</h3>
+            <p className="text-[11px] text-[#718096] leading-relaxed">
+              Compare locations through one clear score supported by a transparent breakdown of the underlying factors.
+            </p>
+          </div>
+
+          {/* Card 4 */}
+          <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm space-y-3 text-left hover:shadow-md transition">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
+              <Home className="h-4 w-4" />
+            </div>
+            <h3 className="text-xs font-bold text-[#1A202C] uppercase tracking-wider">Property Insights</h3>
+            <p className="text-[11px] text-[#718096] leading-relaxed">
+              Enter a property's details to access valuation insights and choose a report designed for buyers or investors.
+            </p>
+          </div>
+
+        </div>
+      </section>
+
+      {/* 3. RESIDENT EXPERIENCES / REVIEWS */}
+      <section className="mx-auto max-w-[1100px] px-6 py-16 space-y-10">
+        <div className="space-y-3">
+          <h2 className="text-2xl font-bold tracking-tight text-[#1A202C] sm:text-3xl max-w-[650px] leading-tight">
+            Data tells you what is happening. Residents tell you what it feels like.
+          </h2>
+          <p className="text-xs text-[#5F6D7A] max-w-[600px] leading-relaxed">
+            RoomReview complements official data with experiences shared by residents, helping users understand everyday factors that statistics cannot always explain.
+          </p>
+        </div>
+
+        {/* Reviews Cards */}
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+          {reviews.map((rev, i) => (
+            <div key={i} className="flex flex-col justify-between rounded-2xl border border-gray-100 bg-white p-6 shadow-sm hover:shadow-md transition space-y-4">
+              <div className="space-y-3">
+                <h3 className="text-sm font-bold text-[#8B0000]">{rev.location}</h3>
+                <div className="flex text-amber-400 text-xs">
+                  {Array.from({ length: 5 }).map((_, starI) => (
+                    <span key={starI} className={starI < rev.rating ? 'text-amber-400' : 'text-gray-300'}>★</span>
+                  ))}
+                </div>
+                <p className="text-[11px] text-[#4A5568] leading-relaxed">{rev.text}</p>
+                {i === 0 && (
+                  <button className="text-[11px] font-semibold text-blue-600 hover:underline">Read more</button>
+                )}
+
+                {/* Pros & Cons */}
+                <div className="space-y-2 pt-2 border-t border-gray-50 text-[11px]">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-1.5 font-bold text-emerald-700">
+                      <ThumbsUp className="h-3 w-3" />
+                      <span>Pros</span>
+                    </div>
+                    <p className="text-[10px] text-[#718096] leading-tight">{rev.pros}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-1.5 font-bold text-rose-700">
+                      <ThumbsDown className="h-3 w-3" />
+                      <span>Cons</span>
+                    </div>
+                    <p className="text-[10px] text-[#718096] leading-tight">{rev.cons}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Author Info */}
+              <div className="flex items-center gap-3 pt-3 border-t border-gray-100">
+                {rev.avatar ? (
+                  <img src={rev.avatar} alt={rev.author} className="h-8 w-8 rounded-full object-cover" />
+                ) : (
+                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-100 text-gray-500">
+                    <User className="h-4 w-4" />
+                  </div>
+                )}
+                <div className="text-[11px] leading-tight">
+                  <span className="block font-bold text-[#1A202C]">{rev.author}</span>
+                  <span className="text-[10px] text-gray-400">{rev.time}</span>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Share Experience Banner */}
+        <div className="relative overflow-hidden rounded-2xl bg-white px-0 py-2">
+          <div className="grid grid-cols-1 items-center gap-5 md:grid-cols-[190px_minmax(0,1fr)_190px]">
+            
+            <div className="h-36 overflow-hidden rounded-xl shadow-sm">
+              <img
+                src={experienceImage}
+                alt="London House"
+                className="h-full w-full object-cover"
+              />
+            </div>
+
+            <div className="space-y-3">
+              <h3 className="text-base font-bold leading-tight text-[#1A202C] sm:text-lg">
+                Share your experience.<br />Help others, stay anonymous.
+              </h3>
+              <p className="max-w-[430px] text-[11px] leading-[1.35] text-[#5F6D7A]">
+                Have you had a great (or terrible) renting experience in London? Share your story with RoomReview. We'll turn it into an anonymous social media Reel to spread awareness and protect other tenants from scams, hidden fees, and bad landlords.
+              </p>
+              <div className="flex flex-wrap items-center gap-3 pt-1">
+                <button className="rounded-lg bg-[#8B0000] px-4 py-2 text-[11px] font-bold uppercase text-white shadow transition hover:bg-[#700000]">
+                  Write a Review
+                </button>
+                <button className="rounded-lg border-2 border-[#1A2B3C] bg-white px-4 py-2 text-[11px] font-bold uppercase text-[#1A202C] transition hover:bg-gray-50">
+                  Read Reviews
+                </button>
+              </div>
+            </div>
+
+            {/* Tag Badges */}
+            <div className="flex flex-col items-end justify-center gap-4 pr-2">
+              <span className="inline-block -rotate-2 rounded-full bg-[#EAF5FC] px-4 py-2 text-[10px] font-medium text-[#2D3748] shadow-sm">
+                very safe area
+              </span>
+              <span className="inline-block rotate-3 rounded-full bg-[#EAF5FC] px-4 py-2 text-[10px] font-medium text-[#2D3748] shadow-sm">
+                good neighborhoods
+              </span>
+              <span className="inline-block -rotate-1 rounded-full bg-[#EAF5FC] px-4 py-2 text-[10px] font-medium text-[#2D3748] shadow-sm">
+                convenient transport
+              </span>
+            </div>
+
           </div>
         </div>
       </section>
 
-      <section className="bg-white">
-        <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8 lg:py-24">
-          <div className="grid gap-10 lg:grid-cols-[0.95fr_1.05fr] lg:items-stretch">
-            <div className="relative h-full overflow-hidden rounded-[2rem] shadow-[0_30px_90px_-40px_rgba(0,0,0,0.35)]">
-              <img src={readyImage} alt="Ready to get started" className="h-full w-full object-cover" />
-            </div>
-            <div className="space-y-8">
-              <h2 className="text-4xl font-bold tracking-tight text-slate-950 sm:text-5xl">
-                Ready to get started?
-              </h2>
-              <div className="space-y-10">
-                <div className="space-y-4">
-                  <h3 className="text-xl font-semibold text-[#8B0202]">For Tenants</h3>
-                  <p className="text-base leading-8 text-slate-700">
-                    Find and connect with trustworthy landlords, explore real tenant reviews, and feel confident before you rent. Discover what it’s really like to live in different neighborhoods across London.
-                  </p>
-                  <Link
-                    to="/reviews"
-                    className="inline-flex rounded-3xl bg-[#8B0202] px-6 py-4 text-base font-semibold uppercase tracking-[0.08em] text-white shadow-sm transition hover:bg-[#770101]"
-                  >
-                    I’m a tenant
-                  </Link>
-                </div>
-                <div className="space-y-4">
-                  <h3 className="text-xl font-semibold text-slate-950">For Agencies</h3>
-                  <p className="text-base leading-8 text-slate-700">
-                    Create a verified public profile, collect honest reviews from real tenants, and build trust with future renters. Show people why they should choose to work with you.
-                  </p>
-                  <Link
-                    to="/register"
-                    className="inline-flex rounded-3xl border border-slate-950 bg-white px-6 py-4 text-base font-semibold uppercase tracking-[0.08em] text-slate-950 shadow-sm transition hover:bg-slate-100"
-                  >
-                    I’m an agency
-                  </Link>
-                </div>
-              </div>
-            </div>
-          </div>
+      {/* 4. LOCAL INSIGHTS & CHART DASHBOARD */}
+      <section className="mx-auto max-w-[1100px] px-6 py-16 space-y-8">
+        <div className="space-y-3">
+          <h2 className="text-2xl font-bold tracking-tight text-[#1A202C] sm:text-3xl max-w-[500px]">
+            Local insights supported by reliable data
+          </h2>
+          <p className="text-xs text-[#5F6D7A] max-w-[600px] leading-relaxed">
+            RoomReview brings together relevant public and property datasets in one clear experience, helping users explore the information that matters for a specific area or property.
+          </p>
         </div>
-      </section>
 
-      <section className="bg-white">
-        <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8 lg:py-24">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        {/* Dashboard Preview Card */}
+        <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-lg space-y-6">
+          <div className="flex flex-wrap items-center justify-between gap-4 border-b border-gray-100 pb-4">
             <div>
-              <p className="text-sm font-semibold uppercase tracking-[0.28em] text-primary">Tenant tips & area highlights</p>
-              <h2 className="mt-4 text-3xl font-bold tracking-tight text-slate-950 sm:text-4xl">Tenant tips & Area highlights</h2>
+              <h3 className="text-sm font-bold text-[#1A202C]">{boroughData?.name ?? 'Area'} — Area Overview</h3>
+              <p className="text-[10px] text-gray-400">Latest figures from the RoomReview database</p>
             </div>
-            <Link to="/blog" className="text-sm font-semibold text-primary hover:text-primary/80">
-              View all
-            </Link>
+            <div className="flex gap-2">
+              <span className="rounded-lg bg-[#1A202C] px-3 py-1 text-[10px] font-semibold text-white">Prices</span>
+              <span className="rounded-lg bg-gray-100 px-3 py-1 text-[10px] font-semibold text-gray-600 hover:bg-gray-200 cursor-pointer">Safety</span>
+              <span className="rounded-lg bg-gray-100 px-3 py-1 text-[10px] font-semibold text-gray-600 hover:bg-gray-200 cursor-pointer">Transport</span>
+              <span className="rounded-lg bg-gray-100 px-3 py-1 text-[10px] font-semibold text-gray-600 hover:bg-gray-200 cursor-pointer">Development</span>
+            </div>
           </div>
-          <div className="mt-10 grid gap-6 xl:grid-cols-3">
-            {tips.map((item) => (
-              <article key={item.title} className="group overflow-hidden rounded-[2rem] border border-slate-200 bg-slate-50 shadow-sm transition hover:-translate-y-1 hover:shadow-md">
-                <div className="relative h-64 overflow-hidden">
-                  <img src={item.image} alt={item.title} className="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
-                  {item.tag ? (
-                    <span className="absolute right-4 top-4 rounded-full bg-red-700 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-white">
-                      {item.tag}
-                    </span>
-                  ) : null}
+
+          <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
+            {/* Chart Column */}
+            <div className="lg:col-span-2 space-y-2">
+                <span className="text-[10px] font-bold uppercase text-gray-400">Property price trend</span>
+              
+              {/* SVG Line Chart Representation */}
+              <div className="h-56 w-full pt-4">
+                <svg className="h-full w-full overflow-visible" viewBox="0 0 530 150" role="img" aria-label="Average property price trend">
+                  {chartTicks.map((tick) => {
+                    const y = chartPlotBottom - ((tick - chartMin) / (chartMax - chartMin)) * (chartPlotBottom - chartPlotTop);
+
+                    return (
+                      <g key={tick}>
+                        <text x="0" y={y + 3} fill="#94A3B8" fontSize="8">£{tick / 1000}k</text>
+                        <line x1={chartPlotLeft} y1={y} x2={chartPlotRight} y2={y} stroke="#F1F5F9" strokeDasharray="2 3" />
+                      </g>
+                    );
+                  })}
+                  {chartPath && <path d={chartPath} fill="none" stroke="#8B0000" strokeWidth="3" />}
+                </svg>
+                <div className="ml-[8%] flex justify-between pt-2 text-[10px] text-gray-400">
+                  {propertyValues.length > 0 ? propertyValues.map((item) => <span key={item.label}>{item.label}</span>) : <span>No property price data</span>}
                 </div>
-                <div className="space-y-4 p-6">
-                  <div className="flex items-center justify-between text-sm text-slate-500">
-                    <span>{item.date}</span>
-                    <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-slate-700 shadow-sm">Tenant</span>
-                  </div>
-                  <h3 className="text-xl font-semibold text-slate-950">{item.title}</h3>
-                  <p className="text-sm leading-7 text-slate-600">Moving out of a rental house can be stressful, but getting your security deposit back is easier with the right preparation.</p>
-                  <Link to="/blog" className="text-sm font-semibold text-primary hover:text-primary/80">
-                    Read more →
-                  </Link>
+              </div>
+            </div>
+
+            {/* Sidebar Stats */}
+            <div className="space-y-4">
+              <div className="rounded-xl bg-gray-50 p-4 space-y-2">
+                <span className="text-[9px] font-bold uppercase text-gray-400">Database snapshot</span>
+                <div className="space-y-1.5 text-xs">
+                  <div className="flex justify-between"><span className="text-gray-500">Average rent</span><strong className="text-[#1A202C]">{formatCurrency(averageRent)}</strong></div>
+                  <div className="flex justify-between"><span className="text-gray-500">Latest property price</span><strong className="text-[#1A202C]">{formatCurrency(latestPropertyValue)}</strong></div>
+                  <div className="flex justify-between"><span className="text-gray-500">Total dwellings</span><strong className="text-[#1A202C]">{formatNumber(totalDwellings)}</strong></div>
                 </div>
-              </article>
-            ))}
+              </div>
+
+              {/* Metrics Grid */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="rounded-xl bg-emerald-50/60 p-3 space-y-1 border border-emerald-100">
+                  <Shield className="h-4 w-4 text-emerald-600" />
+                  <span className="block text-xs font-bold text-[#1A202C]">{crimeRate === undefined ? 'Unavailable' : crimeRate.toFixed(1)}</span>
+                  <span className="block text-[9px] text-gray-500 leading-tight">Total crimes per 1,000</span>
+                </div>
+
+                <div className="rounded-xl bg-blue-50/60 p-3 space-y-1 border border-blue-100">
+                  <Bus className="h-4 w-4 text-blue-600" />
+                  <span className="block text-xs font-bold text-[#1A202C]">{formatCurrency(averageRent)}</span>
+                  <span className="block text-[9px] text-gray-500 leading-tight">Average monthly rent</span>
+                </div>
+
+                <div className="rounded-xl bg-emerald-50/60 p-3 space-y-1 border border-emerald-100">
+                  <TreePine className="h-4 w-4 text-emerald-600" />
+                  <span className="block text-xs font-bold text-[#1A202C]">{formatCurrency(latestPropertyValue)}</span>
+                  <span className="block text-[9px] text-gray-500 leading-tight">Latest property price</span>
+                </div>
+
+                <div className="rounded-xl bg-purple-50/60 p-3 space-y-1 border border-purple-100">
+                  <Users className="h-4 w-4 text-purple-600" />
+                  <span className="block text-xs font-bold text-[#1A202C]">{formatNumber(totalDwellings)}</span>
+                  <span className="block text-[9px] text-gray-500 leading-tight">Total dwellings</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <div className="flex items-center gap-4 pt-2">
+          <button className="rounded-xl bg-[#8B0000] px-6 py-3 text-xs font-bold uppercase tracking-wider text-white shadow-md transition hover:bg-[#700000]">
+            Explore Our Data
+          </button>
+          <p className="text-[10px] text-gray-400 max-w-[300px] leading-tight">
+            Data availability, coverage and update frequency may vary by location and source.
+          </p>
+        </div>
+      </section>
+
+      {/* 5. HOW IT WORKS STEPS */}
+      <section className="mx-auto max-w-[1100px] px-6 py-16 text-center space-y-12">
+        <h2 className="text-2xl font-extrabold tracking-tight text-[#1A202C] sm:text-3xl">
+          From postcode to a clearer decision
+        </h2>
+
+        <div className="relative grid grid-cols-1 gap-8 md:grid-cols-3">
+          {/* Connecting Line (Desktop) */}
+          <div className="hidden md:block absolute top-6 left-[15%] right-[15%] h-[1px] border-t border-dashed border-gray-300 -z-0" />
+
+          {/* Step 1 */}
+          <div className="relative z-10 flex flex-col items-center space-y-3">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-amber-200 bg-[#FAF5F0] text-sm font-bold text-[#8B0000]">
+              01
+            </div>
+            <h3 className="text-sm font-bold text-[#1A202C]">Search</h3>
+            <p className="text-[11px] text-[#718096] max-w-[220px]">
+              Enter a postcode, borough or property address.
+            </p>
+          </div>
+
+          {/* Step 2 */}
+          <div className="relative z-10 flex flex-col items-center space-y-3">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-amber-200 bg-[#FAF5F0] text-sm font-bold text-[#8B0000]">
+              02
+            </div>
+            <h3 className="text-sm font-bold text-[#1A202C]">Explore</h3>
+            <p className="text-[11px] text-[#718096] max-w-[220px]">
+              Review the RoomReview Score, area data, trends and resident experiences.
+            </p>
+          </div>
+
+          {/* Step 3 */}
+          <div className="relative z-10 flex flex-col items-center space-y-3">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-amber-200 bg-[#FAF5F0] text-sm font-bold text-[#8B0000]">
+              03
+            </div>
+            <h3 className="text-sm font-bold text-[#1A202C]">Decide</h3>
+            <p className="text-[11px] text-[#718096] max-w-[220px]">
+              Value a property or select a Buyer or Investor Report for deeper analysis.
+            </p>
           </div>
         </div>
       </section>
 
-      <section className="bg-[#F5EBE6]">
-        <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8 lg:py-24">
-          <div className="grid min-h-[520px] grid-cols-1 overflow-hidden rounded-none md:grid-cols-2">
-            <div className="overflow-hidden">
-              <img src={newsletterImage} alt="Newsletter background" className="h-full w-full object-cover" />
-            </div>
-            <div className="flex items-center bg-[#F5EBE6] p-8 sm:p-10">
-              <div className="w-full max-w-xl">
-                <h2 className="text-4xl font-bold tracking-tight text-slate-950 sm:text-5xl">
-                  Stay updated with Tips & Tenant stories
-                </h2>
-                <p className="mt-4 text-base leading-8 text-slate-700">
-                  No spam, unsubscribe anytime.
-                </p>
-                <form className="mt-10 space-y-4">
-                  <div>
-                    <label htmlFor="name" className="block text-sm font-semibold text-slate-950">
-                      Name
-                    </label>
-                    <input
-                      id="name"
-                      name="name"
-                      type="text"
-                      placeholder="John"
-                      className="mt-3 h-14 w-full rounded-3xl border border-slate-200 bg-white px-5 text-sm text-slate-950 outline-none transition focus:border-[#8B0202] focus:ring-2 focus:ring-[#8B0202]/20"
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor="email" className="block text-sm font-semibold text-slate-950">
-                      Email
-                    </label>
-                    <input
-                      id="email"
-                      name="email"
-                      type="email"
-                      placeholder="Email@domain.com"
-                      className="mt-3 h-14 w-full rounded-3xl border border-slate-200 bg-white px-5 text-sm text-slate-950 outline-none transition focus:border-[#8B0202] focus:ring-2 focus:ring-[#8B0202]/20"
-                    />
-                  </div>
-                  <button
-                    type="submit"
-                    className="w-full rounded-3xl bg-[#8B0202] px-6 py-4 text-base font-semibold uppercase tracking-[0.08em] text-white transition hover:bg-[#770101]"
-                  >
-                    SUBSCRIBE
-                  </button>
-                </form>
-              </div>
-            </div>
+      {/* 6. CALL TO ACTION BANNER */}
+      <section className="mx-auto max-w-[1100px] px-6 py-8">
+        <div className="rounded-3xl border border-[#F3E8E2] bg-[#FAF5F0] p-12 text-center space-y-6">
+          <h2 className="text-3xl font-extrabold text-[#1A202C]">
+            Make your next property decision<br />with more context
+          </h2>
+          <p className="text-xs text-[#5F6D7A]">
+            Search an area, explore the evidence and understand the property before you commit.
+          </p>
+          <div className="flex flex-wrap justify-center gap-4 pt-2">
+            <button className="rounded-xl bg-[#8B0000] px-6 py-3 text-xs font-bold uppercase tracking-wider text-white shadow transition hover:bg-[#700000]">
+              Explore the Area
+            </button>
+            <button className="rounded-xl border border-gray-300 bg-white px-6 py-3 text-xs font-bold uppercase tracking-wider text-[#1A202C] shadow-sm transition hover:bg-gray-50">
+              Value a Property
+            </button>
           </div>
         </div>
       </section>
+
+      {/* 7. RECENT BLOGS SECTION */}
+      <section className="mx-auto max-w-[1100px] px-6 py-16 space-y-8">
+        <div className="flex items-center justify-between">
+          <h2 className="text-2xl font-bold tracking-tight text-[#1A202C]">Recent blogs</h2>
+          <a href="#blogs" className="text-xs font-semibold text-blue-600 hover:underline">View all</a>
+        </div>
+
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+          {blogs.map((blog, idx) => (
+            <div key={idx} className="group overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm hover:shadow-md transition flex flex-col justify-between">
+              <div>
+                <div className="h-44 w-full overflow-hidden">
+                  <img
+                    src={blog.image}
+                    alt={blog.title}
+                    className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
+                  />
+                </div>
+                <div className="p-5 space-y-3">
+                  <div className="flex items-center gap-2 text-[10px] text-gray-500">
+                    <span>{blog.date}</span>
+                    <span>•</span>
+                    {blog.tags.map((tag, tI) => (
+                      <span key={tI} className="rounded bg-gray-100 px-2 py-0.5 text-gray-600">
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                  <h3 className="text-sm font-bold text-[#1A202C] leading-snug group-hover:text-[#8B0000] transition">
+                    {blog.title}
+                  </h3>
+                  <p className="text-[11px] text-[#718096] leading-relaxed line-clamp-3">
+                    {blog.desc}
+                  </p>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
     </div>
   );
 };
 
-export default HomePage;
+export default LandingPage;

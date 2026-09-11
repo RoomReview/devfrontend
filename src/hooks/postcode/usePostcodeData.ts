@@ -50,11 +50,7 @@ const mockPostcodeResponses: Record<string, PostcodeApiResponse> = {
       { age_group: '50-59', percentage: 12 },
       { age_group: '60+', percentage: 14 },
     ],
-    propertyValueData: [
-      { label: 'House', value: 850000 },
-      { label: 'Flat', value: 620000 },
-      { label: 'Studio', value: 420000 },
-    ],
+    propertyValueData: [],
     rentData: [
       { rent: 1850, type: 'average' },
       { rent: 2150, type: 'high' },
@@ -62,17 +58,9 @@ const mockPostcodeResponses: Record<string, PostcodeApiResponse> = {
     ],
     votingData: [
       { label: 'Turnout', percentage: 64 }],
-    educationData: [
-      { label: 'Total schools', value: 24 },
-      { label: 'GCSE attainment 8', value: 58.6 },
-    ],
-    housingStockData: [
-      { label: 'Total dwellings', value: 184000 },
-      { label: 'Affordable completions', value: 320 },
-    ],
-    districtData: [
-      { districtCode: 'E09000030', boroughName: 'Tower Hamlets' },
-    ],
+    educationData: [],
+    housingStockData: [],
+    districtData: [],
   },
 };
 

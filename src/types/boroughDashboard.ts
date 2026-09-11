@@ -39,13 +39,21 @@ export interface StackedBarItem {
 export interface InfrastructureProject {
   title: string;
   description: string;
-  status: 'Approved' | 'In Review' | 'Proposed';
+  status?: 'Approved' | 'In Review' | 'Proposed';
+}
+
+export interface LocalPlanSummary {
+  status?: string;
+  adoptionYear?: string | number;
+  endYear?: string | number;
+  nextReviewDue?: string;
 }
 
 export interface BoroughDashboardData {
   boroughName: string;
   lastUpdated: string;
   kpiCards: Record<MainCategory, KPICard[]>;
+  localPlanSummary?: LocalPlanSummary;
 
   housing: {
     priceGrowthScatter: ScatterPoint[];

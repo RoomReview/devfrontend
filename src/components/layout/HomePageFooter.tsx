@@ -11,7 +11,7 @@ const HomePageFooter = () => {
               <img src={roomReviewLogo} alt="RoomReview logo" className="h-28 w-28 object-contain" />
             </div>
             <p className="mt-5 text-sm leading-6 text-slate-600">
-              Read real reviews from tenants about properties, landlords, and neighborhoods. Discover what it’s really like to live there: honest feedback, transparent experiences, and no hidden surprises all in one place.
+              Read real reviews about properties, landlords, and neighbourhoods. Discover what it is really like to live there through honest feedback and transparent local experiences.
             </p>
             <div className="mt-6 flex items-center gap-4 text-black text-sm font-semibold">
               <span>in</span>
@@ -25,8 +25,9 @@ const HomePageFooter = () => {
           <div className="rounded-[2rem] bg-white p-8 shadow-sm">
             <h4 className="text-sm font-semibold uppercase tracking-[0.24em] text-[#8B0202]">RULES</h4>
             <ul className="mt-6 space-y-3 text-sm text-slate-700">
-              <li><Link to="/privacy" className="hover:text-slate-950">Privacy Police</Link></li>
-              <li><Link to="/cookie-policy" className="hover:text-slate-950">Cookies</Link></li>
+              <li><Link to="/privacy" className="hover:text-slate-950">Privacy Policy</Link></li>
+              <li><Link to="/cookie-policy" className="hover:text-slate-950">Cookie Policy</Link></li>
+              <li><Link to="/data-sources" className="hover:text-slate-950">Data Sources and Methodology</Link></li>
             </ul>
           </div>
 
@@ -34,16 +35,16 @@ const HomePageFooter = () => {
             <h4 className="text-sm font-semibold uppercase tracking-[0.24em] text-[#8B0202]">INFORMATION</h4>
             <ul className="mt-6 space-y-3 text-sm text-slate-700">
               <li><Link to="/about" className="hover:text-slate-950">About</Link></li>
-              <li><Link to="/blog" className="hover:text-slate-950">Blog</Link></li>
-              <li><Link to="/borough" className="hover:text-slate-950">Borough</Link></li>
+              <li><Link to="/reviews" className="hover:text-slate-950">Reviews</Link></li>
+              <li><Link to="/area-search" className="hover:text-slate-950">Borough</Link></li>
             </ul>
           </div>
 
           <div className="rounded-[2rem] bg-white p-8 shadow-sm">
             <h4 className="text-sm font-semibold uppercase tracking-[0.24em] text-[#8B0202]">DATA</h4>
             <ul className="mt-6 space-y-3 text-sm text-slate-700">
-              <li><Link to="/postcode-search" className="hover:text-slate-950">Post Code Listing</Link></li>
-              <li><Link to="/report" className="hover:text-slate-950">Share Your Experience</Link></li>
+              <li><Link to="/postcode-search" className="hover:text-slate-950">Postcode listing</Link></li>
+              <li><Link to="/register" className="hover:text-slate-950">Share Your Experience</Link></li>
             </ul>
           </div>
         </div>
@@ -51,11 +52,10 @@ const HomePageFooter = () => {
         <div className="mt-6 rounded-[2rem] bg-white px-8 py-6 shadow-sm flex flex-col gap-4 text-sm text-slate-700 md:flex-row md:items-center md:justify-between">
           <p className="font-semibold">RoomReview © 2025</p>
           <div className="flex flex-wrap items-center gap-6 text-sm font-semibold text-[#8B0202]">
-            <Link to="/reviews" className="hover:text-slate-600">Reviews</Link>
-            <Link to="/report" className="hover:text-slate-600">Share Experience</Link>
-            <Link to="/borough" className="hover:text-slate-600">Boroughs</Link>
+            <Link to="/data-sources" className="hover:text-slate-600">Data sources</Link>
+            <Link to="/area-search" className="hover:text-slate-600">Boroughs</Link>
             <Link to="/about" className="hover:text-slate-600">About</Link>
-            <Link to="/blog" className="hover:text-slate-600">Blog</Link>
+            <Link to="/reviews" className="hover:text-slate-600">Reviews</Link>
           </div>
         </div>
       </div>
@@ -64,4 +64,3 @@ const HomePageFooter = () => {
 };
 
 export default HomePageFooter;
-

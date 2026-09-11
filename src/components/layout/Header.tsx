@@ -13,43 +13,42 @@ const Header = () => {
   const navItems = [
     { label: "Postcode", path: "/postcode-search" },
     { label: "Borough", path: "/area-search" },
-    { label: "Report", path: "/report" },
-    { label: "Blog", path: "/blog" },
+    { label: "Reviews", path: "/reviews" },
     { label: "About Us", path: "/about" },
-    { label: "Contact Us", path: "/contact-us" },
   ];
 
   const handleNavClick = () => setIsMenuOpen(false);
 
   return (
-    <header className="w-full border-b border-[#e8ddd5] bg-[#F3E6DE]">
-      <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
+    <header className="w-full border-b border-slate-200 bg-white">
+      <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8">
         <Link
           to="/"
-          className="flex items-center justify-center rounded-xl bg-[#8B0202] px-3 py-2 shadow-sm transition-colors hover:bg-[#6A0101]"
+          className="flex items-center gap-2 rounded-xl transition-colors"
           onClick={handleNavClick}
         >
-          <img
-            src={logoReview}
-            alt="RoomReview"
-            className="h-10 object-contain md:h-12"
-          />
+          <div className="flex items-center justify-center rounded-lg bg-[#8B0202] px-2 py-1.5 shadow-sm">
+            <img
+              src={logoReview}
+              alt="RoomReview"
+              className="h-7 object-contain md:h-8"
+            />
+          </div>
+          <span className="text-lg font-semibold tracking-[-0.03em] text-slate-900">RoomReview.co.uk</span>
         </Link>
 
-        <nav className="hidden items-center rounded-md bg-[#E5DCD5]/60 p-0 lg:flex">
-          {navItems.map((item, index) => {
+        <nav className="hidden items-center gap-1 lg:flex">
+          {navItems.map((item) => {
             const isActive = currentPath === item.path;
-            const maxIndex = navItems.length - 1;
-            const minIndex = 0;
 
             return (
               <Link
                 key={item.label}
                 to={item.path}
-                className={`px-6 py-2.5 ${constructRoundedCorners(index, maxIndex, minIndex)} text-base font-semibold transition-all duration-300 ${
+                className={`rounded-full px-3 py-2 text-sm font-medium transition-all duration-200 ${
                   isActive
-                    ? "bg-[#0B0B0B] text-white shadow-md"
-                    : "text-[#0B0B0B] hover:bg-white/40 hover:text-[#0B0B0B]/70"
+                    ? "bg-white text-[#8B0202] shadow-sm ring-1 ring-[#8B0202]/20"
+                    : "text-slate-700 hover:text-slate-950"
                 }`}
               >
                 {item.label}
@@ -70,14 +69,14 @@ const Header = () => {
 
               <Link
                 to="/account"
-                className="rounded-xl border border-[#1E293B] bg-white px-5 py-3 text-base font-semibold text-[#1E293B] shadow-sm transition-colors hover:bg-[#F8F8F8]"
+                className="rounded-full px-3 py-2 text-sm font-semibold text-slate-900 transition-colors hover:text-slate-600"
               >
                 Account
               </Link>
 
               <button
                 onClick={logout}
-                className="rounded-xl bg-[#1E293B] px-8 py-3 text-base font-semibold text-white shadow-sm transition-colors hover:bg-[#0F172A]"
+                className="rounded-full px-3 py-2 text-sm font-semibold text-slate-900 transition-colors hover:text-slate-600"
               >
                 Log out
               </button>
@@ -85,16 +84,16 @@ const Header = () => {
           ) : (
             <>
               <Link
-                to="/register"
-                className="rounded-xl bg-[#8B0202] px-8 py-3 text-base font-semibold text-white shadow-sm transition-colors hover:bg-[#6A0101]"
-              >
-                Register
-              </Link>
-              <Link
                 to="/login"
-                className="rounded-xl bg-[#1E293B] px-8 py-3 text-base font-semibold text-white shadow-sm transition-colors hover:bg-[#0F172A]"
+                className="rounded-xl border border-[#8B0202] bg-white px-5 py-2 text-sm font-semibold text-[#8B0202] transition-colors hover:bg-[#8B0202]/5"
               >
                 Log in
+              </Link>
+              <Link
+                to="/register"
+                className="rounded-xl bg-[#8B0202] px-5 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#6A0101]"
+              >
+                Register
               </Link>
             </>
           )}
@@ -102,7 +101,7 @@ const Header = () => {
 
         <button
           type="button"
-          className="inline-flex items-center justify-center rounded-xl border border-[#1E293B]/20 bg-white p-2.5 text-[#1E293B] shadow-sm lg:hidden"
+          className="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white p-2.5 text-slate-900 shadow-sm lg:hidden"
           aria-label={isMenuOpen ? "Close menu" : "Open menu"}
           onClick={() => setIsMenuOpen(!isMenuOpen)}
         >
@@ -177,15 +176,5 @@ const Header = () => {
     </header>
   );
 };
-
-function constructRoundedCorners(
-  currentIndex: number,
-  maxIndex: number,
-  minIndex: number,
-): string {
-  if (currentIndex === maxIndex) return "rounded-r-md";
-  if (currentIndex === minIndex) return "rounded-l-md";
-  return "rounded-md";
-}
 
 export default Header;

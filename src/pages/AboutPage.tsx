@@ -142,7 +142,7 @@ const AboutPage = () => {
             <img
               src={heroImage}
               alt="Street view"
-              className="w-full h-[520px] object-cover"
+              className="w-full h-[400px] object-cover"
             />
           </div>
         </div>
@@ -165,6 +165,7 @@ const AboutPage = () => {
                 src={sceneImage1}
                 alt="Scene outside home"
                 className="w-full h-[360px] object-cover"
+                loading="lazy"
               />
             </div>
           </div>
@@ -179,7 +180,7 @@ const AboutPage = () => {
             </div>
             <div className="space-y-6">
               <Body className="text-[#0B0B0B] leading-8 text-lg max-w-2xl">
-                Following the incident, we made the difficult decision to move to a different home. But as we settled into our new place, a thought kept coming back to us: the property we had left behind would soon be rented to someone else. New tenants would likely move in without knowing that a serious robbery had taken place there only a few months earlier. There was no simple way for them to access that information, learn from previous tenants' experiences, or understand the reality of the area they were moving into.
+                Following the incident, we made the difficult decision to move to a different home. But as we settled into our new place, a thought kept coming back to us: the property we had left behind would soon be rented to someone else. New users would likely move in without knowing that a serious robbery had taken place there only a few months earlier. There was no simple way for them to access that information, learn from previous users' experiences, or understand the reality of the area they were moving into.
               </Body>
               <Body className="font-semibold text-[#1A2B3C] leading-8 text-lg max-w-2xl">
                 That was the moment we realised the rental market needed to change.
@@ -272,13 +273,10 @@ const AboutPage = () => {
               RoomReview combines trusted UK data sources to provide clear, reliable insights into properties, postcodes, and neighborhoods.
             </Body>
           </div>
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-            {[...Array(4)].map((_, index) => (
-              <div
-                key={index}
-                className="rounded-[32px] bg-[#E5E7EB] p-10 flex items-center justify-center h-44"
-              >
-                <span className="text-[#6B7280] font-semibold">Logo</span>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {['Office for National Statistics', 'Local authorities', 'Public safety datasets', 'Transport authorities'].map((source) => (
+              <div key={source} className="border-l-2 border-[#8B0202] px-4 py-3 text-sm font-semibold text-[#1A2B3C]">
+                {source}
               </div>
             ))}
           </div>
@@ -304,7 +302,7 @@ const AboutPage = () => {
                   <img
                     src={contributor.image}
                     alt={contributor.name}
-                    className="w-full h-[360px] object-cover"
+                    className="w-full h-[280px] bg-slate-50 p-4 object-contain"
                   />
                   <div className="p-6">
                     <div className="flex items-center justify-between gap-3">
@@ -328,7 +326,7 @@ const AboutPage = () => {
                   <img
                     src={member.image}
                     alt={member.name}
-                    className="w-full h-[220px] object-cover"
+                    className="w-full h-[180px] bg-slate-50 p-3 object-contain"
                   />
                   <div className="p-4">
                     <div className="flex items-center justify-between gap-3">

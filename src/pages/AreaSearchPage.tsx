@@ -9,38 +9,47 @@ import { H2, H3, Body } from "../components/common/Typography";
 import BoroughCard from "../components/common/BoroughCard";
 import { Link } from "react-router-dom";
 import apiClient from "@/lib/apiClient";
-
+import boroughImages from '@/config/boroughImages';
+import fallbackBoroughImage from '@img/Stay updated with Tips.jpg';
 
 const HomePage = () => {
   const [boroughs, setBoroughs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
 
   useEffect(() => {
     const loadBoroughs = async () => {
       try {
-        const response = await apiClient.get<{ data: any[] }>('/boroughs?page=1&limit=20');
+        setLoading(true);
+        const response = await apiClient.get<{
+          data: any[];
+          pagination?: { totalPages?: number };
+        }>(`/boroughs?page=${currentPage}&limit=12`);
         const items = (response.data.data ?? []).map((borough: any) => ({
           id: borough.boroughId,
           name: borough.name,
           zones: borough.metrics?.zones ?? 'Live data',
-          rating: 4.8,
-          reviewCount: 0,
-          avgRent: borough.metrics?.avgRent ? `£${borough.metrics.avgRent.toLocaleString()}` : '—',
           trend: borough.metrics?.trend ?? 'Updated',
-          imageSrc: borough.image ?? 'https://images.unsplash.com/photo-1513635269975-59663e0ac1ad?q=80&w=400&auto=format&fit=crop',
+          imageSrc: boroughImages[borough.name] ?? borough.image ?? fallbackBoroughImage,
         }));
         setBoroughs(items);
+        setTotalPages(Math.max(response.data.pagination?.totalPages ?? 1, 1));
       } catch {
         setBoroughs([]);
+        setTotalPages(1);
       } finally {
         setLoading(false);
       }
     };
 
     loadBoroughs();
-  }, []);
+  }, [currentPage]);
 
-  const displayedBoroughs = useMemo(() => boroughs.slice(0, 12), [boroughs]);
+  const pageNumbers = useMemo(
+    () => Array.from({ length: totalPages }, (_, index) => index + 1),
+    [totalPages],
+  );
 
   return (
     <div className="w-full relative overflow-hidden bg-white font-montserrat">
@@ -56,7 +65,7 @@ const HomePage = () => {
             </p>
 
             <p className="text-[#4A5568] text-base leading-relaxed mb-4">
-              <strong className="font-bold text-[#0F1724]">RoomReview</strong> combines official datasets with structured local insights to help you understand what is happening in every neighbourhood — from rent levels and transport access to crime patterns, planning activity, environmental risks, and local voting trends.
+              <strong className="font-bold text-[#0F1724]">RoomReview</strong> combines official datasets with structured local insights to help you understand what is happening in every neighbourhood — from rent levels and transport access to crime patterns, planning activity, and environmental risks.
             </p>
 
             <p className="text-[#4A5568] text-base leading-relaxed mb-8">
@@ -82,7 +91,7 @@ const HomePage = () => {
           <div className="w-full lg:w-1/2">
             <div className="overflow-hidden rounded-3xl shadow-sm">
               <img
-                src="https://images.unsplash.com/photo-1513635269975-59663e0ac1ad?q=80&w=1200&auto=format&fit=crop"
+                src={fallbackBoroughImage}
                 alt="London Aerial View"
                 className="w-full h-[360px] sm:h-[440px] lg:h-[480px] object-cover"
               />
@@ -109,12 +118,12 @@ const HomePage = () => {
               {
                 num: 2,
                 title: "Compare key indicators",
-                desc: "Check rent levels, affordability, crime, environmental risks, transport, and local voting trends to see how different areas perform.",
+                desc: "Check rent levels, affordability, crime, environmental risks, and transport to see how different areas perform.",
               },
               {
                 num: 3,
                 title: "Explore local intelligence",
-                desc: "Discover planning policies, regeneration projects, infrastructure investments, and political dynamics shaping each borough.",
+                desc: "Discover planning policies, regeneration projects, and infrastructure investments shaping each borough.",
               },
               {
                 num: 4,
@@ -189,8 +198,8 @@ const HomePage = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8 mb-16 justify-items-center">
           {loading ? (
             <div className="col-span-full text-center text-[#1A2B3C]">Loading borough data...</div>
-          ) : displayedBoroughs.length > 0 ? (
-            displayedBoroughs.map((borough) => (
+          ) : boroughs.length > 0 ? (
+            boroughs.map((borough) => (
               <BoroughCard
                 key={borough.id}
                 {...borough}
@@ -205,20 +214,33 @@ const HomePage = () => {
         <div className="flex justify-center items-center gap-16 mt-8">
           <button
             className="p-2 disabled:opacity-30 transition-opacity"
-            disabled
+            disabled={currentPage === 1 || loading}
+            onClick={() => setCurrentPage((page) => Math.max(page - 1, 1))}
+            aria-label="Previous page"
           >
             <ChevronLeft className="w-6 h-6 text-[#8B0202]" />
           </button>
           <div className="flex items-center gap-8">
-            <button className="font-bold text-2xl text-[#8B0202]">1</button>
-            <button className="font-bold text-2xl text-[#b7adad] hover:text-gray-500 transition-colors">
-              2
-            </button>
-            <button className="font-bold text-2xl text-[#b7adad] hover:text-gray-500 transition-colors">
-              3
-            </button>
+            {pageNumbers.map((page) => (
+              <button
+                key={page}
+                className={`font-bold text-2xl transition-colors ${
+                  page === currentPage ? 'text-[#8B0202]' : 'text-[#b7adad] hover:text-gray-500'
+                }`}
+                onClick={() => setCurrentPage(page)}
+                aria-label={`Go to page ${page}`}
+                aria-current={page === currentPage ? 'page' : undefined}
+              >
+                {page}
+              </button>
+            ))}
           </div>
-          <button className="p-2 hover:opacity-80 transition-opacity">
+          <button
+            className="p-2 disabled:opacity-30 transition-opacity"
+            disabled={currentPage === totalPages || loading}
+            onClick={() => setCurrentPage((page) => Math.min(page + 1, totalPages))}
+            aria-label="Next page"
+          >
             <ChevronRight className="w-6 h-6 text-[#8B0202]" />
           </button>
         </div>
@@ -228,7 +250,7 @@ const HomePage = () => {
         <div className="bg-[#F3E6DE] rounded-[20px] p-8 lg:p-16 flex flex-col items-start gap-8 max-w-[1250px] mx-auto lg:h-[476px] justify-center relative overflow-hidden">
           <div className="max-w-[612px] flex flex-col gap-6 relative z-10">
             <H2 className="text-[#0b0b0b] text-[36px] font-bold tracking-[-0.72px] leading-tight">
-              Explore insights, guides and real tenant stories
+              Explore insights, guides and real user stories
             </H2>
 
             <div className="flex flex-col gap-4 text-[#0b0b0b] text-[16px] leading-[1.4]">
@@ -238,7 +260,7 @@ const HomePage = () => {
               </p>
               <p>
                 Read expert guides, neighbourhood breakdowns, rental tips, and
-                real tenant experiences to make smarter decisions.
+                real user experiences to make smarter decisions.
               </p>
               <p>
                 From hidden red flags to local trends — our blog helps you see
@@ -261,4 +283,3 @@ const HomePage = () => {
 };
 
 export default HomePage;
-

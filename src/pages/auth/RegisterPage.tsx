@@ -11,19 +11,19 @@ import { useRegister } from '@/hooks/auth/useRegister';
 import type { UserRole } from '@/types/user.types';
 
 const ROLE_MAP: Record<string, UserRole> = {
-  tenant:   'TENANT',
+  user:     'TENANT',
   agency:   'AGENCY',
   agent:    'AGENT',
   landlord: 'LANDLORD',
 };
 
-type UserType = 'tenant' | 'agency' | 'agent' | 'landlord';
+type UserType = 'user' | 'agency' | 'agent' | 'landlord';
 
 const RegisterPage = () => {
   const navigate = useNavigate();
   const { mutate: register, isPending, error, reset } = useRegister();
 
-  const [userType, setUserType] = useState<UserType>('tenant');
+  const [userType, setUserType] = useState<UserType>('user');
   const [emailError, setEmailError] = useState('');
   const [formData, setFormData] = useState({
     firstName: '',
@@ -78,10 +78,10 @@ const RegisterPage = () => {
   };
 
   const descriptions = {
-    tenant:   'Find better places to live with trusted reviews from real tenants.',
+    user:     'Find better places to live with trusted reviews from real users.',
     agency:   'Create a public profile, receive reviews, and build trust in your brand.',
-    agent:    'Join your agency, manage properties, and receive feedback from tenants.',
-    landlord: 'Manage your properties, collect reviews, and build trust with tenants.',
+    agent:    'Join your agency, manage properties, and receive feedback from users.',
+    landlord: 'Manage your properties, collect reviews, and build trust with users.',
   };
 
   return (
@@ -100,7 +100,7 @@ const RegisterPage = () => {
       <Small className="mb-6 text-gray-dark/70">{descriptions[userType]}</Small>
 
       <div className="flex mb-6 border-b border-gray-light">
-        {(['tenant', 'agency', 'agent', 'landlord'] as UserType[]).map((type) => (
+        {(['user', 'agency', 'agent', 'landlord'] as UserType[]).map((type) => (
           <button
             key={type}
             type="button"

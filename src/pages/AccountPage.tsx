@@ -1,10 +1,34 @@
 import { Link } from 'react-router-dom';
+import { useEffect, useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import Button from '../components/common/Button';
 import { H1, H2, H3, Body, Small } from '../components/common/Typography';
+import { paymentService, type BillingStatus, type ReportOrder } from '@/services/payment.service';
 
 const AccountPage = () => {
   const { user, loading, isAuthenticated, logout } = useAuth();
+  const [orders, setOrders] = useState<ReportOrder[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [billing, setBilling] = useState<BillingStatus | null>(null);
+  const [subscriptionLoading, setSubscriptionLoading] = useState(false);
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    setHistoryLoading(true);
+    void Promise.all([paymentService.getOrderHistory(), paymentService.getBilling()])
+      .then(([orderHistory, billingStatus]) => { setOrders(orderHistory); setBilling(billingStatus); })
+      .finally(() => setHistoryLoading(false));
+  }, [isAuthenticated]);
+
+  const startSubscription = async () => {
+    setSubscriptionLoading(true);
+    try {
+      const checkoutUrl = await paymentService.createSubscriptionCheckout();
+      if (checkoutUrl) window.location.assign(checkoutUrl);
+    } finally {
+      setSubscriptionLoading(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -73,12 +97,44 @@ const AccountPage = () => {
               </div>
               <div>
                 <Small className="block text-[#8B0202] uppercase tracking-[0.2em] mb-2">Role</Small>
-                <Body>{user?.role ?? 'Tenant'}</Body>
+                <Body>{user?.role === 'TENANT' ? 'User' : user?.role ?? 'User'}</Body>
               </div>
             </div>
           </div>
 
           <div className="grid gap-6">
+            <div className="rounded-[24px] border border-[#E5DCD5] bg-[#FFF9F0] p-6 shadow-sm">
+              <H3 className="text-[#1A2B3C] mb-3">Report plan</H3>
+              <Body>
+                {billing?.subscription?.status === 'ACTIVE'
+                  ? 'Your subscription is active: 10 reports per month.'
+                  : billing?.trialActive
+                    ? `Your free trial ends ${billing.trial.trialEndsAt ? new Date(billing.trial.trialEndsAt).toLocaleDateString() : 'soon'}.`
+                    : 'Your free trial has ended. Choose the monthly report plan to continue.'}
+              </Body>
+              <p className="mt-2 text-sm font-semibold text-[#1A2B3C]">Available report credits: {billing?.creditsBalance ?? 0}</p>
+              {billing?.subscription?.status !== 'ACTIVE' && (
+                <Button className="mt-4" isLoading={subscriptionLoading} onClick={() => void startSubscription()}>
+                  10 reports per month - £35/month
+                </Button>
+              )}
+            </div>
+            <div className="rounded-[24px] border border-[#E5DCD5] bg-white p-6 shadow-sm">
+              <H3 className="text-[#1A2B3C] mb-3">Report orders</H3>
+              {historyLoading ? <Body>Loading your orders...</Body> : orders.length === 0 ? <Body>No report orders yet.</Body> : (
+                <div className="space-y-3">
+                  {orders.map((order) => (
+                    <div key={order.orderId} className="flex flex-wrap items-center justify-between gap-3 border-t border-[#E5DCD5] pt-3 text-sm">
+                      <div>
+                        <p className="font-semibold text-[#1A2B3C]">Report {order.scoreReportId.slice(0, 8)}</p>
+                        <p className="text-[#6B7280]">Payment: {order.status} · Report: {order.reportStatus ?? 'WAITING'} · {new Date(order.createdAt).toLocaleDateString()}</p>
+                      </div>
+                      {order.status === 'PAID' && order.reportStatus === 'READY' && <Button size="sm" onClick={() => void paymentService.downloadReport(order.scoreReportId)}>Download PDF</Button>}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
             {[
               {
                 title: 'Saved searches',

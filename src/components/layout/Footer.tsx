@@ -17,7 +17,7 @@ const Footer = () => {
             <div className="space-y-1 text-sm text-gray-400">
               <p className="font-semibold text-white">ROOMREVIEW LTD</p>
               <p>Company number: 16307644</p>
-              <p>Registered office: 51a–53a High Road, London, England, NW10 2SU</p>
+              <p>Registered office: 51a-53a High Road, London, England, NW10 2SU</p>
               <p>Email: info@roomreview.co.uk</p>
             </div>
           </div>
@@ -27,31 +27,16 @@ const Footer = () => {
             <ul className="space-y-2 text-sm text-gray-400">
               <li><Link to="/" className="hover:text-white">Home</Link></li>
               <li><Link to="/postcode-search" className="hover:text-white">Postcode</Link></li>
-              <li><Link to="/borough" className="hover:text-white">Borough</Link></li>
-              <li><Link to="/report" className="hover:text-white">Report</Link></li>
-              <li><Link to="/blog" className="hover:text-white">Blog</Link></li>
+              <li><Link to="/area-search" className="hover:text-white">Borough</Link></li>
+              <li><Link to="/reviews" className="hover:text-white">Reviews</Link></li>
               <li><Link to="/about" className="hover:text-white">About Us</Link></li>
-              <li><Link to="/contact" className="hover:text-white">Contact Us</Link></li>
-            </ul>
-          </div>
-
-          <div>
-            <h4 className="text-sm font-semibold uppercase tracking-[0.24em] text-gray-400 mb-4">Reports</h4>
-            <ul className="space-y-2 text-sm text-gray-400">
-              <li><Link to="/buyer-report" className="hover:text-white">Buyer Report</Link></li>
-              <li><Link to="/investor-report" className="hover:text-white">Investor Report</Link></li>
-              <li><Link to="/reviews" className="hover:text-white">RoomReview Score</Link></li>
             </ul>
           </div>
 
           <div>
             <h4 className="text-sm font-semibold uppercase tracking-[0.24em] text-gray-400 mb-4">Trust & Data</h4>
             <ul className="space-y-2 text-sm text-gray-400">
-              <li><Link to="/data-sources" className="hover:text-white">Data Sources</Link></li>
-              <li><Link to="/methodology" className="hover:text-white">Methodology</Link></li>
-              <li><Link to="/how-we-use-public-data" className="hover:text-white">How We Use Public Data</Link></li>
-              <li><Link to="/open-government-licence" className="hover:text-white">Open Government Licence</Link></li>
-              <li><Link to="/disclaimer" className="hover:text-white">Disclaimer</Link></li>
+              <li><Link to="/data-sources" className="hover:text-white">Data sources and methodology</Link></li>
             </ul>
           </div>
 
@@ -59,16 +44,14 @@ const Footer = () => {
             <h4 className="text-sm font-semibold uppercase tracking-[0.24em] text-gray-400 mb-4">Legal</h4>
             <ul className="space-y-2 text-sm text-gray-400">
               <li><Link to="/privacy" className="hover:text-white">Privacy Policy</Link></li>
-              <li><Link to="/cookie-policy" className="hover:text-white">Cookie Policy</Link></li>
-              <li><Link to="/terms" className="hover:text-white">Terms of Use</Link></li>
-              <li><Link to="/cookies-settings" className="hover:text-white">Cookies Settings</Link></li>
+              <li><Link to="/cookie-policy" className="hover:text-white">Cookie policy</Link></li>
             </ul>
             <div className="mt-8">
               <h4 className="text-sm font-semibold uppercase tracking-[0.24em] text-gray-400 mb-4">Account</h4>
               <ul className="space-y-2 text-sm text-gray-400">
                 <li><Link to="/login" className="hover:text-white">Login</Link></li>
                 <li><Link to="/register" className="hover:text-white">Create Account</Link></li>
-                <li><Link to="/support" className="hover:text-white">Support</Link></li>
+                <li><Link to="/about" className="hover:text-white">Support</Link></li>
               </ul>
             </div>
           </div>

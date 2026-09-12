@@ -28,7 +28,7 @@ import richmondUponThamesImage from '@img/Richmond upon Thames.jpg';
 import southwarkImage from '@img/Southwark.jpg';
 import suttonImage from '@img/Sutton.png';
 import towerHamletsImage from '@img/Tower Hamlets.jpg';
-import walthamForestImage from '@img/Waltham Forest .png';
+import walthamForestImage from '@img/Waltham Forest.png';
 import wandsworthImage from '@img/Wandsworth.jpg';
 import westminsterImage from '@img/Westminister.jpg';
 

@@ -6,7 +6,7 @@ import Button from '../../components/common/Button';
 import Logo from '../../components/common/Logo';
 import { H2, Body } from '../../components/common/Typography';
 import { GoogleIcon, FacebookIcon } from '../../components/common/Icons';
-import backgroundImage from '../../assets/bgimage.jpg';
+import backgroundImage from '../../assets/bgimage.png';
 import { useLogin } from '@/hooks/auth/useLogin';
 
 const LoginPage = () => {

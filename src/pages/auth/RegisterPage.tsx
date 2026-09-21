@@ -6,7 +6,7 @@ import Button from '../../components/common/Button';
 import Logo from '../../components/common/Logo';
 import { H2, Body, Small } from '../../components/common/Typography';
 import { GoogleIcon, FacebookIcon } from '../../components/common/Icons';
-import backgroundImage from '../../assets/bgimage.jpg';
+import backgroundImage from '../../assets/bgimage.png';
 import { useRegister } from '@/hooks/auth/useRegister';
 import type { UserRole } from '@/types/user.types';
 

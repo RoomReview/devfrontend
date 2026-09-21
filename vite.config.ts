@@ -6,7 +6,7 @@ import tailwindcss from '@tailwindcss/vite'
 import { playwright } from '@vitest/browser-playwright'
 
 export default defineConfig({
-  plugins: [tailwindcss(), react()],
+  plugins: [react(), tailwindcss()],
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
@@ -17,6 +17,7 @@ export default defineConfig({
       '@utils': path.resolve(__dirname, './src/utils'),
       '@types': path.resolve(__dirname, './src/types'),
       '@context': path.resolve(__dirname, './src/context'),
+      '@img': path.resolve(__dirname, '../img'),
     },
   },
   server: {
@@ -35,7 +36,9 @@ export default defineConfig({
       enabled: true,
       provider: playwright(),
       instances: [
-        { browser: 'chromium' },
+        { browser: 'chromium', name: 'mobile-390', viewport: { width: 390, height: 844 } },
+        { browser: 'chromium', name: 'tablet-768', viewport: { width: 768, height: 1024 } },
+        { browser: 'chromium', name: 'desktop-1440', viewport: { width: 1440, height: 900 } },
       ],
     },
   }

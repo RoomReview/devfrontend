@@ -5,7 +5,7 @@ import Input from '../../components/common/Input';
 import Button from '../../components/common/Button';
 import Logo from '../../components/common/Logo';
 import { H2, Body, Small } from '../../components/common/Typography';
-import backgroundImage from '../../assets/bgimage.jpg';
+import backgroundImage from '../../assets/bgimage.png';
 import { useResetPassword } from '@/hooks/auth/useResetPassword';
 
 const ResetPasswordPage = () => {

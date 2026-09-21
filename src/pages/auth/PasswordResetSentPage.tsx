@@ -2,7 +2,7 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import Logo from '../../components/common/Logo';
 import Button from '../../components/common/Button';
 import { H2, Body } from '../../components/common/Typography';
-import backgroundImage from '../../assets/bgimage.jpg';
+import backgroundImage from '../../assets/bgimage.png';
 
 const PasswordResetSentPage = () => {
   const [searchParams] = useSearchParams();

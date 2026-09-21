@@ -18,7 +18,7 @@ import MichaelImage from '@img/Designer.png';
 import IrinaImage from '@img/UX UI Designer.png';
 import TereseImage from '@img/UI Disigner.png';
 import AlamkheerImage from '@img/Software engineer (2).png';
-import SteveImage from '@img/Software Engineer.png';
+import SteveImage from '@img/Software Engineer.jpg';
 import MubtasinImage from '@img/Data Engineer (2).png';
 import FrederickImage from '@img/Data engineer.png';
 import FullstackImage from '@img/Fullstack Tech Lead.png';

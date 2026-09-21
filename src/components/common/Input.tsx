@@ -42,6 +42,7 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
     
     const hasError = !!error;
     const isActive = isFocused || props.value;
+    const inputId = props.id ?? (label ? label.toLowerCase().replace(/\s+/g, '-') : undefined);
 
     const labelStyles = hasError 
       ? 'text-primary' 
@@ -58,13 +59,14 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
     return (
       <div className="w-full">
         {label && (
-          <label className={`block text-sm font-medium mb-1.5 transition-colors ${labelStyles}`}>
+          <label htmlFor={inputId} className={`block text-sm font-medium mb-1.5 transition-colors ${labelStyles}`}>
             {label}
           </label>
         )}
         <div className="relative">
           <input
             ref={ref}
+            id={inputId}
             type={inputType}
             onFocus={(e) => {
               setIsFocused(true);

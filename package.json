@@ -5,14 +5,20 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build",
+    "build": "vite build",
     "preview": "vite preview",
+    "performance:smoke": "node scripts/performance-smoke.mjs",
+    "performance:api": "node ../devbackend-main/scripts/api-performance-smoke.mjs",
+    "audit:images": "node scripts/asset-audit.mjs",
+    "audit:bundle": "node scripts/bundle-budget.mjs",
     "lint": "eslint src --ext .ts,.tsx",
     "lint:fix": "eslint src --ext .ts,.tsx --fix",
     "test": "vitest",
     "coverage": "vitest run --coverage"
   },
   "dependencies": {
+    "@emnapi/core": "^1.11.3",
+    "@emnapi/runtime": "^1.11.3",
     "@tanstack/react-query": "^5.95.2",
     "axios": "^1.13.6",
     "lucide-react": "^1.7.0",

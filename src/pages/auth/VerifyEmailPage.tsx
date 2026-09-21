@@ -4,7 +4,7 @@ import Logo from "../../components/common/Logo";
 import Button from "../../components/common/Button";
 import CodeInput from "../../components/common/CodeInput";
 import { H2, Body, Small } from "../../components/common/Typography";
-import backgroundImage from "../../assets/bgimage.jpg";
+import backgroundImage from "../../assets/bgimage.png";
 import {
   useVerifyEmail,
   useResendVerification,

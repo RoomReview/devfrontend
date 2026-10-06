@@ -22,3 +22,57 @@ body {
 #root {
   min-height: 100vh;
 }
+
+.wordpress-content h2,
+.wordpress-content h3,
+.wordpress-content h4 {
+  margin-top: 1.75rem;
+  color: #1a202c;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.wordpress-content h2 {
+  font-size: 1.5rem;
+}
+
+.wordpress-content h3 {
+  font-size: 1.25rem;
+}
+
+.wordpress-content p {
+  margin: 1rem 0;
+}
+
+.wordpress-content ul,
+.wordpress-content ol {
+  margin: 1rem 0;
+  padding-left: 1.5rem;
+}
+
+.wordpress-content ul {
+  list-style: disc;
+}
+
+.wordpress-content ol {
+  list-style: decimal;
+}
+
+.wordpress-content a {
+  color: #8b0000;
+  text-decoration: underline;
+}
+
+.wordpress-content img {
+  margin: 1.5rem auto;
+  height: auto;
+  max-width: 100%;
+  border-radius: 0.75rem;
+}
+
+.wordpress-content blockquote {
+  margin: 1.5rem 0;
+  border-left: 3px solid #8b0000;
+  padding-left: 1rem;
+  color: #5f6d7a;
+}

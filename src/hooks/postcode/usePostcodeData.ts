@@ -6,7 +6,7 @@ import type { PostcodeApiResponse } from '@/types/postcode.types';
 const mockPostcodeResponses: Record<string, PostcodeApiResponse> = {
   'E1 6AN': {
     postcode: {
-      postcode_id: 'e16an',
+      postcodeId: 'e16an',
       code: 'E1 6AN',
       outcode: 'E1',
       incode: '6AN',
@@ -20,6 +20,7 @@ const mockPostcodeResponses: Record<string, PostcodeApiResponse> = {
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     },
+    lsoaMap: null,
     borough: {
       boroughId: 'tower-hamlets',
       name: 'Tower Hamlets',

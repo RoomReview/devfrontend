@@ -4,7 +4,7 @@ import Logo from "../../components/common/Logo";
 import Button from "../../components/common/Button";
 import CodeInput from "../../components/common/CodeInput";
 import { H2, Body, Small } from "../../components/common/Typography";
-import backgroundImage from "../../assets/bgimage.png";
+import backgroundImage from "../../assets/bgimage.jpg";
 import {
   useVerifyEmail,
   useResendVerification,
@@ -15,6 +15,7 @@ const VerifyEmailPage = () => {
   const navigate = useNavigate();
   const email = searchParams.get("email") || "";
   const userType = searchParams.get("type") || "user";
+  const subscriptionPlan = searchParams.get("subscriptionPlan");
 
   const [code, setCode] = useState("");
   const [error, setError] = useState("");
@@ -38,7 +39,11 @@ const VerifyEmailPage = () => {
     verifyEmail(
       { email, code },
       {
-        onSuccess: () => navigate(`/email-verified?type=${userType}`),
+        onSuccess: () => navigate(
+          subscriptionPlan
+            ? `/pricing?checkoutPlan=${encodeURIComponent(subscriptionPlan)}`
+            : userType === 'agency' ? '/complete-profile' : '/account',
+        ),
       },
     );
   };

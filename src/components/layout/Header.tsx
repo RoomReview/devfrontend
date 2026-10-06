@@ -13,8 +13,11 @@ const Header = () => {
   const navItems = [
     { label: "Postcode", path: "/postcode-search" },
     { label: "Borough", path: "/area-search" },
-    { label: "Reviews", path: "/reviews" },
+    { label: "Report", path: "/report" },
+    { label: "Pricing", path: "/pricing" },
+    { label: "Blog", path: "/blog" },
     { label: "About Us", path: "/about" },
+    { label: "Contact Us", path: "/contact" },
   ];
 
   const handleNavClick = () => setIsMenuOpen(false);
@@ -27,14 +30,16 @@ const Header = () => {
           className="flex items-center gap-2 rounded-xl transition-colors"
           onClick={handleNavClick}
         >
-          <div className="flex items-center justify-center rounded-lg bg-[#8B0202] px-2 py-1.5 shadow-sm">
+          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#8B0202] shadow-sm md:h-10 md:w-10">
             <img
               src={logoReview}
               alt="RoomReview"
-              className="h-7 object-contain md:h-8"
+              className="h-5 w-5 object-contain md:h-6 md:w-6"
             />
           </div>
-          <span className="text-lg font-semibold tracking-[-0.03em] text-slate-900">RoomReview.co.uk</span>
+          <span className="text-[1.2rem] font-black leading-none tracking-[-0.05em] text-[#0F1724] md:text-[1.55rem]">
+            RoomReview.co.uk
+          </span>
         </Link>
 
         <nav className="hidden items-center gap-1 lg:flex">

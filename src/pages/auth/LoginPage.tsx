@@ -1,12 +1,12 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import AuthContainer from '../../components/layout/AuthContainer';
 import Input from '../../components/common/Input';
 import Button from '../../components/common/Button';
 import Logo from '../../components/common/Logo';
 import { H2, Body } from '../../components/common/Typography';
 import { GoogleIcon, FacebookIcon } from '../../components/common/Icons';
-import backgroundImage from '../../assets/bgimage.png';
+import backgroundImage from '../../assets/bgimage.jpg';
 import { useLogin } from '@/hooks/auth/useLogin';
 
 const LoginPage = () => {
@@ -14,7 +14,9 @@ const LoginPage = () => {
   const [password, setPassword] = useState('');
   const [emailError, setEmailError] = useState('');
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { mutate: login, isPending } = useLogin();
+  const subscriptionPlan = searchParams.get('subscriptionPlan');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -28,7 +30,11 @@ const LoginPage = () => {
     login(
       { email, password },
       {
-        onSuccess: () => navigate('/'),
+        onSuccess: () => navigate(
+          subscriptionPlan
+            ? `/pricing?checkoutPlan=${encodeURIComponent(subscriptionPlan)}`
+            : '/',
+        ),
       },
     );
   };
@@ -42,7 +48,10 @@ const LoginPage = () => {
       <H2 className="mb-2 text-primary text-2xl sm:text-3xl">Welcome back</H2>
       <Body className="mb-6 sm:mb-8 text-sm sm:text-base">
         Don't have an account?{' '}
-        <Link to="/register" className="text-primary font-semibold hover:underline">
+        <Link
+          to={subscriptionPlan ? `/register?subscriptionPlan=${encodeURIComponent(subscriptionPlan)}` : '/register'}
+          className="text-primary font-semibold hover:underline"
+        >
           Sign Up
         </Link>
       </Body>

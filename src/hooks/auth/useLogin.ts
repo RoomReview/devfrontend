@@ -12,21 +12,24 @@
  * its own onSuccess callback so navigation logic stays in the page layer.
  */
 
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { authService } from '@/services/auth.service';
 import { useToast } from '@/components/common/Toast';
 import { TOKEN_KEY, REFRESH_TOKEN_KEY } from '@/lib/apiClient';
 import { extractApiError } from '@/utils/apiError';
 import type { LoginRequest, AuthLoginResponse } from '@/types/auth.types';
+import { queryKeys } from '@/lib/queryKeys';
 
 export const useLogin = () => {
   const { showToast } = useToast();
+  const queryClient = useQueryClient();
 
   return useMutation<AuthLoginResponse, unknown, LoginRequest>({
     mutationFn: authService.login,
     onSuccess: (data) => {
       localStorage.setItem(TOKEN_KEY, data.data.session.accessToken);
       localStorage.setItem(REFRESH_TOKEN_KEY, data.data.session.refreshToken);
+      queryClient.setQueryData(queryKeys.me, data.data.user);
     },
     onError: (error) => {
       showToast(extractApiError(error), 'error');

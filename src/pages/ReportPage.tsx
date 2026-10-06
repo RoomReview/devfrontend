@@ -1,4 +1,9 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { generateBuyerReport } from '@/utils/reportGenerator';
+import { useAuth } from '@/hooks/useAuth';
+import { paymentService } from '@/services/payment.service';
+import { scoreReportService } from '@/services/score-report.service';
 import {
   TrendingUp,
   Building,
@@ -20,7 +25,6 @@ import {
 } from 'lucide-react';
 import type {
   RoomReviewPageProps,
-  ReportType,
   FormFieldConfig,
   FAQItem,
 } from './ReportPage.types';
@@ -43,15 +47,15 @@ const IconMap: Record<string, LucideIcon> = {
 
 export const defaultReportPageContent: RoomReviewPageProps = {
   hero: {
-    badgeTitle: 'ROOMREVIEW PROPERTY REPORTS',
-    mainHeading: 'Choose Your Report',
+    badgeTitle: 'ROOMREVIEW AREA REPORTS',
+    mainHeading: 'Generate an Area Report',
     subHeading:
-      'Select the report that best matches your property goals. RoomReview provides structured, data-led insights to help buyers and investors review a property, postcode, and local area with more clarity.',
-    exploreButtonText: 'Explore Reports',
+      'Enter a postcode to explore local safety, affordability, transport, amenities, and other data-led insights about the surrounding area.',
+    exploreButtonText: 'Generate Area Report',
     howItWorksButtonText: 'How It Works',
     badges: [
       { id: 'loc', label: 'Data-led insights', iconName: 'TrendingUp' },
-      { id: 'home', label: 'Buyer and investor reports', iconName: 'Home' },
+      { id: 'home', label: 'Postcode area reports', iconName: 'Home' },
       { id: 'trend', label: 'London postcode coverage', iconName: 'MapPin' },
       { id: 'shield', label: 'Downloadable report output', iconName: 'Download' },
     ],
@@ -61,54 +65,31 @@ export const defaultReportPageContent: RoomReviewPageProps = {
     options: [
       {
         type: 'buyer',
-        title: 'Buyer Report',
+        title: 'Area Report',
         description:
-          'For users researching a home purchase and wanting clearer insight into local area quality, transport, affordability, and property context.',
+          'Get a clear overview of a postcode area using local data, scores, and comparisons.',
         highlights: [
-          'Local area overview',
-          'Safety and livability context',
-          'Affordability and property context',
+          'Local safety and affordability context',
+          'Transport, schools, and amenities',
+          'RoomReview scores and nearby postcode comparison',
         ],
-        ctaText: 'Select Buyer Report',
-      },
-      {
-        type: 'investor',
-        title: 'Investor Report',
-        description:
-          'For users reviewing a property from an investment perspective, including rental demand, price trends, local market context, and planning context.',
-        highlights: [
-          'Rental and demand context',
-          'Price trends and comparables',
-          'Planning and development pipeline',
-        ],
-        ctaText: 'Select Investor Report',
+        ctaText: 'Generate Area Report',
       },
     ],
-    compareReportsText: 'Compare Reports',
+    compareReportsText: 'How area reports are built',
   },
   comparisonSection: {
-    heading: 'How RoomReview builds its reports',
+    heading: 'Your area report at a glance',
     reports: [
       {
         type: 'buyer',
-        title: 'Buyer report',
+        title: 'Local area insights',
         description:
-          'Built around what matters when choosing where to live, from amenities and travel to comfort and risk levels.',
+          'A postcode-based overview of the local area, bringing together key context on safety, affordability, transport, amenities, and RoomReview scores.',
         bestForList: [
-          'Renters and first-time buyers',
-          'People comparing neighbourhood options',
-          'Household lifestyle and commute decisions',
-        ],
-      },
-      {
-        type: 'investor',
-        title: 'Investor report',
-        description:
-          'Focused on value, demand, and longer-term market signals for strategic property decisions.',
-        bestForList: [
-          'Buy-to-let investors',
-          'Property founders',
-          'Landlords and developers',
+          'Understanding a postcode area',
+          'Comparing nearby postcodes',
+          'Reviewing local data in one report',
         ],
       },
     ],
@@ -118,7 +99,7 @@ export const defaultReportPageContent: RoomReviewPageProps = {
     inclusions: [
       {
         type: 'buyer',
-        title: 'Buyer Report includes:',
+        title: 'Area Report includes:',
         items: [
           'Property context',
           'Indicative market range',
@@ -132,39 +113,23 @@ export const defaultReportPageContent: RoomReviewPageProps = {
           'Data sources and important information',
         ],
       },
-      {
-        type: 'investor',
-        title: 'Investor Report includes:',
-        items: [
-          'Property and market context',
-          'Indicative market range',
-          'Historical price trends',
-          'Rental market context',
-          'Planning and local area context',
-          'Transport and infrastructure context',
-          'Demographics and demand indicators',
-          'Policy and governance context',
-          'Investor score breakdown',
-          'Nearby postcode and market context',
-        ],
-      },
     ],
     disclaimerText:
-      'Report content may vary depending on available data, location, and report type.',
+      'Report content may vary depending on data availability for the selected postcode.',
   },
   workflowSection: {
     heading: 'How it works',
     steps: [
       {
         stepNumber: 1,
-        title: 'Choose your report',
-        description: 'Select either the Buyer Report or Investor Report depending on your goal.',
+        title: 'Enter a postcode',
+        description: 'Choose the postcode area you want to learn about.',
         iconName: 'Search',
       },
       {
         stepNumber: 2,
-        title: 'Enter your property details',
-        description: 'Provide the key property information needed to generate a more relevant report.',
+        title: 'Review area insights',
+        description: 'RoomReview brings together available postcode and local-area data.',
         iconName: 'PenTool',
       },
       {
@@ -184,8 +149,8 @@ export const defaultReportPageContent: RoomReviewPageProps = {
         iconName: 'Building',
       },
       {
-        title: 'Property and postcode analysis',
-        description: 'Detailed insights at multiple geographic levels.',
+        title: 'Postcode area analysis',
+        description: 'Local insights at postcode and borough level.',
         iconName: 'MapPin',
       },
       {
@@ -290,19 +255,19 @@ export const defaultReportPageContent: RoomReviewPageProps = {
     faqs: [
       {
         id: 'faq-1',
-        question: 'What is the difference between the Buyer Report and the Investor Report?',
+        question: 'What does an Area Report include?',
         answer:
-          'The Buyer Report focuses on local living conditions, affordability, transport, safety and property fit; the Investor Report looks at rental demand, price trends, market context, and investment potential.',
+          'It brings together available local information such as safety, affordability, transport, amenities, RoomReview scores, and comparisons with nearby postcodes.',
       },
       {
         id: 'faq-2',
         question: 'What information do I need to complete the form?',
         answer:
-          'You can usually provide a postcode, area information, property type, bedrooms, budget, and any notes relevant to your goals.',
+          'Enter the postcode for the area you want to explore. No property details are required.',
       },
       {
         id: 'faq-3',
-        question: 'Are the reports based on official data?',
+        question: 'Are Area Reports based on official data?',
         answer:
           'Yes. They use a mix of official public datasets, licensed sources, and RoomReview analysis to provide a clearer market picture.',
       },
@@ -322,67 +287,115 @@ export const defaultReportPageContent: RoomReviewPageProps = {
   },
   formSchema: {
     buyer: [
-      { name: 'fullName', label: 'Property Address or Postcode *', type: 'text', placeholder: 'Enter address or postcode', required: true, halfWidth: false },
-      { name: 'email', label: 'Property type *', type: 'select', required: true, options: [{ label: 'Flat', value: 'flat' }, { label: 'House', value: 'house' }, { label: 'Studio', value: 'studio' }], halfWidth: true },
-      { name: 'propertyType', label: 'Bedrooms *', type: 'number', placeholder: 'Number of bedrooms', required: true, halfWidth: true },
-      { name: 'budget', label: 'Bathrooms *', type: 'number', placeholder: 'Number of bathrooms', required: true, halfWidth: true },
-      { name: 'postcode', label: 'Floor Area (sq ft) *', type: 'number', placeholder: 'Square footage', required: true, halfWidth: true },
-      { name: 'notes', label: 'Tenure *', type: 'select', required: true, options: [{ label: 'Freehold', value: 'freehold' }, { label: 'Leasehold', value: 'leasehold' }, { label: 'Unknown', value: 'unknown' }], halfWidth: true },
-      { name: 'yearBuilt', label: 'Year Built', type: 'number', placeholder: 'e.g. 1995', required: false, halfWidth: true },
-      { name: 'condition', label: 'Condition', type: 'text', placeholder: 'Condition', required: false, halfWidth: true },
-      { name: 'parking', label: 'Parking', type: 'text', placeholder: 'Parking', required: false, halfWidth: true },
-      { name: 'garden', label: 'Garden / Outdoor Space', type: 'text', placeholder: 'Garden / Outdoor Space', required: false, halfWidth: true },
-      { name: 'leaseYears', label: 'Lease Years Remaining (if leasehold)', type: 'text', placeholder: 'Years remaining', required: false, halfWidth: true },
-      { name: 'serviceCharge', label: 'Service Charge / Ground Rent (optional)', type: 'text', placeholder: '£ per year', required: false, halfWidth: true },
-      { name: 'buyerPriority', label: 'Buyer Priority', type: 'text', placeholder: 'Priority', required: false },
+      { name: 'propertyAddress', label: 'Postcode *', type: 'text', placeholder: 'e.g. N1 9GU', required: true, halfWidth: false },
     ],
-    investor: [
-      { name: 'propertyAddress', label: 'Property Address or Postcode *', type: 'text', placeholder: 'Enter address or postcode', required: true, halfWidth: false },
-      { name: 'propertyType', label: 'Property Type *', type: 'select', required: true, options: [{ label: 'Flat', value: 'flat' }, { label: 'House', value: 'house' }, { label: 'Studio', value: 'studio' }], halfWidth: true },
-      { name: 'bedrooms', label: 'Bedrooms *', type: 'number', placeholder: 'Number of bedrooms', required: true, halfWidth: true },
-      { name: 'bathrooms', label: 'Bathrooms *', type: 'number', placeholder: 'Number of bathrooms', required: true, halfWidth: true },
-      { name: 'floorArea', label: 'Floor Area (sq ft) *', type: 'number', placeholder: 'Square footage', required: true, halfWidth: true },
-      { name: 'tenure', label: 'Tenure *', type: 'select', required: true, options: [{ label: 'Freehold', value: 'freehold' }, { label: 'Leasehold', value: 'leasehold' }, { label: 'Unknown', value: 'unknown' }], halfWidth: true },
-      { name: 'epcRating', label: 'EPC Rating (if known) *', type: 'text', placeholder: 'EPC rating', required: true, halfWidth: true },
-      { name: 'yearBuilt', label: 'Year Built', type: 'number', placeholder: 'e.g. 1995', required: false, halfWidth: true },
-      { name: 'parking', label: 'Parking', type: 'text', placeholder: 'Parking', required: false, halfWidth: true },
-      { name: 'garden', label: 'Garden / Outdoor Space', type: 'text', placeholder: 'Garden / Outdoor Space', required: false, halfWidth: true },
-      { name: 'leaseYears', label: 'Lease Years Remaining (if leasehold)', type: 'text', placeholder: 'Years remaining', required: false, halfWidth: true },
-      { name: 'serviceCharge', label: 'Service Charge / Ground Rent (if relevant)', type: 'text', placeholder: '£ per year', required: false, halfWidth: true },
-      { name: 'currentRent', label: 'Current Monthly Rent (if already let)', type: 'text', placeholder: '£ per month', required: false, halfWidth: false },
-      { name: 'strategy', label: 'Investor Strategy', type: 'text', placeholder: 'Investor strategy', required: false, halfWidth: false },
-    ],
-  },
-  onSubmitReportRequest: (type: ReportType, formData: Record<string, unknown>) => {
-    console.info('Report request submitted', { type, formData });
+    investor: [],
   },
 };
 
 export const RoomReviewPage: React.FC<RoomReviewPageProps> = ({
-  hero = defaultReportPageContent.hero,
-  selectionSection = defaultReportPageContent.selectionSection,
-  comparisonSection = defaultReportPageContent.comparisonSection,
-  inclusionsSection = defaultReportPageContent.inclusionsSection,
-  workflowSection = defaultReportPageContent.workflowSection,
-  methodologySection = defaultReportPageContent.methodologySection,
-  dataSourcesSection = defaultReportPageContent.dataSourcesSection,
-  importantInfoSection = defaultReportPageContent.importantInfoSection,
-  faqSection = defaultReportPageContent.faqSection,
-  formSchema = defaultReportPageContent.formSchema,
-  onSubmitReportRequest = defaultReportPageContent.onSubmitReportRequest,
+  hero = defaultReportPageContent.hero!,
+  selectionSection = defaultReportPageContent.selectionSection!,
+  comparisonSection = defaultReportPageContent.comparisonSection!,
+  inclusionsSection = defaultReportPageContent.inclusionsSection!,
+  workflowSection = defaultReportPageContent.workflowSection!,
+  methodologySection = defaultReportPageContent.methodologySection!,
+  dataSourcesSection = defaultReportPageContent.dataSourcesSection!,
+  importantInfoSection = defaultReportPageContent.importantInfoSection!,
+  faqSection = defaultReportPageContent.faqSection!,
+  formSchema = defaultReportPageContent.formSchema!,
+  onSubmitReportRequest,
   onNavigateToSection,
 }) => {
-  const [activeFormTab, setActiveFormTab] = useState<ReportType>('investor');
+  const navigate = useNavigate();
+  const { isAuthenticated, user } = useAuth();
   const [formData, setFormData] = useState<Record<string, unknown>>({});
+  const [agencyBranding, setAgencyBranding] = useState({
+    companyName: '',
+    firstName: '',
+    lastName: '',
+    logoDataUrl: '',
+  });
+  const [logoError, setLogoError] = useState<string | null>(null);
   const [openFaqId, setOpenFaqId] = useState<string | null>(null);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+
+  const handleLogoChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    setLogoError(null);
+    if (!file) {
+      setAgencyBranding((previous) => ({ ...previous, logoDataUrl: '' }));
+      return;
+    }
+
+    if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type)) {
+      setLogoError('Choose a PNG, JPG, or WebP image.');
+      setAgencyBranding((previous) => ({ ...previous, logoDataUrl: '' }));
+      event.target.value = '';
+      return;
+    }
+    if (file.size > 64 * 1024) {
+      setLogoError('The logo file must be 64 KB or smaller.');
+      setAgencyBranding((previous) => ({ ...previous, logoDataUrl: '' }));
+      event.target.value = '';
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === 'string') {
+        setAgencyBranding((previous) => ({ ...previous, logoDataUrl: reader.result }));
+      } else {
+        setAgencyBranding((previous) => ({ ...previous, logoDataUrl: '' }));
+        setLogoError('The logo could not be read. Please select another image.');
+      }
+    };
+    reader.onerror = () => {
+      setAgencyBranding((previous) => ({ ...previous, logoDataUrl: '' }));
+      setLogoError('The logo could not be read. Please select another image.');
+    };
+    reader.readAsDataURL(file);
+  };
 
   const handleInputChange = (field: string, value: unknown) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
-  const handleFormSubmit = (e: React.FormEvent) => {
+  const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    onSubmitReportRequest(activeFormTab, formData);
+    setSubmitError(null);
+    onSubmitReportRequest?.('buyer', formData);
+    setIsGenerating(true);
+
+    try {
+      const creditCheck = await paymentService.ensureReportCreditsAvailable(isAuthenticated);
+
+      if (!creditCheck.allowed) {
+        throw new Error('Not enough report credits.');
+      }
+
+      const reportData = await generateBuyerReport(formData);
+      const trimmedBranding = {
+        companyName: agencyBranding.companyName.trim(),
+        firstName: agencyBranding.firstName.trim(),
+        lastName: agencyBranding.lastName.trim(),
+        logoDataUrl: agencyBranding.logoDataUrl,
+      };
+      if (Object.values(trimmedBranding).some(Boolean)) {
+        reportData.agencyBranding = trimmedBranding;
+      }
+      if (isAuthenticated) {
+        await scoreReportService.createAndGenerateForPostcode(String(formData.propertyAddress ?? ''), 'buyer', reportData);
+      } else {
+        paymentService.consumeGuestReportCredit();
+      }
+      navigate('/report/view', { state: { reportData } });
+    } catch (error) {
+      setSubmitError(error instanceof Error ? error.message : 'Unable to generate the report. Please try again.');
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
   const toggleFaq = (id: string) => {
@@ -392,6 +405,14 @@ export const RoomReviewPage: React.FC<RoomReviewPageProps> = ({
   const renderIcon = (iconName?: string, defaultIcon: LucideIcon = FileText, className = 'w-5 h-5') => {
     const Component = (iconName && IconMap[iconName]) || defaultIcon;
     return <Component className={className} />;
+  };
+
+  const navigateToSection = (sectionId: string) => {
+    if (onNavigateToSection) {
+      onNavigateToSection(sectionId);
+      return;
+    }
+    document.getElementById(sectionId)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
   };
 
   return (
@@ -411,14 +432,14 @@ export const RoomReviewPage: React.FC<RoomReviewPageProps> = ({
           <div className="mt-8 flex items-center justify-center gap-3">
             <button
               type="button"
-              onClick={() => onNavigateToSection?.('reports')}
+              onClick={() => navigateToSection('form')}
               className="rounded-full bg-[#8B0000] px-6 py-2.5 text-xs font-semibold text-white shadow-sm transition hover:bg-[#6f0000]"
             >
               {hero.exploreButtonText}
             </button>
             <button
               type="button"
-              onClick={() => onNavigateToSection?.('how-it-works')}
+              onClick={() => navigateToSection('how-it-works')}
               className="rounded-full border border-[#8B0000] bg-white px-6 py-2.5 text-xs font-semibold text-[#8B0000] transition hover:bg-[#fff2f2]"
             >
               {hero.howItWorksButtonText}
@@ -442,7 +463,7 @@ export const RoomReviewPage: React.FC<RoomReviewPageProps> = ({
             {selectionSection.heading}
           </h2>
 
-          <div className="mt-8 grid gap-6 md:grid-cols-2">
+          <div className="mx-auto mt-8 grid max-w-xl gap-6">
             {selectionSection.options.map((option) => (
               <div
                 key={option.type}
@@ -469,8 +490,7 @@ export const RoomReviewPage: React.FC<RoomReviewPageProps> = ({
                 <button
                   type="button"
                   onClick={() => {
-                    setActiveFormTab(option.type);
-                    onNavigateToSection?.('form');
+                    navigateToSection('form');
                   }}
                   className="mt-7 w-full rounded-xl bg-[#8B0000] py-3 text-xs font-bold uppercase tracking-wide text-white transition hover:bg-[#6f0000]"
                 >
@@ -483,7 +503,7 @@ export const RoomReviewPage: React.FC<RoomReviewPageProps> = ({
           <div className="mt-6 text-center">
             <button
               type="button"
-              onClick={() => onNavigateToSection?.('comparison')}
+              onClick={() => navigateToSection('comparison')}
               className="text-xs font-semibold text-[#8B0000] underline-offset-2 hover:underline"
             >
               {selectionSection.compareReportsText}
@@ -599,10 +619,10 @@ export const RoomReviewPage: React.FC<RoomReviewPageProps> = ({
 
         <section className="mt-20">
           <h2 className="text-center text-[2rem] font-light tracking-[-0.04em] text-[#1F2D3D]">
-            Which report is right for you?
+            Your area report at a glance
           </h2>
 
-          <div className="mt-8 grid gap-6 md:grid-cols-2">
+          <div className="mx-auto mt-8 grid max-w-2xl gap-6">
             {comparisonSection.reports.map((report) => (
               <div key={report.type} className="rounded-[18px] border border-[#D9DFE8] bg-white p-6 shadow-sm">
                 <h3 className="text-xl font-semibold text-[#1F2D3D]">{report.title}</h3>
@@ -629,7 +649,7 @@ export const RoomReviewPage: React.FC<RoomReviewPageProps> = ({
             {inclusionsSection.heading}
           </h2>
 
-          <div className="mt-8 grid gap-6 md:grid-cols-2">
+          <div className="mx-auto mt-8 grid max-w-2xl gap-6">
             {inclusionsSection.inclusions.map((inc) => (
               <div key={inc.type} className="rounded-[18px] border border-[#D9DFE8] bg-white p-6 shadow-sm">
                 <h3 className="text-lg font-semibold text-[#1F2D3D]">{inc.title}</h3>
@@ -650,35 +670,16 @@ export const RoomReviewPage: React.FC<RoomReviewPageProps> = ({
           </p>
         </section>
 
-        <section id="form" className="mt-20 mx-auto max-w-[760px]">
+        <section id="form" className="mx-auto mt-20 max-w-[760px]">
           <div className="overflow-hidden rounded-[0px] border border-[#D7D9DB] bg-white shadow-none">
-            <div className="grid grid-cols-2 bg-white text-[#1F2D3D]">
-              {(['buyer', 'investor'] as ReportType[]).map((type) => (
-                <button
-                  key={type}
-                  type="button"
-                  onClick={() => setActiveFormTab(type)}
-                  className={`px-4 py-3 text-[13px] font-semibold transition-colors ${
-                    activeFormTab === type
-                      ? 'bg-[#8B0000] text-white'
-                      : 'bg-white text-[#1F2D3D]'
-                  }`}
-                >
-                  {type === 'buyer' ? 'Buyer Report' : 'Investor Report'}
-                </button>
-              ))}
-            </div>
-
             <form onSubmit={handleFormSubmit} className="bg-white p-6 md:p-8">
-              <h3 className="text-[22px] font-light text-[#1F2D3D]">
-                {activeFormTab === 'buyer' ? 'Buyer Report Request' : 'Investor Report Request'}
-              </h3>
+              <h3 className="text-[22px] font-light text-[#1F2D3D]">Generate an Area Report</h3>
               <p className="mt-2 text-[12px] text-[#516078]">
-                Complete the details below to generate an Investor Report tailored to the property and local market context.
+                Enter a postcode to create a report about its local area. No property details are needed.
               </p>
 
-              <div className="mt-6 grid gap-4 md:grid-cols-2">
-                {(formSchema[activeFormTab] || []).map((field: FormFieldConfig) => (
+              <div className="mt-6 grid gap-4">
+                {formSchema.buyer.map((field: FormFieldConfig) => (
                   <div key={field.name} className={field.halfWidth ? 'col-span-1' : 'md:col-span-2'}>
                     <label className="mb-1 block text-[12px] font-semibold text-[#2A3542]">
                       {field.label}
@@ -719,11 +720,70 @@ export const RoomReviewPage: React.FC<RoomReviewPageProps> = ({
                 ))}
               </div>
 
+              <fieldset className="mt-6 rounded-xl border border-[#E5DCD8] p-4">
+                <legend className="px-2 text-sm font-semibold text-[#1F2D3D]">Optional agency branding</legend>
+                <p className="mb-4 text-xs leading-5 text-[#516078]">
+                  Add the details you want displayed on this report. Leave any field blank to omit it.
+                </p>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="sm:col-span-2">
+                    <label htmlFor="agency-logo" className="mb-1 block text-[12px] font-semibold text-[#2A3542]">
+                      Agency logo
+                    </label>
+                    <input
+                      id="agency-logo"
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp"
+                      onChange={handleLogoChange}
+                      className="w-full rounded-[6px] border border-[#D9D5D1] bg-white px-3 py-2 text-xs text-[#1F2D3D]"
+                    />
+                    <p className="mt-1 text-[11px] text-slate-500">PNG, JPG, or WebP; maximum 64 KB.</p>
+                    {logoError && <p className="mt-1 text-xs text-red-700" role="alert">{logoError}</p>}
+                  </div>
+                  <div>
+                    <label htmlFor="agency-company-name" className="mb-1 block text-[12px] font-semibold text-[#2A3542]">
+                      Company name
+                    </label>
+                    <input
+                      id="agency-company-name"
+                      value={agencyBranding.companyName}
+                      onChange={(event) => setAgencyBranding((previous) => ({ ...previous, companyName: event.target.value }))}
+                      className="w-full rounded-[6px] border border-[#D9D5D1] bg-white px-3 py-2.5 text-[12px] text-[#1F2D3D] outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="agency-first-name" className="mb-1 block text-[12px] font-semibold text-[#2A3542]">
+                      First name
+                    </label>
+                    <input
+                      id="agency-first-name"
+                      value={agencyBranding.firstName}
+                      onChange={(event) => setAgencyBranding((previous) => ({ ...previous, firstName: event.target.value }))}
+                      className="w-full rounded-[6px] border border-[#D9D5D1] bg-white px-3 py-2.5 text-[12px] text-[#1F2D3D] outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="agency-last-name" className="mb-1 block text-[12px] font-semibold text-[#2A3542]">
+                      Last name
+                    </label>
+                    <input
+                      id="agency-last-name"
+                      value={agencyBranding.lastName}
+                      onChange={(event) => setAgencyBranding((previous) => ({ ...previous, lastName: event.target.value }))}
+                      className="w-full rounded-[6px] border border-[#D9D5D1] bg-white px-3 py-2.5 text-[12px] text-[#1F2D3D] outline-none"
+                    />
+                  </div>
+                </div>
+              </fieldset>
+
+              {submitError && <p role="alert" className="mt-4 text-sm text-red-700">{submitError}</p>}
+
               <button
                 type="submit"
+                disabled={isGenerating}
                 className="mt-8 w-full rounded-[6px] bg-[#8B0000] py-3 text-xs font-bold uppercase tracking-wide text-white transition hover:bg-[#6f0000]"
               >
-                Generate {activeFormTab === 'buyer' ? 'Buyer' : 'Investor'} Report
+                {isGenerating ? 'Generating Area Report...' : 'Generate Area Report'}
               </button>
             </form>
           </div>

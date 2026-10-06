@@ -1,4 +1,5 @@
 import { useEffect, useState, type FC } from 'react';
+import { useNavigate } from 'react-router-dom';
 import heroImage from '@img/homepage2.jpg';
 import experienceImage from '@img/homepage3.jpg';
 import firstImage from '@img/Tenant tips & Area highlights1.jpg';
@@ -9,52 +10,124 @@ import { boroughService } from '@/services/borough.service';
 import type { BoroughApiResponse } from '@/types/borough.types';
 
 export const LandingPage: FC = () => {
+  const navigate = useNavigate();
+  const [activeChart, setActiveChart] = useState<'prices' | 'safety' | 'transport'>('prices');
   const [searchQuery, setSearchQuery] = useState('');
   const [boroughData, setBoroughData] = useState<BoroughApiResponse | null>(null);
+  const [boroughs, setBoroughs] = useState<Array<{ boroughId: string; name: string; slug: string }>>([]);
 
   useEffect(() => {
     const loadDashboardData = async () => {
       try {
-        const boroughs = await boroughService.getAll();
-        const selectedBorough = boroughs.find((borough) => borough.name.toLowerCase() === 'hackney') ?? boroughs[0];
+        const boroughsList = await boroughService.getAll();
+        setBoroughs(boroughsList);
+
+        const selectedBorough = boroughsList.find((borough) => borough.name.toLowerCase() === 'hackney') ?? boroughsList[0];
 
         if (selectedBorough) {
           setBoroughData(await boroughService.getById(selectedBorough.boroughId));
         }
       } catch {
         setBoroughData(null);
+        setBoroughs([]);
       }
     };
 
     void loadDashboardData();
   }, []);
 
-  const propertyValues = (boroughData?.propertyValueData ?? [])
-    .map((item) => ({ label: item.label, value: Number(item.value) }))
-    .filter((item) => Number.isFinite(item.value) && item.value > 0)
-    .slice(-6);
+  const handleBoroughSearch = () => {
+    const trimmedQuery = searchQuery.trim();
+    if (!trimmedQuery) return;
+
+    const normalizedQuery = trimmedQuery.toLowerCase();
+    const exactMatch = boroughs.find((borough) => (
+      borough.name.trim().toLowerCase() === normalizedQuery
+      || borough.slug.trim().toLowerCase() === normalizedQuery
+    ));
+
+    if (exactMatch) {
+      navigate(`/borough/${exactMatch.boroughId}`);
+      return;
+    }
+
+    const partialMatch = boroughs.find((borough) => (
+      borough.name.toLowerCase().includes(normalizedQuery)
+      || borough.slug.toLowerCase().includes(normalizedQuery)
+    ));
+
+    if (partialMatch) {
+      navigate(`/borough/${partialMatch.boroughId}`);
+      return;
+    }
+
+    navigate('/area-search');
+  };
+
+  const propertyValues = (() => {
+    const priceRows = boroughData?.priceTrendData ?? [];
+    if (priceRows.length > 0) {
+      const yearlyPrices = new Map<number, { total: number; count: number }>();
+      for (const row of priceRows) {
+        const year = Number(row.year);
+        const value = Number(row.value);
+        if (!Number.isFinite(year) || !Number.isFinite(value) || value <= 0) continue;
+        const current = yearlyPrices.get(year) ?? { total: 0, count: 0 };
+        current.total += value;
+        current.count += 1;
+        yearlyPrices.set(year, current);
+      }
+      return [...yearlyPrices.entries()]
+        .sort(([leftYear], [rightYear]) => leftYear - rightYear)
+        .map(([year, { total, count }]) => ({ label: String(year), value: total / count }));
+    }
+
+    return (boroughData?.propertyValueData ?? [])
+      .map((item) => ({
+        label: String(item.label ?? ''),
+        value: Number(item.value),
+        year: Number(String(item.label ?? '').match(/(\d{4})/)?.[1] ?? 0),
+      }))
+      .filter((item) => !/^yoy growth/i.test(item.label) && Number.isFinite(item.value) && item.value > 0 && item.year > 0)
+      .sort((left, right) => left.year - right.year)
+      .map(({ year, value }) => ({ label: String(year), value }));
+  })();
   const latestPropertyValue = propertyValues[propertyValues.length - 1]?.value;
   const averageRent = boroughData?.rentData?.find((item) => item.type.toLowerCase() === 'average')?.rent;
   const crimeRate = boroughData?.crimeData?.find((item) => item.label.toLowerCase().includes('total'))?.value;
   const totalDwellings = boroughData?.housingStockData?.find((item) => item.label === 'Total dwellings')?.value;
+  const chartSeries = activeChart === 'safety'
+    ? (boroughData?.crimeTrendData ?? []).map((item) => ({ label: String(item.year), value: item.totalCrimesPer1000 }))
+    : activeChart === 'prices'
+      ? propertyValues
+      : [];
+  const chartTitle = activeChart === 'prices'
+    ? 'Property price trend'
+    : activeChart === 'safety'
+      ? 'Crime rate trend (per 1,000)'
+      : 'Transport trend';
+  const chartValueFormat = activeChart === 'prices'
+    ? (value: number) => `£${Math.round(value / 1000)}k`
+    : (value: number) => value.toLocaleString('en-GB', { maximumFractionDigits: 1 });
   const formatCurrency = (value: number | undefined) => value === undefined
     ? 'Unavailable'
     : new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP', maximumFractionDigits: 0 }).format(value);
   const formatNumber = (value: number | undefined) => value === undefined
     ? 'Unavailable'
     : new Intl.NumberFormat('en-GB', { maximumFractionDigits: 0 }).format(value);
-  const chartMin = 450000;
-  const chartMax = 600000;
+  const chartValues = chartSeries.map((item) => item.value).filter((value) => Number.isFinite(value) && value >= 0);
+  const chartMin = chartValues.length > 0 ? Math.min(...chartValues) : 0;
+  const chartMax = chartValues.length > 0 ? Math.max(...chartValues) : 1;
+  const chartRange = chartMax - chartMin || Math.max(chartMax * 0.1, 1);
   const chartPlotLeft = 42;
   const chartPlotRight = 500;
   const chartPlotTop = 10;
   const chartPlotBottom = 110;
-  const chartTicks = [600000, 530000, 490000, 450000];
-  const chartPath = propertyValues.length > 1
-    ? propertyValues.map((item, index) => {
-        const x = chartPlotLeft + (index / (propertyValues.length - 1)) * (chartPlotRight - chartPlotLeft);
-        const boundedValue = Math.min(chartMax, Math.max(chartMin, item.value));
-        const y = chartPlotBottom - ((boundedValue - chartMin) / (chartMax - chartMin)) * (chartPlotBottom - chartPlotTop);
+  const chartTicks = [chartMax, chartMin + chartRange * 2 / 3, chartMin + chartRange / 3, chartMin];
+  const chartPath = chartSeries.length > 1
+    ? chartSeries.map((item, index) => {
+        const x = chartPlotLeft + (index / (chartSeries.length - 1)) * (chartPlotRight - chartPlotLeft);
+        const y = chartPlotBottom - ((item.value - chartMin) / chartRange) * (chartPlotBottom - chartPlotTop);
         return `${index === 0 ? 'M' : 'L'} ${x} ${y}`;
       }).join(' ')
     : '';
@@ -140,12 +213,19 @@ export const LandingPage: FC = () => {
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') {
+                      event.preventDefault();
+                      handleBoroughSearch();
+                    }
+                  }}
                   placeholder="Search boroughs (e.g. Camden, Hackney)"
                   className="w-full rounded-xl border border-gray-200 py-3 pl-10 pr-4 text-xs shadow-sm transition focus:border-[#8B0000] focus:outline-none focus:ring-1 focus:ring-[#8B0000]"
                 />
               </div>
               <button
                 type="button"
+                onClick={handleBoroughSearch}
                 className="rounded-xl bg-[#8B0000] px-6 py-3 text-xs font-bold uppercase tracking-wider text-white shadow-md transition hover:bg-[#700000]"
               >
                 Explore the Area
@@ -341,10 +421,18 @@ export const LandingPage: FC = () => {
                 Have you had a great (or terrible) renting experience in London? Share your story with RoomReview. We'll turn it into an anonymous social media Reel to spread awareness and protect other tenants from scams, hidden fees, and bad landlords.
               </p>
               <div className="flex flex-wrap items-center gap-3 pt-1">
-                <button className="rounded-lg bg-[#8B0000] px-4 py-2 text-[11px] font-bold uppercase text-white shadow transition hover:bg-[#700000]">
+                <button
+                  type="button"
+                  onClick={() => navigate('/reviews')}
+                  className="rounded-lg bg-[#8B0000] px-4 py-2 text-[11px] font-bold uppercase text-white shadow transition hover:bg-[#700000]"
+                >
                   Write a Review
                 </button>
-                <button className="rounded-lg border-2 border-[#1A2B3C] bg-white px-4 py-2 text-[11px] font-bold uppercase text-[#1A202C] transition hover:bg-gray-50">
+                <button
+                  type="button"
+                  onClick={() => navigate('/reviews')}
+                  className="rounded-lg border-2 border-[#1A2B3C] bg-white px-4 py-2 text-[11px] font-bold uppercase text-[#1A202C] transition hover:bg-gray-50"
+                >
                   Read Reviews
                 </button>
               </div>
@@ -386,27 +474,39 @@ export const LandingPage: FC = () => {
               <p className="text-[10px] text-gray-400">Latest figures from the RoomReview database</p>
             </div>
             <div className="flex gap-2">
-              <span className="rounded-lg bg-[#1A202C] px-3 py-1 text-[10px] font-semibold text-white">Prices</span>
-              <span className="rounded-lg bg-gray-100 px-3 py-1 text-[10px] font-semibold text-gray-600 hover:bg-gray-200 cursor-pointer">Safety</span>
-              <span className="rounded-lg bg-gray-100 px-3 py-1 text-[10px] font-semibold text-gray-600 hover:bg-gray-200 cursor-pointer">Transport</span>
-              <span className="rounded-lg bg-gray-100 px-3 py-1 text-[10px] font-semibold text-gray-600 hover:bg-gray-200 cursor-pointer">Development</span>
+              {([
+                ['prices', 'Prices'],
+                ['safety', 'Safety'],
+                ['transport', 'Transport'],
+              ] as const).map(([value, label]) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => setActiveChart(value)}
+                  className={activeChart === value
+                    ? 'rounded-lg bg-[#1A202C] px-3 py-1 text-[10px] font-semibold text-white'
+                    : 'rounded-lg bg-gray-100 px-3 py-1 text-[10px] font-semibold text-gray-600 hover:bg-gray-200'}
+                >
+                  {label}
+                </button>
+              ))}
             </div>
           </div>
 
           <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
             {/* Chart Column */}
             <div className="lg:col-span-2 space-y-2">
-                <span className="text-[10px] font-bold uppercase text-gray-400">Property price trend</span>
+              <span className="text-[10px] font-bold uppercase text-gray-400">{chartTitle}</span>
               
               {/* SVG Line Chart Representation */}
               <div className="h-56 w-full pt-4">
-                <svg className="h-full w-full overflow-visible" viewBox="0 0 530 150" role="img" aria-label="Average property price trend">
+                <svg className="h-full w-full overflow-visible" viewBox="0 0 530 150" role="img" aria-label={chartTitle}>
                   {chartTicks.map((tick) => {
-                    const y = chartPlotBottom - ((tick - chartMin) / (chartMax - chartMin)) * (chartPlotBottom - chartPlotTop);
+                    const y = chartPlotBottom - ((tick - chartMin) / chartRange) * (chartPlotBottom - chartPlotTop);
 
                     return (
                       <g key={tick}>
-                        <text x="0" y={y + 3} fill="#94A3B8" fontSize="8">£{tick / 1000}k</text>
+                        <text x="0" y={y + 3} fill="#94A3B8" fontSize="8">{chartValueFormat(tick)}</text>
                         <line x1={chartPlotLeft} y1={y} x2={chartPlotRight} y2={y} stroke="#F1F5F9" strokeDasharray="2 3" />
                       </g>
                     );
@@ -414,7 +514,11 @@ export const LandingPage: FC = () => {
                   {chartPath && <path d={chartPath} fill="none" stroke="#8B0000" strokeWidth="3" />}
                 </svg>
                 <div className="ml-[8%] flex justify-between pt-2 text-[10px] text-gray-400">
-                  {propertyValues.length > 0 ? propertyValues.map((item, index) => <span key={`${item.label}-${index}`}>{item.label}</span>) : <span>No property price data</span>}
+                  {chartSeries.length > 0
+                    ? chartSeries.map((item, index) => (
+                        <span key={`${item.label}-${index}`}>{item.label}</span>
+                      ))
+                    : <span>{activeChart === 'transport' ? 'Transport trend data unavailable' : 'No data available'}</span>}
                 </div>
               </div>
             </div>
@@ -462,7 +566,11 @@ export const LandingPage: FC = () => {
         </div>
 
         <div className="flex items-center gap-4 pt-2">
-          <button className="rounded-xl bg-[#8B0000] px-6 py-3 text-xs font-bold uppercase tracking-wider text-white shadow-md transition hover:bg-[#700000]">
+          <button
+            type="button"
+            onClick={() => navigate('/data-sources')}
+            className="rounded-xl bg-[#8B0000] px-6 py-3 text-xs font-bold uppercase tracking-wider text-white shadow-md transition hover:bg-[#700000]"
+          >
             Explore Our Data
           </button>
           <p className="text-[10px] text-gray-400 max-w-[300px] leading-tight">
@@ -526,10 +634,18 @@ export const LandingPage: FC = () => {
             Search an area, explore the evidence and understand the property before you commit.
           </p>
           <div className="flex flex-wrap justify-center gap-4 pt-2">
-            <button className="rounded-xl bg-[#8B0000] px-6 py-3 text-xs font-bold uppercase tracking-wider text-white shadow transition hover:bg-[#700000]">
+            <button
+              type="button"
+              onClick={() => navigate('/area-search')}
+              className="rounded-xl bg-[#8B0000] px-6 py-3 text-xs font-bold uppercase tracking-wider text-white shadow transition hover:bg-[#700000]"
+            >
               Explore the Area
             </button>
-            <button className="rounded-xl border border-gray-300 bg-white px-6 py-3 text-xs font-bold uppercase tracking-wider text-[#1A202C] shadow-sm transition hover:bg-gray-50">
+            <button
+              type="button"
+              onClick={() => navigate('/report')}
+              className="rounded-xl border border-gray-300 bg-white px-6 py-3 text-xs font-bold uppercase tracking-wider text-[#1A202C] shadow-sm transition hover:bg-gray-50"
+            >
               Value a Property
             </button>
           </div>
@@ -540,7 +656,13 @@ export const LandingPage: FC = () => {
       <section className="mx-auto max-w-[1100px] px-6 py-16 space-y-8">
         <div className="flex items-center justify-between">
           <h2 className="text-2xl font-bold tracking-tight text-[#1A202C]">Recent blogs</h2>
-          <a href="#blogs" className="text-xs font-semibold text-blue-600 hover:underline">View all</a>
+          <button
+            type="button"
+            onClick={() => navigate('/blog')}
+            className="text-xs font-semibold text-blue-600 hover:underline"
+          >
+            View all
+          </button>
         </div>
 
         <div className="grid grid-cols-1 gap-6 md:grid-cols-3">

@@ -5,7 +5,7 @@ const Footer = () => {
   return (
     <footer className="bg-[#071424] text-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-        <div className="grid gap-10 sm:grid-cols-2 xl:grid-cols-[1.4fr_1fr_1fr_1fr_1fr]">
+        <div className="grid gap-10 sm:grid-cols-2 xl:grid-cols-[1.4fr_1fr_1fr_1fr]">
           <div className="space-y-4">
             <div className="flex items-center justify-start">
               <img src={roomReviewLogo} alt="RoomReview logo" className="h-12 w-12 object-contain" />
@@ -28,8 +28,10 @@ const Footer = () => {
               <li><Link to="/" className="hover:text-white">Home</Link></li>
               <li><Link to="/postcode-search" className="hover:text-white">Postcode</Link></li>
               <li><Link to="/area-search" className="hover:text-white">Borough</Link></li>
-              <li><Link to="/reviews" className="hover:text-white">Reviews</Link></li>
+              <li><Link to="/pricing" className="hover:text-white">Pricing</Link></li>
+              <li><Link to="/blog" className="hover:text-white">Blog</Link></li>
               <li><Link to="/about" className="hover:text-white">About Us</Link></li>
+              <li><Link to="/contact" className="hover:text-white">Contact Us</Link></li>
             </ul>
           </div>
 
@@ -51,7 +53,7 @@ const Footer = () => {
               <ul className="space-y-2 text-sm text-gray-400">
                 <li><Link to="/login" className="hover:text-white">Login</Link></li>
                 <li><Link to="/register" className="hover:text-white">Create Account</Link></li>
-                <li><Link to="/about" className="hover:text-white">Support</Link></li>
+                <li><Link to="/contact" className="hover:text-white">Contact Us</Link></li>
               </ul>
             </div>
           </div>

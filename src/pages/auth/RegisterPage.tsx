@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import AuthContainer from '../../components/layout/AuthContainer';
 import Input from '../../components/common/Input';
 import Button from '../../components/common/Button';
 import Logo from '../../components/common/Logo';
 import { H2, Body, Small } from '../../components/common/Typography';
 import { GoogleIcon, FacebookIcon } from '../../components/common/Icons';
-import backgroundImage from '../../assets/bgimage.png';
+import backgroundImage from '../../assets/bgimage.jpg';
 import { useRegister } from '@/hooks/auth/useRegister';
 import type { UserRole } from '@/types/user.types';
 
@@ -21,7 +21,9 @@ type UserType = 'user' | 'agency' | 'agent' | 'landlord';
 
 const RegisterPage = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { mutate: register, isPending, error, reset } = useRegister();
+  const subscriptionPlan = searchParams.get('subscriptionPlan');
 
   const [userType, setUserType] = useState<UserType>('user');
   const [emailError, setEmailError] = useState('');
@@ -71,7 +73,12 @@ const RegisterPage = () => {
       },
       {
         onSuccess: () => {
-          navigate(`/verify-email?email=${encodeURIComponent(formData.email)}&type=${userType}`);
+          const verificationParams = new URLSearchParams({
+            email: formData.email,
+            type: userType,
+          });
+          if (subscriptionPlan) verificationParams.set('subscriptionPlan', subscriptionPlan);
+          navigate(`/verify-email?${verificationParams.toString()}`);
         },
       },
     );
@@ -93,7 +100,10 @@ const RegisterPage = () => {
       <H2 className="mb-2 text-primary text-2xl sm:text-3xl">Create an account</H2>
       <Body className="mb-6 text-sm sm:text-base">
         Already have an account?{' '}
-        <Link to="/login" className="text-primary font-bold hover:underline">
+        <Link
+          to={subscriptionPlan ? `/login?subscriptionPlan=${encodeURIComponent(subscriptionPlan)}` : '/login'}
+          className="text-primary font-bold hover:underline"
+        >
           Sign In
         </Link>
       </Body>

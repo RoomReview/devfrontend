@@ -42,6 +42,13 @@ export interface VerifyEmailRequest {
   code: string;
 }
 
+export interface VerifyEmailResponse {
+  data: {
+    user: AuthUser;
+    session: AuthSession;
+  };
+}
+
 export interface ResendVerificationRequest {
   email: string;
 }
@@ -79,6 +86,24 @@ export interface RegisterResponse {
   data: {
     userId: string;
     email: string;
+  };
+}
+
+export interface EarlyAccessRegisterRequest {
+  firstName: string;
+  lastName: string;
+  email: string;
+  password: string;
+}
+
+export interface EarlyAccessRegisterResponse {
+  data: {
+    user: AuthUser & {
+      trialStartedAt: string;
+      trialEndsAt: string;
+    };
+    trialEndsAt: string;
+    emailSent: boolean;
   };
 }
 

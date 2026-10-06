@@ -1,91 +1,57 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { ChevronLeft, ChevronRight, Home, Plus, Shield, Star, TrendingUp } from 'lucide-react';
 import { H1, Body, Small } from '../components/common/Typography';
 import Button from '../components/common/Button';
 import heroImage from '@img/city.jpg';
-import shieldIcon from '@img/shield.png';
-import starIcon from '@img/star.png';
-import homeIcon from '@img/home.png';
-import upIcon from '@img/up.png';
+import { postcodePath } from '@/utils/helpers';
+import { postcodeService, type PostcodeListItem } from '@/services/postcode.service';
+
+const formatCurrency = (value: number) => new Intl.NumberFormat('en-GB', {
+  style: 'currency',
+  currency: 'GBP',
+  maximumFractionDigits: 0,
+}).format(value);
 
 const PostcodeSearchPage = () => {
   const [postcode, setPostcode] = useState('');
   const [error, setError] = useState('');
-  const [sortType, setSortType] = useState<'alphabetical' | 'crime' | 'price' | 'rating'>('alphabetical');
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  const [postcodes, setPostcodes] = useState<PostcodeListItem[]>([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [reloadKey, setReloadKey] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
+  const [totalPostcodes, setTotalPostcodes] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const navigate = useNavigate();
+  const pageSize = 100;
 
-  const mockResults = [
-    {
-      postcode: 'E1 6AN',
-      borough: 'Tower Hamlets',
-      crimeRating: 74,
-      avgPrice: 1850,
-      rating: 4.6,
-      reviews: 42,
-      safe: true,
-    },
-    {
-      postcode: 'SW1A 1AA',
-      borough: 'Westminster',
-      crimeRating: 34,
-      avgPrice: 2550,
-      rating: 4.9,
-      reviews: 114,
-      safe: true,
-    },
-    {
-      postcode: 'N1 9GU',
-      borough: 'Islington',
-      crimeRating: 58,
-      avgPrice: 2100,
-      rating: 4.3,
-      reviews: 28,
-      safe: true,
-    },
-    {
-      postcode: 'E2 8AA',
-      borough: 'Hackney',
-      crimeRating: 81,
-      avgPrice: 1750,
-      rating: 4.1,
-      reviews: 18,
-      safe: false,
-    },
-    {
-      postcode: 'SE1 2AA',
-      borough: 'Southwark',
-      crimeRating: 47,
-      avgPrice: 2300,
-      rating: 4.7,
-      reviews: 61,
-      safe: true,
-    },
-    {
-      postcode: 'W1A 1AA',
-      borough: 'City of Westminster',
-      crimeRating: 29,
-      avgPrice: 3200,
-      rating: 4.8,
-      reviews: 89,
-      safe: true,
-    },
-  ];
+  useEffect(() => {
+    let isCurrent = true;
+    setLoading(true);
+    setLoadError(null);
+    setPostcodes([]);
 
-  const sortedResults = [...mockResults].sort((a, b) => {
-    const direction = sortDirection === 'asc' ? 1 : -1;
+    void postcodeService.getAll(currentPage, pageSize)
+      .then((response) => {
+        if (!isCurrent) return;
+        setPostcodes(response.data);
+        setTotalPages(response.pagination.totalPages);
+        setTotalPostcodes(response.pagination.total);
+      })
+      .catch(() => {
+        if (!isCurrent) return;
+        setPostcodes([]);
+        setLoadError('Postcodes could not be loaded. Please try again.');
+      })
+      .finally(() => {
+        if (isCurrent) setLoading(false);
+      });
 
-    if (sortType === 'alphabetical') {
-      return a.postcode.localeCompare(b.postcode) * direction;
-    }
-    if (sortType === 'crime') {
-      return (a.crimeRating - b.crimeRating) * direction;
-    }
-    if (sortType === 'price') {
-      return (a.avgPrice - b.avgPrice) * direction;
-    }
-    return (a.rating - b.rating) * direction;
-  });
+    return () => {
+      isCurrent = false;
+    };
+  }, [currentPage, reloadKey]);
 
   const handleSearch = (event: React.FormEvent) => {
     event.preventDefault();
@@ -97,11 +63,11 @@ const PostcodeSearchPage = () => {
     }
 
     setError('');
-    navigate(`/postcode/${encodeURIComponent(trimmed.toUpperCase())}`);
+    navigate(postcodePath(trimmed));
   };
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-[#F7F7F7]">
       <section className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
         <div className="grid gap-12 lg:grid-cols-[0.95fr_1.05fr] items-center">
           <div>
@@ -143,78 +109,150 @@ const PostcodeSearchPage = () => {
           </div>
         </div>
 
-        <div className="mt-16 rounded-[36px] border border-[#E9E6E2] bg-[#FCFBFA] p-8 shadow-[0_20px_48px_rgba(20,22,33,0.06)]">
+        <div className="mt-16">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
-              <H1 className="text-xl font-semibold text-[#1A2B3C]">Results</H1>
-              <Body className="mt-2 text-[#4A4A4A]">Showing postcode results with mock data. Sort by the controls on the right.</Body>
+              <H1 className="text-xl font-semibold text-[#1A2B3C]">All postcodes</H1>
+              <Body className="mt-2 text-[#4A4A4A]">
+                {loading
+                  ? 'Loading postcodes...'
+                  : totalPostcodes > 0
+                    ? `${totalPostcodes.toLocaleString('en-GB')} postcodes available. Showing page ${currentPage} of ${totalPages}.`
+                    : 'No postcodes are available yet.'}
+              </Body>
             </div>
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-              <div className="inline-flex items-center gap-3 rounded-full border border-[#D9D5D0] bg-white px-4 py-3 text-sm text-[#1A2B3C] shadow-sm">
-                <img src={upIcon} alt="Sort direction" className="h-4 w-4" />
-                <span className="font-semibold">Sort by</span>
-                <select
-                  id="sort"
-                  value={sortType}
-                  onChange={(event) => setSortType(event.target.value as any)}
-                  className="appearance-none bg-transparent text-sm text-[#1A2B3C] focus:outline-none"
-                >
-                  <option value="alphabetical">Alphabetical (A → Z)</option>
-                  <option value="crime">Crime Rating</option>
-                  <option value="price">Apartment Price</option>
-                  <option value="rating">Rating</option>
-                </select>
-              </div>
+            <div className="flex items-center gap-3 text-sm text-[#6B7280]" aria-live="polite">
+              {loading ? 'Loading postcode listings' : `${postcodes.length} on this page`}
+            </div>
+          </div>
+
+          {loadError && (
+            <div role="alert" className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+              <p>{loadError}</p>
               <button
                 type="button"
-                onClick={() => setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc')}
-                className="inline-flex items-center gap-2 rounded-full border border-[#D9D5D0] bg-white px-4 py-3 text-sm text-[#1A2B3C] shadow-sm"
+                className="font-semibold underline"
+                onClick={() => setReloadKey((key) => key + 1)}
               >
-                <img src={upIcon} alt="Toggle direction" className={`h-4 w-4 ${sortDirection === 'desc' ? 'rotate-180' : 'rotate-0'}`} />
-                {sortDirection === 'asc' ? 'Ascending' : 'Descending'}
+                Try again
               </button>
             </div>
-          </div>
+          )}
 
-          <div className="mt-8 grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
-            {sortedResults.map((result) => (
-              <Link
-                key={result.postcode}
-                to={`/postcode/${encodeURIComponent(result.postcode)}`}
-                className="group rounded-[28px] border border-[#F1ECE7] bg-white p-6 shadow-sm transition-shadow hover:shadow-lg"
-              >
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <p className="text-lg font-semibold text-[#8B0202] group-hover:text-[#700000]">{result.postcode}</p>
-                    <p className="text-sm text-[#6B7280]">{result.borough}</p>
-                  </div>
-                  <span className={`inline-flex items-center rounded-full px-3 py-1 text-sm font-semibold ${result.safe ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
-                    {result.safe ? 'Safe' : 'Risky'}
+          {!loadError && (
+            <>
+              <div className="mt-8 grid grid-cols-1 gap-3 sm:grid-cols-3">
+                {postcodes.map((result) => (
+                  <article
+                    key={result.postcodeId}
+                    className="group relative flex min-h-[162px] flex-col rounded-xl border border-[#E5E5E5] bg-white p-3.5 shadow-[0_3px_12px_rgba(15,23,42,0.06)] transition-shadow hover:shadow-md"
+                  >
+                    <Link
+                      to={postcodePath(result.code)}
+                      aria-label={`View postcode details for ${result.code}`}
+                      className="absolute inset-0 z-0 rounded-xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#8B0202]"
+                    />
+                    <div className="pointer-events-none relative z-10 flex min-h-[132px] flex-col">
+                      <h2 className="text-sm font-bold text-[#8B0202] group-hover:text-[#700000]">
+                        {result.code}
+                      </h2>
+                      <p className="mt-0.5 text-[10px] text-[#777]">{result.boroughName ?? 'Borough unavailable'}</p>
+
+                    <div className="mt-4 flex flex-wrap items-center gap-1.5">
+                      {result.crimeRatePer1000 !== null && result.londonAverageCrimeRatePer1000 !== null ? (
+                        <span
+                          title={`Recorded crime rate: ${result.crimeRatePer1000.toFixed(1)} per 1,000 residents; London average: ${result.londonAverageCrimeRatePer1000.toFixed(1)}.`}
+                          className="inline-flex items-center gap-1 rounded-full border border-[#E5E5E5] px-1.5 py-0.5 text-[10px] leading-none text-[#222]"
+                        >
+                          <Shield
+                            className={`h-3 w-3 ${result.crimeRatePer1000 <= result.londonAverageCrimeRatePer1000 ? 'fill-[#087A36] text-[#087A36]' : 'fill-[#B42318] text-[#B42318]'}`}
+                            aria-hidden="true"
+                          />
+                          {result.crimeRatePer1000 <= result.londonAverageCrimeRatePer1000 ? 'Safe' : 'Higher crime'}
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 rounded-full border border-[#E5E5E5] px-1.5 py-0.5 text-[10px] leading-none text-[#555]">
+                          <Shield className="h-3 w-3 text-[#777]" aria-hidden="true" />
+                          Crime n/a
+                        </span>
+                      )}
+                      <Link
+                        to={`${postcodePath(result.code)}#reviews`}
+                        className="pointer-events-auto relative z-20 inline-flex items-center gap-1 rounded-full border border-[#E5E5E5] px-1.5 py-0.5 text-[10px] leading-none text-[#555] hover:border-[#D97706]"
+                      >
+                        <Star className="h-3 w-3 fill-[#F4B400] text-[#F4B400]" aria-hidden="true" />
+                        {result.averageRating !== null
+                          ? (
+                            <span className="text-[#222]">{result.averageRating.toFixed(1)}</span>
+                          ) : <span className="text-[#777]">—</span>}
+                        <span className="text-[#777]">· {result.reviewCount} reviews</span>
+                      </Link>
+                    </div>
+
+                    <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                      <span
+                        title={result.priceSource === 'borough' ? 'Average price is the latest available borough-wide figure.' : 'Average price is calculated from available sales for this postcode.'}
+                        className="inline-flex items-center gap-1 rounded-full border border-[#E5E5E5] px-1.5 py-0.5 text-[10px] leading-none text-[#555]"
+                      >
+                        <Home className="h-3 w-3 text-[#111]" aria-hidden="true" />
+                        {result.averagePrice !== null
+                          ? (
+                            <>
+                              Avg. Price: <span className="font-semibold text-[#222]">{formatCurrency(result.averagePrice)}</span>
+                            </>
+                          )
+                          : 'Avg. Price: n/a'}
+                      </span>
+                      <span
+                        title={`Year-over-year price trend${result.priceSource === 'borough' ? ' for this borough' : ' for this postcode'}.`}
+                        className="inline-flex items-center gap-1 rounded-full border border-[#E5E5E5] px-1.5 py-0.5 text-[10px] leading-none text-[#8B0202]"
+                      >
+                        <TrendingUp className="h-3 w-3" aria-hidden="true" />
+                        {result.priceGrowthPct !== null
+                          ? `${result.priceGrowthPct > 0 ? '+' : ''}${result.priceGrowthPct.toFixed(1)}%`
+                          : 'n/a'}
+                      </span>
+                    </div>
+
+                    <Link
+                      to={postcodePath(result.code)}
+                      className="pointer-events-auto relative z-20 mt-auto inline-flex w-fit items-center gap-1 pt-4 text-[10px] text-[#334155] hover:text-[#8B0202]"
+                    >
+                      <Plus className="h-3 w-3" aria-hidden="true" />
+                      Add review
+                    </Link>
+                    </div>
+                  </article>
+                ))}
+              </div>
+
+              {totalPages > 1 && (
+                <nav className="mt-8 flex items-center justify-center gap-6" aria-label="Postcode pages">
+                  <button
+                    type="button"
+                    className="rounded-full p-2 text-[#8B0202] transition-opacity disabled:opacity-30"
+                    disabled={currentPage === 1 || loading}
+                    onClick={() => setCurrentPage((page) => Math.max(page - 1, 1))}
+                    aria-label="Previous postcode page"
+                  >
+                    <ChevronLeft className="h-6 w-6" />
+                  </button>
+                  <span className="text-sm font-semibold text-[#1A2B3C]" aria-live="polite">
+                    Page {currentPage} of {totalPages}
                   </span>
-                </div>
-
-                <div className="mt-6 grid gap-3">
-                  <div className="inline-flex items-center gap-2 rounded-full border border-[#E7E2DC] bg-[#FCFBFA] px-3 py-2 text-sm text-[#4A4A4A]">
-                    <img src={starIcon} alt="Rating" className="h-4 w-4" />
-                    <span>★ {result.rating.toFixed(1)}</span>
-                    <span className="text-[#6B7280]">{result.reviews} reviews</span>
-                  </div>
-                  <div className="inline-flex items-center gap-2 rounded-full border border-[#E7E2DC] bg-[#FCFBFA] px-3 py-2 text-sm text-[#4A4A4A]">
-                    <img src={homeIcon} alt="Home" className="h-4 w-4" />
-                    <span>Avg. Price: £{result.avgPrice.toLocaleString()}</span>
-                  </div>
-                  <div className="inline-flex items-center gap-2 rounded-full border border-[#E7E2DC] bg-[#FCFBFA] px-3 py-2 text-sm text-[#4A4A4A]">
-                    <img src={shieldIcon} alt="Crime rating" className="h-4 w-4" />
-                    <span>Crime: {result.crimeRating}</span>
-                  </div>
-                </div>
-
-                <div className="mt-6 inline-flex items-center justify-center rounded-full border border-[#8B0202] bg-[#FFFFFF] px-5 py-3 text-sm font-semibold text-[#8B0202] transition-colors group-hover:bg-[#8B0202] group-hover:text-white">
-                  View area details
-                </div>
-              </Link>
-            ))}
-          </div>
+                  <button
+                    type="button"
+                    className="rounded-full p-2 text-[#8B0202] transition-opacity disabled:opacity-30"
+                    disabled={currentPage === totalPages || loading}
+                    onClick={() => setCurrentPage((page) => Math.min(page + 1, totalPages))}
+                    aria-label="Next postcode page"
+                  >
+                    <ChevronRight className="h-6 w-6" />
+                  </button>
+                </nav>
+              )}
+            </>
+          )}
         </div>
       </section>
     </div>

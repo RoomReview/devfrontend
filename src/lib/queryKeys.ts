@@ -31,4 +31,6 @@ export const queryKeys = {
   /** All reviews for a specific property */
   propertyReviews: (propertyId: string) =>
     ['reviews', 'property', propertyId] as const,
+  postcodeReviews: (postcodeId: string) =>
+    ['reviews', 'postcode', postcodeId] as const,
   postcode: (code: string) => ['postcode', code] as const,} as const;

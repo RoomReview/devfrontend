@@ -1,45 +1,95 @@
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
+import { Trash2 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import Button from '../components/common/Button';
 import { H1, H2, H3, Body, Small } from '../components/common/Typography';
-import { paymentService, type BillingStatus, type ReportOrder } from '@/services/payment.service';
+import { paymentService, type BillingStatus } from '@/services/payment.service';
 import { scoreReportService } from '@/services/score-report.service';
+import type { UserScoreReport } from '@/services/score-report.service';
 
 const AccountPage = () => {
+  const navigate = useNavigate();
   const { user, loading, isAuthenticated, logout } = useAuth();
-  const [orders, setOrders] = useState<ReportOrder[]>([]);
+  const [reports, setReports] = useState<UserScoreReport[]>([]);
+  const [reportPage, setReportPage] = useState(1);
+  const [reportPageCount, setReportPageCount] = useState(0);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyError, setHistoryError] = useState<string | null>(null);
   const [historyRefreshKey, setHistoryRefreshKey] = useState(0);
   const [orderActionId, setOrderActionId] = useState<string | null>(null);
   const [billing, setBilling] = useState<BillingStatus | null>(null);
   const [subscriptionLoading, setSubscriptionLoading] = useState(false);
+  const earlyAccessDaysRemaining = billing?.trial.trialEndsAt
+    ? Math.max(0, Math.ceil((new Date(billing.trial.trialEndsAt).getTime() - Date.now()) / (24 * 60 * 60 * 1000)))
+    : 0;
 
   useEffect(() => {
     if (!isAuthenticated) return;
     setHistoryLoading(true);
     setHistoryError(null);
-    void Promise.all([paymentService.getOrderHistory(), paymentService.getBilling()])
-      .then(([orderHistory, billingStatus]) => { setOrders(orderHistory); setBilling(billingStatus); })
-      .catch(() => setHistoryError('We could not load your order history. Please try again.'))
+    void Promise.all([scoreReportService.listMine(reportPage, 5), paymentService.getBilling()])
+      .then(([reportHistory, billingStatus]) => {
+        setReports(reportHistory.reports);
+        setReportPageCount(reportHistory.pagination.totalPages);
+        setBilling(billingStatus);
+      })
+      .catch(() => setHistoryError('We could not load your reports. Please try again.'))
       .finally(() => setHistoryLoading(false));
-  }, [isAuthenticated, historyRefreshKey]);
+  }, [isAuthenticated, historyRefreshKey, reportPage]);
 
-  const retryOrder = async (order: ReportOrder) => {
-    setOrderActionId(order.orderId);
+  const retryReport = async (report: UserScoreReport) => {
+    setOrderActionId(report.scoreReportId);
     try {
-      if (order.status === 'FAILED' || order.status === 'CANCELLED') {
-        const checkout = await paymentService.createCheckout(order.scoreReportId);
+      if (report.order && (report.order.status === 'FAILED' || report.order.status === 'CANCELLED')) {
+        const checkout = await paymentService.createCheckout(report.scoreReportId);
         if (checkout.checkoutUrl) window.location.assign(checkout.checkoutUrl);
-      } else if (order.reportStatus === 'FAILED') {
-        await scoreReportService.generate(order.scoreReportId);
+      } else if (report.status === 'FAILED') {
+        await scoreReportService.generate(report.scoreReportId);
         setHistoryRefreshKey((current) => current + 1);
       } else {
         setHistoryRefreshKey((current) => current + 1);
       }
     } catch {
       setHistoryError('That action could not be completed. Please try again.');
+    } finally {
+      setOrderActionId(null);
+    }
+  };
+
+  const deleteReport = async (report: UserScoreReport) => {
+    const confirmed = window.confirm('Remove this report from your saved reports? Its credit and payment history will be retained.');
+    if (!confirmed) return;
+
+    setOrderActionId(`${report.scoreReportId}:delete`);
+    try {
+      await scoreReportService.delete(report.scoreReportId);
+      if (reports.length === 1 && reportPage > 1) {
+        setReportPage((page) => Math.max(1, page - 1));
+      }
+      setHistoryRefreshKey((current) => current + 1);
+    } catch {
+      setHistoryError('That report could not be deleted. Please try again.');
+    } finally {
+      setOrderActionId(null);
+    }
+  };
+
+  const openSavedReport = async (report: UserScoreReport, action: 'print' | 'download') => {
+    setOrderActionId(`${report.scoreReportId}:${action}`);
+    try {
+      const savedReport = await scoreReportService.get(report.scoreReportId);
+      const reportData = savedReport.reportData;
+
+      if (reportData?.reportType === 'buyer') {
+        navigate('/report/view', { state: { reportData, printAfterLoad: action === 'print', downloadAfterLoad: action === 'download' } });
+      } else if (reportData?.reportType === 'investor') {
+        navigate('/investor-report/view', { state: { reportData, printAfterLoad: action === 'print', downloadAfterLoad: action === 'download' } });
+      } else {
+        throw new Error('This saved report does not contain its full visual snapshot.');
+      }
+    } catch {
+      setHistoryError('That report could not be opened for PDF. Please try again.');
     } finally {
       setOrderActionId(null);
     }
@@ -109,6 +159,18 @@ const AccountPage = () => {
           </div>
         </div>
 
+        {user?.isEmailVerified === false && (
+          <div className="mt-8 rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950">
+            Please verify your email address to secure your account.{' '}
+            <Link
+              to={`/verify-email?email=${encodeURIComponent(user.email)}&type=user`}
+              className="font-semibold underline"
+            >
+              Continue to email verification
+            </Link>
+          </div>
+        )}
+
         <div className="mt-10 grid gap-8 lg:grid-cols-[1.2fr_0.8fr]">
           <div className="rounded-[30px] border border-[#E5DCD5] bg-[#F8F4F1] p-8">
             <H2 className="text-[#1A2B3C] mb-4">Profile details</H2>
@@ -135,10 +197,14 @@ const AccountPage = () => {
                 {billing?.subscription?.status === 'ACTIVE'
                   ? 'Your subscription is active: 10 reports per month.'
                   : billing?.trialActive
-                    ? `Your free trial ends ${billing.trial.trialEndsAt ? new Date(billing.trial.trialEndsAt).toLocaleDateString() : 'soon'}.`
+                    ? user?.role === 'TENANT'
+                      ? `Early access: ${earlyAccessDaysRemaining} ${earlyAccessDaysRemaining === 1 ? 'day' : 'days'} left. Three free branded reports are included.`
+                      : `Your free trial ends ${billing.trial.trialEndsAt ? new Date(billing.trial.trialEndsAt).toLocaleDateString() : 'soon'}.`
+                    : (billing?.creditsBalance ?? 0) > 0
+                      ? 'You have report credits available to use.'
                     : 'Your free trial has ended. Choose the monthly report plan to continue.'}
               </Body>
-              <p className="mt-2 text-sm font-semibold text-[#1A2B3C]">Available report credits: {billing?.creditsBalance ?? 0}</p>
+              <p className="mt-2 text-sm font-semibold text-[#1A2B3C]">Available reports: {billing?.creditsBalance ?? 0}</p>
               {billing?.subscription?.status !== 'ACTIVE' && (
                 <Button className="mt-4" isLoading={subscriptionLoading} onClick={() => void startSubscription()}>
                   10 reports per month - £35/month
@@ -147,7 +213,7 @@ const AccountPage = () => {
             </div>
             <div className="rounded-[24px] border border-[#E5DCD5] bg-white p-6 shadow-sm">
               <div className="flex flex-wrap items-center justify-between gap-3">
-                <H3 className="text-[#1A2B3C] mb-3">Report orders</H3>
+                <H3 className="text-[#1A2B3C] mb-3">My reports</H3>
                 {!historyLoading && <Button size="sm" variant="secondary" onClick={() => setHistoryRefreshKey((current) => current + 1)}>Refresh</Button>}
               </div>
               {historyError ? (
@@ -155,21 +221,38 @@ const AccountPage = () => {
                   <Body className="text-[#8B0202]">{historyError}</Body>
                   <Button size="sm" onClick={() => setHistoryRefreshKey((current) => current + 1)}>Try again</Button>
                 </div>
-              ) : historyLoading ? <Body>Loading your orders...</Body> : orders.length === 0 ? <Body>No report orders yet.</Body> : (
+              ) : historyLoading ? <Body>Loading your reports...</Body> : reports.length === 0 ? <Body>No saved reports yet.</Body> : (
                 <div className="space-y-3">
-                  {orders.map((order) => (
-                    <div key={order.orderId} className="flex flex-wrap items-center justify-between gap-3 border-t border-[#E5DCD5] pt-3 text-sm">
+                  {reports.map((report) => (
+                    <div key={report.scoreReportId} className="flex flex-wrap items-center justify-between gap-3 border-t border-[#E5DCD5] pt-3 text-sm">
                       <div>
-                        <p className="font-semibold text-[#1A2B3C]">Report {order.scoreReportId.slice(0, 8)}</p>
-                        <p className="text-[#6B7280]">Payment: {order.status} · Report: {order.reportStatus ?? 'WAITING'} · {new Date(order.createdAt).toLocaleDateString()}</p>
+                        <p className="font-semibold text-[#1A2B3C]">{report.name || `Report ${report.scoreReportId.slice(0, 8)}`}</p>
+                        <p className="text-[#6B7280]">{report.order ? `Payment: ${report.order.status} · ` : ''}Report: {report.status} · {new Date(report.createdAt).toLocaleDateString()}</p>
                       </div>
                       <div className="flex flex-wrap gap-2">
-                        {order.status === 'PAID' && order.reportStatus === 'READY' && <Button size="sm" onClick={() => void paymentService.downloadReport(order.scoreReportId)}>Download PDF</Button>}
-                        {(order.status === 'FAILED' || order.status === 'CANCELLED') && <Button size="sm" isLoading={orderActionId === order.orderId} onClick={() => void retryOrder(order)}>Retry payment</Button>}
-                        {order.status === 'PAID' && order.reportStatus !== 'READY' && <Button size="sm" variant="secondary" isLoading={orderActionId === order.orderId} onClick={() => void retryOrder(order)}>{order.reportStatus === 'FAILED' ? 'Retry report' : 'Refresh status'}</Button>}
+                        {report.status === 'READY' && report.hasFullReport && (
+                          <>
+                            <Button size="sm" variant="secondary" isLoading={orderActionId === `${report.scoreReportId}:print`} onClick={() => void openSavedReport(report, 'print')}>Print</Button>
+                            <Button size="sm" isLoading={orderActionId === `${report.scoreReportId}:download`} onClick={() => void openSavedReport(report, 'download')}>Download PDF</Button>
+                          </>
+                        )}
+                        <Button size="sm" variant="secondary" isLoading={orderActionId === `${report.scoreReportId}:delete`} onClick={() => void deleteReport(report)} aria-label={`Delete ${report.name || `report ${report.scoreReportId.slice(0, 8)}`}`}>
+                          <Trash2 className="h-4 w-4" aria-hidden="true" />
+                          Delete
+                        </Button>
+                        {report.status === 'READY' && !report.hasFullReport && <Small className="text-[#8B0202]">Regenerate for full visual PDF</Small>}
+                        {report.order && (report.order.status === 'FAILED' || report.order.status === 'CANCELLED') && <Button size="sm" isLoading={orderActionId === report.scoreReportId} onClick={() => void retryReport(report)}>Retry payment</Button>}
+                        {(!report.order || report.order.status === 'PAID') && report.status !== 'READY' && <Button size="sm" variant="secondary" isLoading={orderActionId === report.scoreReportId} onClick={() => void retryReport(report)}>{report.status === 'FAILED' ? 'Retry report' : 'Refresh status'}</Button>}
                       </div>
                     </div>
                   ))}
+                  {reportPageCount > 1 && (
+                    <div className="flex items-center justify-between border-t border-[#E5DCD5] pt-3">
+                      <Button size="sm" variant="secondary" disabled={reportPage <= 1 || historyLoading} onClick={() => setReportPage((page) => Math.max(1, page - 1))}>Previous</Button>
+                      <Small aria-live="polite">Page {reportPage} of {reportPageCount}</Small>
+                      <Button size="sm" variant="secondary" disabled={reportPage >= reportPageCount || historyLoading} onClick={() => setReportPage((page) => Math.min(reportPageCount, page + 1))}>Next</Button>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

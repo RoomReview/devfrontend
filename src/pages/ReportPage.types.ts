@@ -70,7 +70,7 @@ export interface FAQItem {
 }
 
 export interface RoomReviewPageProps {
-  hero: {
+  hero?: {
     badgeTitle: string;
     mainHeading: string;
     subHeading: string;
@@ -78,29 +78,29 @@ export interface RoomReviewPageProps {
     howItWorksButtonText: string;
     badges: HeroBadge[];
   };
-  selectionSection: {
+  selectionSection?: {
     heading: string;
     options: ReportOption[];
     compareReportsText: string;
   };
-  comparisonSection: {
+  comparisonSection?: {
     heading: string;
     reports: ReportComparison[];
   };
-  inclusionsSection: {
+  inclusionsSection?: {
     heading: string;
     inclusions: ReportInclusions[];
     disclaimerText: string;
   };
-  workflowSection: {
+  workflowSection?: {
     heading: string;
     steps: WorkflowStep[];
   };
-  methodologySection: {
+  methodologySection?: {
     heading: string;
     cards: MethodologyCard[];
   };
-  dataSourcesSection: {
+  dataSourcesSection?: {
     heading: string;
     subHeading: string;
     sources: DataSourceItem[];
@@ -109,15 +109,15 @@ export interface RoomReviewPageProps {
     methodologyLinkText: string;
     methodologyLinkUrl: string;
   };
-  importantInfoSection: {
+  importantInfoSection?: {
     title: string;
     paragraphs: string[];
   };
-  faqSection: {
+  faqSection?: {
     heading: string;
     faqs: FAQItem[];
   };
-  formSchema: Record<ReportType, FormFieldConfig[]>;
-  onSubmitReportRequest: (type: ReportType, formData: Record<string, unknown>) => void;
+  formSchema?: Record<ReportType, FormFieldConfig[]>;
+  onSubmitReportRequest?: (type: ReportType, formData: Record<string, unknown>) => void;
   onNavigateToSection?: (sectionId: string) => void;
 }

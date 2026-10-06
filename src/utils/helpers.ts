@@ -17,6 +17,12 @@ export const isValidPostcode = (postcode: string): boolean => {
   return postcodeRegex.test(postcode);
 };
 
+export const normalizePostcode = (postcode: string): string =>
+  postcode.replace(/-/g, ' ').trim().replace(/\s+/g, ' ').toUpperCase();
+
+export const postcodePath = (postcode: string): string =>
+  `/postcode/${normalizePostcode(postcode).replace(/ /g, '-').toLowerCase()}`;
+
 export const capitalizeFirst = (str: string): string => {
   return str.charAt(0).toUpperCase() + str.slice(1);
 };

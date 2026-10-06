@@ -3,6 +3,14 @@ export interface PropertyDetails {
   bedrooms: number;
   bathrooms: number;
   floorAreaSqFt: number;
+  tenure: string;
+  yearBuilt?: number | null;
+  condition?: string | null;
+  parking?: string | null;
+  garden?: string | null;
+  leaseYearsRemaining?: number | null;
+  serviceChargeGroundRent?: string | null;
+  buyerPriority?: string | null;
   epcRating: string;
   councilTaxBand: string;
 }
@@ -65,6 +73,22 @@ export interface StationInfo {
   lines: string[];
 }
 
+export interface NearbyBusRouteInfo {
+  routeShortName: string;
+  destinationLabel: string;
+  agencyName: string | null;
+  isNight: boolean;
+  tripsInArea: number | null;
+  nearestStopName: string | null;
+  nearestStopM: number | null;
+}
+
+export interface NearestStationInfo {
+  name: string;
+  distanceM: number;
+  walkMinutesEstimate: number;
+}
+
 export interface KeyDestinationTime {
   destination: string;
   durationMins: number;
@@ -112,7 +136,33 @@ export interface DataSourceCard {
   sourceUrl?: string;
 }
 
+export interface ReportPanelMetric {
+  label: string;
+  value: string;
+  detail?: string;
+}
+
+export interface ReportDataPanel {
+  title: string;
+  summary: string;
+  metrics: ReportPanelMetric[];
+}
+
 export interface BuyerInsightReportData {
+  agencyBranding?: {
+    logoDataUrl?: string;
+    companyName?: string;
+    firstName?: string;
+    lastName?: string;
+  };
+  areaSnapshot: Array<{ metric: string; value: string }>;
+  availableScoreCategories: Array<{ category: string; score: number }>;
+  areaHighlights: Array<{
+    category: 'rent' | 'housing' | 'crime';
+    label: string;
+    value: string;
+    detail: string;
+  }>;
   meta: {
     reportTitle: string;
     postcode: string;
@@ -140,6 +190,7 @@ export interface BuyerInsightReportData {
   };
   propertyContext: {
     details: PropertyDetails;
+    targetBudget: number | null;
     marketRange: IndicativeMarketRange;
     comparableSales: ComparableSale[];
   };
@@ -153,6 +204,7 @@ export interface BuyerInsightReportData {
   };
   rentalContext: {
     avgRentPcm: number;
+    rentHistory?: Array<{ year: string; avgRentPcm: number }>;
     demandLevel: string;
     avgTimeToLetDays: number;
     grossRentalYieldPercent: number;
@@ -175,6 +227,7 @@ export interface BuyerInsightReportData {
   };
   communityProfile: {
     disclaimerNotice: string;
+    totalPopulation: number | null;
     populationDensityPerKm2: number;
     employmentRatePercent: number;
     medianAge: number;
@@ -184,13 +237,19 @@ export interface BuyerInsightReportData {
     educationLevels: Array<{ level: string; percent: number }>;
     sourceAttribution: string;
   };
+  educationProfile?: ReportDataPanel;
+  housingStockProfile?: ReportDataPanel;
+  neighbourhoodProfile?: ReportDataPanel;
   transportAndConnectivity: {
-    connectivityScore: number;
-    nearestStationMi: number;
-    zone: string | number;
+    connectivityScore: number | null;
+    nearestStationMi: number | null;
+    zone: string | number | null;
     nearbyStations: StationInfo[];
     travelTimes: KeyDestinationTime[];
     busRoutesInfo: string[];
+    nearbyBusRoutes?: NearbyBusRouteInfo[];
+    nearestStationDetails?: NearestStationInfo | null;
+    lsoaCode?: string | null;
     cyclingAndRoadsInfo: string[];
     sourceAttribution: string;
   };

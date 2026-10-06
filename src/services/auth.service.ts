@@ -23,8 +23,11 @@ import type {
   ForgotPasswordRequest,
   ResetPasswordRequest,
   VerifyEmailRequest,
+  VerifyEmailResponse,
   ResendVerificationRequest,
   AuthLoginResponse,
+  EarlyAccessRegisterRequest,
+  EarlyAccessRegisterResponse,
   RegisterResponse,
 } from '@/types/auth.types';
 import type { User } from '@/types/user.types';
@@ -41,6 +44,12 @@ export const authService = {
   /** POST /auth/register */
   register: async (data: RegisterRequest): Promise<RegisterResponse> => {
     const response = await apiClient.post<RegisterResponse>('/auth/register', data);
+    return response.data;
+  },
+
+  /** POST /auth/early-access */
+  registerEarlyAccess: async (data: EarlyAccessRegisterRequest): Promise<EarlyAccessRegisterResponse> => {
+    const response = await apiClient.post<EarlyAccessRegisterResponse>('/auth/early-access', data);
     return response.data;
   },
 
@@ -66,10 +75,11 @@ export const authService = {
   },
 
   /** GET /auth/email/verify?email=&code= */
-  verifyEmail: async (data: VerifyEmailRequest): Promise<void> => {
-    await apiClient.get('/auth/email/verify', {
+  verifyEmail: async (data: VerifyEmailRequest): Promise<VerifyEmailResponse> => {
+    const response = await apiClient.get<VerifyEmailResponse>('/auth/email/verify', {
       params: { email: data.email, code: data.code },
     });
+    return response.data;
   },
 
   /** POST /auth/email/verify/reset — resend verification email */

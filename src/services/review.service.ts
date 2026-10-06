@@ -25,6 +25,13 @@ export const reviewService = {
     return response.data?.data ?? [];
   },
 
+  getByPostcode: async (postcodeId: string): Promise<Review[]> => {
+    const response = await apiClient.get<{ data?: Review[] }>('/reviews', {
+      params: { postcodeId },
+    });
+    return response.data?.data ?? [];
+  },
+
   /** GET /reviews/:id */
   getById: async (id: string): Promise<Review> => {
     const response = await apiClient.get<{ data?: Review }>(`/reviews/${id}`);

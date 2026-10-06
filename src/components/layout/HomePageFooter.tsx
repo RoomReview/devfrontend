@@ -35,7 +35,7 @@ const HomePageFooter = () => {
             <h4 className="text-sm font-semibold uppercase tracking-[0.24em] text-[#8B0202]">INFORMATION</h4>
             <ul className="mt-6 space-y-3 text-sm text-slate-700">
               <li><Link to="/about" className="hover:text-slate-950">About</Link></li>
-              <li><Link to="/reviews" className="hover:text-slate-950">Reviews</Link></li>
+              <li><Link to="/pricing" className="hover:text-slate-950">Pricing</Link></li>
               <li><Link to="/area-search" className="hover:text-slate-950">Borough</Link></li>
             </ul>
           </div>
@@ -55,7 +55,7 @@ const HomePageFooter = () => {
             <Link to="/data-sources" className="hover:text-slate-600">Data sources</Link>
             <Link to="/area-search" className="hover:text-slate-600">Boroughs</Link>
             <Link to="/about" className="hover:text-slate-600">About</Link>
-            <Link to="/reviews" className="hover:text-slate-600">Reviews</Link>
+            <Link to="/pricing" className="hover:text-slate-600">Pricing</Link>
           </div>
         </div>
       </div>

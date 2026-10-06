@@ -1,5 +1,6 @@
 import React from 'react';
-import { Train, CheckCircle2, Printer } from 'lucide-react';
+import { Train, CheckCircle2, Download, Printer } from 'lucide-react';
+import { downloadReportPdf } from '@/utils/downloadReportPdf';
 
 export interface FullInvestorReportData {
   reportDate: string;
@@ -83,19 +84,51 @@ export interface FullInvestorReportData {
 
 export const CompleteInvestorReport: React.FC<{
   data: FullInvestorReportData;
+  downloadAfterLoad?: boolean;
   onPrintReport?: () => void;
-}> = ({ data, onPrintReport }) => {
+}> = ({ data, downloadAfterLoad = false, onPrintReport }) => {
+  const reportDocumentRef = React.useRef<HTMLDivElement>(null);
+  const autoDownloadStarted = React.useRef(false);
+  const [isDownloadingPdf, setIsDownloadingPdf] = React.useState(false);
+  const [pdfError, setPdfError] = React.useState<string | null>(null);
   const fmt = (v: number) => v > 0
     ? new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP', maximumFractionDigits: 0 }).format(v)
     : 'No data available';
   const pct = (v: number, prefix = '') => v > 0 ? `${prefix}${v}%` : 'No data available';
   const num = (v: number, suffix = '') => Number.isFinite(v) && v > 0 ? `${v}${suffix}` : 'No data available';
+  const handleDownloadPdf = async () => {
+    const reportDocument = reportDocumentRef.current;
+    if (!reportDocument || isDownloadingPdf) return;
+
+    setIsDownloadingPdf(true);
+    setPdfError(null);
+    try {
+      const filenamePart = data.property.postcode.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+      await downloadReportPdf(reportDocument, `roomreview-investor-${filenamePart || 'report'}.pdf`);
+    } catch (error) {
+      console.error('Investor report PDF export failed', error);
+      setPdfError('PDF could not be created. Please try printing the report instead.');
+    } finally {
+      setIsDownloadingPdf(false);
+    }
+  };
+
+  React.useEffect(() => {
+    if (!downloadAfterLoad || autoDownloadStarted.current) return;
+    autoDownloadStarted.current = true;
+    const timeoutId = window.setTimeout(() => void handleDownloadPdf(), 500);
+    return () => window.clearTimeout(timeoutId);
+  }, [downloadAfterLoad]);
 
   return (
     <>
       <style>{`
+        .pdf-exporting .print-hidden {
+          display: none !important;
+        }
+
         @media print {
-          .investor-report-shell > .print-hidden {
+          .investor-report-shell .print-hidden {
             display: none !important;
           }
 
@@ -110,20 +143,34 @@ export const CompleteInvestorReport: React.FC<{
           }
         }
       `}</style>
-      <div className="investor-report-shell w-full max-w-[1000px] mx-auto bg-white font-sans text-slate-800 antialiased border border-slate-200">
+      <div ref={reportDocumentRef} className="investor-report-shell w-full max-w-[1000px] mx-auto bg-white font-sans text-slate-800 antialiased border border-slate-200">
       
       {/* 01. HERO / HEADER */}
       <header className="relative bg-[#8B0000] text-white p-8">
-        {onPrintReport && (
-          <button
-            type="button"
-            onClick={onPrintReport}
-            className="print-hidden absolute right-8 top-8 rounded p-2 text-rose-100 transition-colors hover:bg-white/10 hover:text-white"
-            title="Print or save as PDF"
-            aria-label="Print or save investor report as PDF"
-          >
-            <Printer className="h-5 w-5" />
-          </button>
+        {(onPrintReport || handleDownloadPdf) && (
+          <div className="print-hidden absolute right-8 top-8 flex items-center gap-2">
+            {onPrintReport && (
+              <button
+                type="button"
+                onClick={onPrintReport}
+                className="rounded p-2 text-rose-100 transition-colors hover:bg-white/10 hover:text-white"
+                title="Print report"
+                aria-label="Print investor report"
+              >
+                <Printer className="h-5 w-5" />
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => void handleDownloadPdf()}
+              disabled={isDownloadingPdf}
+              className="inline-flex items-center gap-2 rounded border border-rose-200 px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-white/10 disabled:cursor-wait disabled:opacity-60"
+              aria-label="Download investor report as PDF"
+            >
+              <Download className="h-4 w-4" aria-hidden="true" />
+              {isDownloadingPdf ? 'Preparing...' : 'Download PDF'}
+            </button>
+          </div>
         )}
         <div className="flex justify-between text-xs uppercase text-rose-200 mb-4">
           <span>{data.reportDate}</span>
@@ -154,6 +201,7 @@ export const CompleteInvestorReport: React.FC<{
           </div>
         </div>
       </header>
+      {pdfError && <p className="print-hidden px-8 pt-3 text-sm text-red-700" role="alert">{pdfError}</p>}
 
       {/* 01. EXECUTIVE SUMMARY */}
       <section className="p-8 border-b">

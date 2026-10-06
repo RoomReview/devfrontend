@@ -1,12 +1,8 @@
-import { Outlet, useLocation } from 'react-router-dom';
+import { Outlet } from 'react-router-dom';
 import Header from './Header';
 import Footer from './Footer';
-import HomePageFooter from './HomePageFooter';
 
 const Layout = () => {
-  const location = useLocation();
-  const isHomePage = location.pathname === '/';
-
   return (
     <>
       <style>{`
@@ -32,7 +28,7 @@ const Layout = () => {
         <main className="flex-1">
           <Outlet />
         </main>
-        {isHomePage ? <HomePageFooter /> : <Footer />}
+        <Footer />
       </div>
     </>
   );

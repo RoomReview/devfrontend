@@ -1,10 +1,12 @@
 export interface PostcodeRow {
-  postcode_id: string;
+  postcodeId: string;
   code: string;
   outcode: string;
   incode: string;
   latitude: number | null;
   longitude: number | null;
+  imageUrl?: string | null;
+  image_url?: string | null;
   metrics: Record<string, unknown>;
   boroughId: string | null;
   createdAt: string;
@@ -24,6 +26,17 @@ export interface BoroughSummary {
 
 export interface PostcodeApiResponse {
   postcode: PostcodeRow;
+  lsoaMap: {
+    filename: string;
+    mapVersion: string;
+    imageUrl: string | null;
+    imageWidthPx: number;
+    imageHeightPx: number;
+    minLon: number;
+    maxLon: number;
+    minLat: number;
+    maxLat: number;
+  } | null;
   borough: BoroughSummary | null;
   crimeData: unknown[];
   demography: unknown[];

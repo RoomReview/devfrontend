@@ -21,6 +21,15 @@ export const useReviews = () => {
   });
 };
 
+export const usePostcodeReviews = (postcodeId: string | undefined) => {
+  return useQuery<Review[]>({
+    queryKey: queryKeys.postcodeReviews(postcodeId ?? ''),
+    queryFn: () => reviewService.getByPostcode(postcodeId!),
+    enabled: Boolean(postcodeId),
+    staleTime: 1000 * 60 * 2,
+  });
+};
+
 /**
  * Reviews scoped to a single property.
  * NOTE: This uses the same getAll until the backend exposes a filtered endpoint.

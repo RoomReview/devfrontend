@@ -1,34 +1,44 @@
-/**
- * review.types.ts
- *
- * Domain types for property reviews and ratings.
- */
-
-import type { User } from './user.types';
-import type { Property } from './property.types';
+export type ReviewStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
 
 export interface Review {
-  id: string;
-  propertyId: string;
-  userId: string;
-  rating: number;
+  review_id: string;
   title: string;
   content: string;
-  pros?: string[];
-  cons?: string[];
-  createdAt: string;
-  updatedAt: string;
-  user?: User;
-  property?: Property;
+  safety_rating: number;
+  transport_rating: number;
+  amenities_rating: number;
+  value_rating: number;
+  overall_rating: number;
+  pros: string[];
+  cons: string[];
+  years_lived: number | null;
+  anonymous: boolean;
+  verified: boolean;
+  status: ReviewStatus;
+  rejection_reason: string | null;
+  author_id: string;
+  postcode_id: string | null;
+  borough_id: string | null;
+  created_at: string;
+  updated_at: string;
+  published_at: string | null;
+  users?: { firstName?: string } | null;
+  propertyId?: string;
 }
 
 export interface CreateReviewRequest {
-  propertyId: string;
-  rating: number;
   title: string;
   content: string;
-  pros?: string[];
-  cons?: string[];
+  safety_rating: number;
+  transport_rating: number;
+  amenities_rating: number;
+  value_rating: number;
+  pros: string[];
+  cons: string[];
+  years_lived: number | null;
+  anonymous: boolean;
+  postcode_id: string;
+  borough_id: string | null;
 }
 
-export interface UpdateReviewRequest extends Partial<Omit<CreateReviewRequest, 'propertyId'>> {}
+export type UpdateReviewRequest = Partial<Omit<CreateReviewRequest, 'postcode_id'>>;

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { CompleteInvestorReport } from './InvestorReport';
 import type { InvestorReportData } from '../types/investorReport';
@@ -102,8 +102,15 @@ const toCompleteReportData = (data: InvestorReportData): FullInvestorReportData 
 export const InvestorReportViewPage: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const reportData = (location.state as { reportData?: InvestorReportData } | null)?.reportData;
+  const state = location.state as { reportData?: InvestorReportData; printAfterLoad?: boolean; downloadAfterLoad?: boolean } | null;
+  const reportData = state?.reportData;
   const handlePrintReport = () => window.print();
+
+  useEffect(() => {
+    if (!state?.printAfterLoad || !reportData) return;
+    const timeoutId = window.setTimeout(handlePrintReport, 400);
+    return () => window.clearTimeout(timeoutId);
+  }, [state?.printAfterLoad, reportData]);
 
   if (!reportData) {
     return (
@@ -121,5 +128,5 @@ export const InvestorReportViewPage: React.FC = () => {
     );
   }
 
-  return <CompleteInvestorReport data={toCompleteReportData(reportData)} onPrintReport={handlePrintReport} />;
+  return <CompleteInvestorReport data={toCompleteReportData(reportData)} downloadAfterLoad={state?.downloadAfterLoad} onPrintReport={handlePrintReport} />;
 };

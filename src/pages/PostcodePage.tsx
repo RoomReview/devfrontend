@@ -1,13 +1,132 @@
-import { useEffect, useMemo, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, MapPin, BarChart3, Star, ArrowUpRight } from 'lucide-react';
+import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useParams, Link, useLocation, useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
+import { ArrowLeft, ChevronLeft, ChevronRight, MapPin, Star, UserRound } from 'lucide-react';
 import { H1, H2, H3, Body, } from '../components/common/Typography';
 import { usePostcodeData } from '@/hooks/postcode/usePostcodeData';
+import { normalizePostcode, postcodePath } from '@/utils/helpers';
+import { usePostcodeReviews } from '@/hooks/reviews/useReviews';
+import { useAuth } from '@/hooks/useAuth';
+import { reviewService } from '@/services/review.service';
 import { scoreReportService } from '@/services/score-report.service';
+import { queryKeys } from '@/lib/queryKeys';
+import { extractApiError } from '@/utils/apiError';
+
+const reviewRatingCategories = [
+  { key: 'safety_rating', label: 'Safety' },
+  { key: 'transport_rating', label: 'Transport' },
+  { key: 'amenities_rating', label: 'Amenities' },
+  { key: 'value_rating', label: 'Value for money' },
+] as const;
+
+type ReviewRatingKey = typeof reviewRatingCategories[number]['key'];
+type ReviewRatings = Record<ReviewRatingKey, number>;
 
 type DistrictGeometry = {
   rings: number[][][];
   bounds: { minLatitude: number; minLongitude: number; maxLatitude: number; maxLongitude: number };
+};
+
+type DemographicPoint = {
+  age_group?: string;
+  female_percentage?: number;
+  male_percentage?: number;
+  percentage?: number;
+  period?: string | null;
+};
+
+const DemographicsChart = ({ data }: { data: DemographicPoint[] }) => {
+  const hasSexBreakdown = data.some((item) => item.female_percentage != null || item.male_percentage != null);
+  const rows = data.slice(0, 7).map((item, index) => ({
+    age: item.age_group ?? `Group ${index + 1}`,
+    female: Number(item.female_percentage ?? 0),
+    male: Number(item.male_percentage ?? 0),
+  })).reverse();
+  const maximumPercentage = Math.max(20, ...rows.flatMap((row) => [row.female, row.male]));
+  const scaleMaximum = Math.ceil(maximumPercentage / 5) * 5;
+  const ticks = Array.from({ length: scaleMaximum / 5 + 1 }, (_, index) => index * 5);
+  const width = 760;
+  const height = 350;
+  const centerX = 380;
+  const halfPlotWidth = 245;
+  const plotTop = 45;
+  const rowGap = 31;
+  const axisY = plotTop + rowGap * rows.length;
+  const xFor = (value: number) => centerX + (value / scaleMaximum) * halfPlotWidth;
+  const period = data.find((item) => item.period)?.period ?? 'Latest available';
+
+  return (
+    <div className="rounded-[18px] border border-[#E5DCD5] bg-white p-4 shadow-sm sm:p-5">
+      <div className="mb-1 flex items-center justify-end gap-4 text-sm text-[#1A1A1A]">
+        <button type="button" aria-label="Previous demographic period" disabled className="cursor-not-allowed text-[#A3A3A3]">
+          <ChevronLeft className="h-4 w-4" />
+        </button>
+        <span className="min-w-[112px] text-center">{period}</span>
+        <button type="button" aria-label="Next demographic period" disabled className="cursor-not-allowed text-[#A3A3A3]">
+          <ChevronRight className="h-4 w-4" />
+        </button>
+      </div>
+      {hasSexBreakdown ? (
+        <div className="overflow-x-auto">
+          <svg className="h-auto min-w-[520px] w-full" viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Population by age group and sex">
+            <rect width={width} height={height} fill="#ffffff" />
+            {ticks.map((tick) => (
+              <g key={tick}>
+                <line
+                  x1={xFor(-tick)}
+                  y1={plotTop - 4}
+                  x2={xFor(-tick)}
+                  y2={axisY}
+                  stroke={tick === 0 ? '#4b4b4b' : '#ece8e6'}
+                  strokeDasharray={tick === 0 ? undefined : '3 4'}
+                />
+                {tick > 0 ? (
+                  <line x1={xFor(tick)} y1={plotTop - 4} x2={xFor(tick)} y2={axisY} stroke="#ece8e6" strokeDasharray="3 4" />
+                ) : null}
+                <text x={xFor(-tick)} y={axisY + 20} textAnchor="middle" fill="#4b4b4b" fontSize="11">{tick}%</text>
+                {tick > 0 ? <text x={xFor(tick)} y={axisY + 20} textAnchor="middle" fill="#4b4b4b" fontSize="11">{tick}%</text> : null}
+              </g>
+            ))}
+            {rows.map((row, index) => {
+              const y = plotTop + index * rowGap;
+              const femaleWidth = (row.female / scaleMaximum) * halfPlotWidth;
+              const maleWidth = (row.male / scaleMaximum) * halfPlotWidth;
+              return (
+                <g key={row.age}>
+                  <text x="28" y={y + 16} fill="#333333" fontSize="12">{row.age}</text>
+                  <rect x={centerX - femaleWidth} y={y + 3} width={femaleWidth} height="22" fill="#F3E6E1">
+                    <title>{`Female ${row.age}: ${row.female.toFixed(1)}%`}</title>
+                  </rect>
+                  <rect x={centerX} y={y + 3} width={maleWidth} height="22" fill="#8B0000">
+                    <title>{`Male ${row.age}: ${row.male.toFixed(1)}%`}</title>
+                  </rect>
+                </g>
+              );
+            })}
+            <line x1={xFor(-scaleMaximum)} y1={axisY} x2={xFor(scaleMaximum)} y2={axisY} stroke="#4b4b4b" />
+            <g aria-hidden="true">
+              <circle cx="342" cy="326" r="5.5" fill="#F3E6E1" />
+              <text x="354" y="330" fill="#4b4b4b" fontSize="11">Female</text>
+              <circle cx="414" cy="326" r="5.5" fill="#8B0000" />
+              <text x="426" y="330" fill="#4b4b4b" fontSize="11">Male</text>
+            </g>
+          </svg>
+        </div>
+      ) : (
+        <div className="space-y-3 px-2 py-4">
+          {rows.map((row) => {
+            const value = Number(data.find((item) => item.age_group === row.age)?.percentage ?? 0);
+            return (
+              <div key={row.age}>
+                <div className="flex justify-between text-xs font-medium text-[#4B5563]"><span>{row.age}</span><span>{value.toFixed(1)}%</span></div>
+                <div className="mt-1.5 h-3 bg-[#F3E6E1]"><div className="h-full bg-[#8B0000]" style={{ width: `${Math.min(100, Math.max(0, value))}%` }} /></div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
 };
 
 const toDistrictGeometry = (geometry: { type?: string; coordinates?: unknown }): DistrictGeometry | null => {
@@ -37,17 +156,44 @@ const toDistrictGeometry = (geometry: { type?: string; coordinates?: unknown }):
 
 const PostcodePage = () => {
   const { postcode } = useParams();
-  const normalized = useMemo(
-    () => postcode?.replace(/%20/g, ' ').trim().toUpperCase() ?? '',
-    [postcode],
-  );
+  const location = useLocation();
+  const navigate = useNavigate();
+  const normalized = useMemo(() => normalizePostcode(postcode ?? ''), [postcode]);
+
+  useEffect(() => {
+    const canonicalPath = postcodePath(normalized);
+    if (normalized && location.pathname !== canonicalPath) {
+      navigate(canonicalPath, { replace: true });
+    }
+  }, [location.pathname, navigate, normalized]);
 
   const { data, isLoading, isError, error } = usePostcodeData(normalized);
-  const [selectedPostcode, setSelectedPostcode] = useState(normalized || '');
+  const { loading: authLoading, isAuthenticated } = useAuth();
+  const queryClient = useQueryClient();
   const [overallScore, setOverallScore] = useState<number | null>(null);
   const [districtGeometry, setDistrictGeometry] = useState<DistrictGeometry | null>(null);
+  const [reviewRatings, setReviewRatings] = useState<ReviewRatings>({
+    safety_rating: 0,
+    transport_rating: 0,
+    amenities_rating: 0,
+    value_rating: 0,
+  });
+  const [reviewTitle, setReviewTitle] = useState('');
+  const [reviewContent, setReviewContent] = useState('');
+  const [reviewPros, setReviewPros] = useState('');
+  const [reviewCons, setReviewCons] = useState('');
+  const [yearsLived, setYearsLived] = useState('');
+  const [anonymous, setAnonymous] = useState(false);
+  const [isSubmittingReview, setIsSubmittingReview] = useState(false);
+  const [reviewError, setReviewError] = useState('');
+  const [reviewSubmitted, setReviewSubmitted] = useState(false);
 
   const postcodeData = data?.postcode ?? null;
+  const {
+    data: postcodeReviews = [],
+    isLoading: reviewsLoading,
+    isError: reviewsError,
+  } = usePostcodeReviews(postcodeData?.postcodeId);
   const rentData = data?.rentData ?? [];
   const demographicData = data?.demography ?? [];
   const crimeData = data?.crimeData ?? [];
@@ -59,14 +205,14 @@ const PostcodePage = () => {
     let isCurrent = true;
 
     const loadScore = async () => {
-      if (!postcodeData?.postcode_id) {
+      if (!postcodeData?.postcodeId) {
         setOverallScore(null);
         return;
       }
 
       try {
         const preview = await scoreReportService.preview({
-          postcodeId: postcodeData.postcode_id,
+          postcodeId: postcodeData.postcodeId,
           boroughId: postcodeData.boroughId || undefined,
         });
         if (isCurrent) setOverallScore(preview.overallScore ?? null);
@@ -86,6 +232,20 @@ const PostcodePage = () => {
   const mapCoordinates = postcodeData?.latitude != null && postcodeData.longitude != null
     ? { latitude: postcodeData.latitude, longitude: postcodeData.longitude }
     : null;
+  const signedLsoaMapUrl = data?.lsoaMap?.imageUrl ?? null;
+  const lsoaMap = data?.lsoaMap;
+  const dynamicPostcodeMarker = mapCoordinates && lsoaMap
+    && lsoaMap.maxLon > lsoaMap.minLon
+    && lsoaMap.maxLat > lsoaMap.minLat
+    && mapCoordinates.longitude >= lsoaMap.minLon
+    && mapCoordinates.longitude <= lsoaMap.maxLon
+    && mapCoordinates.latitude >= lsoaMap.minLat
+    && mapCoordinates.latitude <= lsoaMap.maxLat
+    ? {
+        x: ((mapCoordinates.longitude - lsoaMap.minLon) / (lsoaMap.maxLon - lsoaMap.minLon)) * lsoaMap.imageWidthPx,
+        y: ((lsoaMap.maxLat - mapCoordinates.latitude) / (lsoaMap.maxLat - lsoaMap.minLat)) * lsoaMap.imageHeightPx,
+      }
+    : null;
   const selectedDistrict = postcodeData?.outcode ?? normalized.split(' ')[0] ?? '';
   const totalCrimeItem = (crimeData as Array<{ label?: string; crime_rate?: number | string; value?: number | string }>).find(
     (item) => /total crimes per/i.test(String(item.label ?? '')),
@@ -97,11 +257,55 @@ const PostcodePage = () => {
     (item) => !/total crimes per/i.test(String(item.label ?? '')),
   );
 
-  const crimePercentages = relativeCrimeData.map((item) => {
-    const rawValue = Number(item.crime_rate ?? item.value ?? 0);
-    if (!Number.isFinite(rawValue) || rawValue <= 0 || totalCrimeRate <= 0) return 0;
-    return Math.min(100, (rawValue / totalCrimeRate) * 100);
-  });
+  const handleReviewSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setReviewError('');
+    setReviewSubmitted(false);
+
+    if (!postcodeData?.postcodeId) {
+      setReviewError('Postcode details are not available. Please try again shortly.');
+      return;
+    }
+    if (reviewRatingCategories.some(({ key }) => reviewRatings[key] === 0)) {
+      setReviewError('Please rate safety, transport, amenities, and value for money.');
+      return;
+    }
+
+    setIsSubmittingReview(true);
+    try {
+      await reviewService.create({
+        title: reviewTitle.trim(),
+        content: reviewContent.trim(),
+        ...reviewRatings,
+        pros: reviewPros.split(/\r?\n/).map((item) => item.trim()).filter(Boolean),
+        cons: reviewCons.split(/\r?\n/).map((item) => item.trim()).filter(Boolean),
+        years_lived: yearsLived ? Number(yearsLived) : null,
+        anonymous,
+        postcode_id: postcodeData.postcodeId,
+        borough_id: postcodeData.boroughId,
+      });
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.postcodeReviews(postcodeData.postcodeId),
+      });
+      setReviewSubmitted(true);
+      setReviewTitle('');
+      setReviewContent('');
+      setReviewPros('');
+      setReviewCons('');
+      setYearsLived('');
+      setReviewRatings({
+        safety_rating: 0,
+        transport_rating: 0,
+        amenities_rating: 0,
+        value_rating: 0,
+      });
+      setAnonymous(false);
+    } catch (submitError) {
+      setReviewError(extractApiError(submitError));
+    } finally {
+      setIsSubmittingReview(false);
+    }
+  };
 
   const formatRent = (value: unknown) => {
     const rent = Number(value);
@@ -229,7 +433,34 @@ const PostcodePage = () => {
                 <MapPin className="h-5 w-5 text-[#8B0202]" />
                 <H2 className="text-[#1A2B3C]">Location and local area</H2>
               </div>
-              {mapCoordinates && mapBounds ? (
+              {signedLsoaMapUrl && data?.lsoaMap && dynamicPostcodeMarker ? (
+                <div
+                  className="relative mt-4 aspect-[8/5] w-full overflow-hidden rounded-xl bg-[#dce7e8]"
+                  role="img"
+                  aria-label={`LSOA map with searched postcode ${normalized} marked`}
+                >
+                  <img
+                    src={signedLsoaMapUrl}
+                    alt=""
+                    className="absolute inset-0 h-full w-full"
+                    loading="lazy"
+                    decoding="async"
+                  />
+                  {dynamicPostcodeMarker ? (
+                    <svg
+                      viewBox={`0 0 ${data.lsoaMap.imageWidthPx} ${data.lsoaMap.imageHeightPx}`}
+                      preserveAspectRatio="none"
+                      className="pointer-events-none absolute inset-0 h-full w-full"
+                      aria-hidden="true"
+                    >
+                      <g transform={`translate(${dynamicPostcodeMarker.x.toFixed(1)},${dynamicPostcodeMarker.y.toFixed(1)})`}>
+                        <path d="M0,0 C-13,-19 -13,-34 0,-34 C13,-34 13,-19 0,0 Z" fill="#3b82f6" stroke="#ffffff" strokeWidth="2.5" />
+                        <circle cx="0" cy="-23" r="5.5" fill="#ffffff" />
+                      </g>
+                    </svg>
+                  ) : null}
+                </div>
+              ) : mapCoordinates && mapBounds ? (
                 <div className="relative mt-4 h-64 overflow-hidden rounded-xl bg-[#dce7e8]" aria-label={`Fixed map showing postcode area ${selectedDistrict}`}>
                   <iframe
                     title={`Map showing postcode area ${selectedDistrict}`}
@@ -345,26 +576,16 @@ const PostcodePage = () => {
                   <p className="mt-4 text-xs text-[#6B7280]">Values are shown as a percentage of the local risk level for comparison.</p>
                 </div>
 
-                <div className="rounded-[32px] border border-[#E5DCD5] bg-white p-8 shadow-sm">
+                <section className="space-y-4" aria-labelledby="postcode-demographics-title">
                   <div className="mb-4 flex items-center gap-3">
-                    <BarChart3 className="w-5 h-5 text-[#8B0202]" />
-                    <H3 className="text-[#1A2B3C]">Demographics</H3>
+                    <UserRound className="w-5 h-5 text-[#1A1A1A]" />
+                    <H3 id="postcode-demographics-title" className="text-[#1A1A1A]">Demographics</H3>
                   </div>
-                  <Body className="text-[#4B5563] mb-6">Demographic data provides a general overview of the people living in the area based on publicly available statistics.</Body>
-                  <div className="space-y-4">
-                    {demographicData.length ? demographicData.slice(0, 7).map((item: any, index: number) => (
-                      <div key={`${item.age_group ?? item.label ?? index}-${index}`}>
-                        <div className="flex justify-between text-sm font-semibold text-[#1A2B3C]">
-                          <span>{item.age_group ?? item.label ?? `Group ${index + 1}`}</span>
-                          <span>{item.percentage ? `${item.percentage}%` : `${item.value ?? 0}%`}</span>
-                        </div>
-                        <div className="mt-2 h-4 rounded-full bg-[#E5E7EB]">
-                          <div className="h-full rounded-full bg-[#8B0202]" style={{ width: `${Number(item.percentage ?? item.value ?? 0)}%` }} />
-                        </div>
-                      </div>
-                    )) : <Body className="text-[#6B7280]">Demographic data unavailable for this postcode.</Body>}
-                  </div>
-                </div>
+                  <Body className="max-w-3xl text-[#4B5563]">Demographic data provides a general overview of the people living in the area based on publicly available statistics.</Body>
+                  {demographicData.length
+                    ? <DemographicsChart data={demographicData as DemographicPoint[]} />
+                    : <Body className="text-[#6B7280]">Demographic data unavailable for this postcode.</Body>}
+                </section>
               </div>
 
               <aside className="space-y-6">
@@ -385,15 +606,58 @@ const PostcodePage = () => {
               </aside>
             </div>
 
-            <div className="mt-12">
+            <div id="reviews" className="mt-12 scroll-mt-6">
               <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
                 <H2 className="text-[#1A2B3C]">Most recent reviews</H2>
               </div>
 
-              <Body className="mt-6 rounded-2xl border border-dashed border-[#D9D5D0] p-5 text-[#6B7280]">No reviews are available for this postcode yet.</Body>
+              {reviewsLoading ? (
+                <Body className="mt-6 text-[#6B7280]">Loading reviews...</Body>
+              ) : reviewsError ? (
+                <Body className="mt-6 rounded-2xl border border-dashed border-[#D9D5D0] p-5 text-[#6B7280]">
+                  Reviews could not be loaded. Please try again later.
+                </Body>
+              ) : postcodeReviews.length ? (
+                <div className="mt-6 space-y-4">
+                  {postcodeReviews.map((review) => (
+                    <article key={review.review_id} className="rounded-2xl border border-[#E5DCD5] bg-white p-5">
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div>
+                          <H3 className="text-[#1A2B3C]">{review.title}</H3>
+                          <Body className="mt-1 text-sm text-[#6B7280]">
+                            {review.anonymous ? 'Anonymous' : review.users?.firstName ?? 'Local reviewer'}
+                            {' · '}
+                            {new Date(review.created_at).toLocaleDateString('en-GB')}
+                          </Body>
+                        </div>
+                        <div className="flex items-center gap-1 text-sm font-semibold text-[#D97706]">
+                          <Star className="h-4 w-4 fill-current" />
+                          {Number(review.overall_rating).toFixed(1)} / 5
+                        </div>
+                      </div>
+                      <Body className="mt-4 whitespace-pre-wrap text-[#4B5563]">{review.content}</Body>
+                      <div className="mt-4 flex flex-wrap gap-x-4 gap-y-1 text-xs text-[#6B7280]">
+                        {reviewRatingCategories.map(({ key, label }) => (
+                          <span key={key}>{label}: {review[key]}/5</span>
+                        ))}
+                      </div>
+                      {review.pros.length > 0 ? (
+                        <Body className="mt-3 text-sm text-[#4B5563]"><strong>Pros:</strong> {review.pros.join(' · ')}</Body>
+                      ) : null}
+                      {review.cons.length > 0 ? (
+                        <Body className="mt-1 text-sm text-[#4B5563]"><strong>Cons:</strong> {review.cons.join(' · ')}</Body>
+                      ) : null}
+                    </article>
+                  ))}
+                </div>
+              ) : (
+                <Body className="mt-6 rounded-2xl border border-dashed border-[#D9D5D0] p-5 text-[#6B7280]">
+                  No approved reviews are available for this postcode yet.
+                </Body>
+              )}
             </div>
 
-            <div className="mt-12 rounded-[36px] bg-[#FBE9E6] p-8 shadow-sm">
+            <form id="leave-review" onSubmit={handleReviewSubmit} className="mt-12 scroll-mt-6 rounded-[36px] bg-[#FBE9E6] p-8 shadow-sm">
               <div className="mb-8">
                 <H2 className="text-[#1A2B3C]">Leave a review about {normalized}</H2>
                 <Body className="text-[#4B5563] mt-2">Share your experience of the postcode and help others understand the local area.</Body>
@@ -401,77 +665,158 @@ const PostcodePage = () => {
 
               <div className="grid gap-8 xl:grid-cols-[1.1fr_0.9fr]">
                 <div className="space-y-6">
-                  <div>
-                    <p className="text-sm uppercase tracking-[0.14em] text-[#8B0202] mb-2">Ratings</p>
-                    <div className="flex items-center gap-1 text-[#D97706]">
-                      {Array.from({ length: 5 }).map((_, index) => (
-                        <Star key={index} className="w-5 h-5" />
+                  <fieldset>
+                    <legend className="mb-3 text-sm uppercase tracking-[0.14em] text-[#8B0202]">Ratings</legend>
+                    <div className="space-y-3">
+                      {reviewRatingCategories.map(({ key, label }) => (
+                        <div key={key} className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-white px-4 py-3">
+                          <span className="text-sm font-medium text-[#1A2B3C]">{label}</span>
+                          <div role="group" aria-label={`Rate ${label.toLowerCase()}`} className="flex items-center gap-1">
+                            {Array.from({ length: 5 }, (_, index) => {
+                              const value = index + 1;
+                              const selected = reviewRatings[key] === value;
+                              return (
+                                <button
+                                  key={value}
+                                  type="button"
+                                  aria-pressed={selected}
+                                  aria-label={`${value} out of 5 for ${label.toLowerCase()}`}
+                                  onClick={() => setReviewRatings((current) => ({ ...current, [key]: value }))}
+                                  className="rounded p-1 text-[#D97706] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#8B0202]"
+                                >
+                                  <Star className={`h-5 w-5 ${value <= reviewRatings[key] ? 'fill-current' : ''}`} />
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
                       ))}
                     </div>
-                  </div>
+                  </fieldset>
 
                   <div>
                     <p className="text-sm uppercase tracking-[0.14em] text-[#8B0202] mb-2">Postcode</p>
-                    <label className="sr-only" htmlFor="review-postcode">
-                      Choose your full postcode
-                    </label>
-                    <select
+                    <label className="sr-only" htmlFor="review-postcode">Postcode for this review</label>
+                    <input
                       id="review-postcode"
-                      value={selectedPostcode}
-                      onChange={(event) => setSelectedPostcode(event.target.value)}
-                      className="w-full rounded-[18px] border border-[#D9D5D0] bg-white px-4 py-3 text-sm text-[#1A2B3C] focus:outline-none"
-                    >
-                      <option value="">Choose your full postcode</option>
-                      {normalized ? <option value={normalized}>{normalized}</option> : null}
-                    </select>
+                      readOnly
+                      value={postcodeData?.code ?? normalized}
+                      className="w-full rounded-[18px] border border-[#D9D5D0] bg-white px-4 py-3 text-sm text-[#1A2B3C]"
+                    />
                   </div>
 
                   <div>
-                    <p className="text-sm uppercase tracking-[0.14em] text-[#8B0202] mb-2">Status</p>
-                    <select className="w-full rounded-[18px] border border-[#D9D5D0] bg-white px-4 py-3 text-sm text-[#1A2B3C] focus:outline-none">
-                      <option>Select your relation to the property/area</option>
-                      <option>Local resident</option>
-                      <option>User</option>
-                      <option>Visitor</option>
-                    </select>
+                    <label htmlFor="review-years-lived" className="mb-2 block text-sm uppercase tracking-[0.14em] text-[#8B0202]">
+                      Years lived in the area <span className="normal-case tracking-normal text-[#6B7280]">(optional)</span>
+                    </label>
+                    <input
+                      id="review-years-lived"
+                      type="number"
+                      min="0"
+                      max="100"
+                      step="1"
+                      value={yearsLived}
+                      onChange={(event) => setYearsLived(event.target.value)}
+                      className="w-full rounded-[18px] border border-[#D9D5D0] bg-white px-4 py-3 text-sm text-[#1A2B3C] focus:outline-none focus:ring-2 focus:ring-[#8B0202]"
+                    />
                   </div>
 
                   <div>
-                    <p className="text-sm uppercase tracking-[0.14em] text-[#8B0202] mb-2">Write your review</p>
-                    <textarea className="min-h-[200px] w-full rounded-[24px] border border-[#D9D5D0] bg-white p-5 text-sm text-[#1A2B3C] focus:outline-none" placeholder="Write your review" />
+                    <label htmlFor="review-title" className="mb-2 block text-sm uppercase tracking-[0.14em] text-[#8B0202]">Review title</label>
+                    <input
+                      id="review-title"
+                      required
+                      maxLength={120}
+                      value={reviewTitle}
+                      onChange={(event) => setReviewTitle(event.target.value)}
+                      className="w-full rounded-[18px] border border-[#D9D5D0] bg-white px-4 py-3 text-sm text-[#1A2B3C] focus:outline-none focus:ring-2 focus:ring-[#8B0202]"
+                      placeholder="Summarize your experience"
+                    />
                   </div>
 
-                  <div className="rounded-[24px] border border-[#D9D5D0] bg-white p-5 text-center text-sm text-[#1A2B3C]">
-                    <ArrowUpRight className="inline-block mr-2 w-4 h-4" /> Click here to upload images
+                  <div>
+                    <label htmlFor="review-content" className="mb-2 block text-sm uppercase tracking-[0.14em] text-[#8B0202]">Write your review</label>
+                    <textarea
+                      id="review-content"
+                      required
+                      minLength={10}
+                      maxLength={5000}
+                      value={reviewContent}
+                      onChange={(event) => setReviewContent(event.target.value)}
+                      className="min-h-[200px] w-full rounded-[24px] border border-[#D9D5D0] bg-white p-5 text-sm text-[#1A2B3C] focus:outline-none focus:ring-2 focus:ring-[#8B0202]"
+                      placeholder="Write your review"
+                    />
                   </div>
+                  <Body className="text-xs text-[#6B7280]">Reviews are text-only for now; image uploads are not available.</Body>
                 </div>
 
                 <div className="space-y-6">
                   <div className="rounded-[24px] bg-white p-5 shadow-sm">
-                    <p className="text-sm uppercase tracking-[0.14em] text-[#8B0202] mb-2">Pros</p>
-                    <textarea className="min-h-[120px] w-full rounded-[20px] border border-[#E5E7EB] bg-[#F8FAFC] p-4 text-sm text-[#1A2B3C] focus:outline-none" placeholder="What's good about living here" />
+                    <label htmlFor="review-pros" className="mb-2 block text-sm uppercase tracking-[0.14em] text-[#8B0202]">Pros</label>
+                    <textarea
+                      id="review-pros"
+                      value={reviewPros}
+                      onChange={(event) => setReviewPros(event.target.value)}
+                      className="min-h-[120px] w-full rounded-[20px] border border-[#E5E7EB] bg-[#F8FAFC] p-4 text-sm text-[#1A2B3C] focus:outline-none focus:ring-2 focus:ring-[#8B0202]"
+                      placeholder="What's good about living here? One point per line."
+                    />
                   </div>
 
                   <div className="rounded-[24px] bg-white p-5 shadow-sm">
-                    <p className="text-sm uppercase tracking-[0.14em] text-[#8B0202] mb-2">Cons</p>
-                    <textarea className="min-h-[120px] w-full rounded-[20px] border border-[#E5E7EB] bg-[#F8FAFC] p-4 text-sm text-[#1A2B3C] focus:outline-none" placeholder="What could be better" />
+                    <label htmlFor="review-cons" className="mb-2 block text-sm uppercase tracking-[0.14em] text-[#8B0202]">Cons</label>
+                    <textarea
+                      id="review-cons"
+                      value={reviewCons}
+                      onChange={(event) => setReviewCons(event.target.value)}
+                      className="min-h-[120px] w-full rounded-[20px] border border-[#E5E7EB] bg-[#F8FAFC] p-4 text-sm text-[#1A2B3C] focus:outline-none focus:ring-2 focus:ring-[#8B0202]"
+                      placeholder="What could be better? One point per line."
+                    />
                   </div>
 
-                  <div className="space-y-4 rounded-[24px] bg-white p-5 shadow-sm">
+                  <div className="rounded-[24px] bg-white p-5 shadow-sm">
                     <label className="flex items-center gap-3 text-sm text-[#1A2B3C]">
-                      <input type="checkbox" className="h-4 w-4 rounded border-[#D9D5D0] text-[#8B0202] focus:ring-[#8B0202]" />
-                      <span>First Name only</span>
-                    </label>
-                    <label className="flex items-center gap-3 text-sm text-[#1A2B3C]">
-                      <input type="checkbox" className="h-4 w-4 rounded border-[#D9D5D0] text-[#8B0202] focus:ring-[#8B0202]" />
-                      <span>Stay Anonymous</span>
+                      <input
+                        type="checkbox"
+                        checked={anonymous}
+                        onChange={(event) => setAnonymous(event.target.checked)}
+                        className="h-4 w-4 rounded border-[#D9D5D0] text-[#8B0202] focus:ring-[#8B0202]"
+                      />
+                      <span>Stay anonymous</span>
                     </label>
                   </div>
                 </div>
               </div>
 
-              <Link to="/register" className="flex w-full items-center justify-center rounded-lg bg-[#8B0202] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#6A0101]">Create an account to submit your review</Link>
-            </div>
+              {reviewError ? <p role="alert" className="mt-6 rounded-xl bg-red-50 p-4 text-sm text-red-800">{reviewError}</p> : null}
+              {reviewSubmitted ? (
+                <p role="status" className="mt-6 rounded-xl bg-green-50 p-4 text-sm text-green-800">
+                  Your review was submitted and is awaiting moderation. Thank you for sharing your experience.
+                </p>
+              ) : null}
+              {authLoading ? (
+                <p className="mt-6 text-center text-sm text-[#4B5563]">Checking your account...</p>
+              ) : isAuthenticated ? (
+                <button
+                  type="submit"
+                  disabled={isSubmittingReview}
+                  className="mt-6 flex w-full items-center justify-center rounded-lg bg-[#8B0202] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#6A0101] disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {isSubmittingReview ? 'Submitting review...' : 'Submit review'}
+                </button>
+              ) : (
+                <div className="mt-6 space-y-3 text-center">
+                  <p className="text-sm text-[#4B5563]">Sign in to submit your review.</p>
+                  <div className="flex flex-col justify-center gap-3 sm:flex-row">
+                    <Link to="/login" className="rounded-lg border border-[#8B0202] px-5 py-3 text-sm font-semibold text-[#8B0202] transition hover:bg-white">
+                      Sign in
+                    </Link>
+                    <Link to="/register" className="rounded-lg bg-[#8B0202] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#6A0101]">
+                      Create an account
+                    </Link>
+                  </div>
+                </div>
+              )}
+            </form>
 
           </>
         )}

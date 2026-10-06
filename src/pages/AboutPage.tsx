@@ -1,6 +1,9 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
-import { ChevronDown } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { ChevronDown, X } from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
+import { authService } from '@/services/auth.service';
+import { extractApiError } from '@/utils/apiError';
 import { H1, H2, H3, Body } from '../components/common/Typography';
 import Button from '../components/common/Button';
 
@@ -18,7 +21,6 @@ import MichaelImage from '@img/Designer.png';
 import IrinaImage from '@img/UX UI Designer.png';
 import TereseImage from '@img/UI Disigner.png';
 import AlamkheerImage from '@img/Software engineer (2).png';
-import SteveImage from '@img/Software Engineer.jpg';
 import MubtasinImage from '@img/Data Engineer (2).png';
 import FrederickImage from '@img/Data engineer.png';
 import FullstackImage from '@img/Fullstack Tech Lead.png';
@@ -53,68 +55,78 @@ const FAQ_ITEMS = [
   },
 ];
 
-const contributors = [
+type Contributor = {
+  name: string;
+  role: string;
+  image: string;
+  linkedin?: string;
+};
+
+const contributors: Contributor[] = [
   {
     name: 'Federico Grosso',
     role: 'Co-founder, CEO',
     image: FedericoImage,
+    linkedin: 'https://www.linkedin.com/in/federico-grosso-/',
   },
   {
     name: 'Yuliia Mosiakova',
     role: 'Co-founder, COO',
     image: YuliiaImage,
+    linkedin: 'https://www.linkedin.com/in/yuliia-mosiakova/',
   },
 ];
 
-const team = [
+const team: Contributor[] = [
+  {
+    name: 'Yelysei Shcherbak',
+    role: 'CTO',
+    image: FullstackImage,
+    linkedin: 'https://www.linkedin.com/in/yelysei-shcherbak-5914a4441',
+  },
   {
     name: 'Michael McGuigan',
     role: 'UX/UI Designer',
     image: MichaelImage,
+    linkedin: 'https://www.linkedin.com/in/michael-mcguigan--/',
   },
   {
     name: 'Irina Pak',
     role: 'UX/UI Designer',
     image: IrinaImage,
+    linkedin: 'https://www.linkedin.com/in/irina-pak-733648294/',
   },
   {
     name: 'Terese Christiansen',
     role: 'UX/UI Designer',
     image: TereseImage,
+    linkedin: 'https://www.linkedin.com/in/imtess/',
   },
   {
     name: 'Alamkheer Husainul Fareedh M.',
     role: 'Software Engineer',
     image: AlamkheerImage,
-  },
-  {
-    name: 'Steve Hiscox',
-    role: 'Software Engineer',
-    image: SteveImage,
+    linkedin: 'https://www.linkedin.com/in/alamkheer-husainul-fareedh-m/',
   },
   {
     name: 'Mubtasin Quader',
     role: 'Data Engineer',
     image: MubtasinImage,
+    linkedin: 'https://www.linkedin.com/in/mq10/',
   },
   {
     name: 'Frederick Elledge',
     role: 'Data Engineer',
     image: FrederickImage,
+    linkedin: 'https://www.linkedin.com/in/frederick-elledge/',
   },
   {
     name: 'Joy Onyesom',
     role: 'Project Manager',
     image: JoyImage,
-  },
-  {
-    name: 'Yelysei Shcherbak',
-    role: 'Fullstack Tech Lead',
-    image: FullstackImage,
+    linkedin: 'https://www.linkedin.com/in/joy-onyesom-a7a05a148',
   },
 ];
-
-type Contributor = (typeof contributors)[number] | (typeof team)[number];
 
 const ContributorCard = ({ person, founder = false }: { person: Contributor; founder?: boolean }) => (
   <article className="min-w-0">
@@ -131,7 +143,17 @@ const ContributorCard = ({ person, founder = false }: { person: Contributor; fou
           <p className={`font-semibold leading-tight tracking-[-0.035em] text-[#111111] ${founder ? 'text-[1.15rem]' : 'text-[0.78rem]'}`}>
             {person.name}
           </p>
-          <img src={LinkedInImage} alt="LinkedIn" className="h-4 w-4 shrink-0 object-contain" />
+          {person.linkedin && (
+            <a
+              href={person.linkedin}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label={`${person.name} on LinkedIn`}
+              className="shrink-0"
+            >
+              <img src={LinkedInImage} alt="" className="h-4 w-4 object-contain" />
+            </a>
+          )}
         </div>
         <p className={`mt-2 text-[#707070] ${founder ? 'text-[1.1rem]' : 'text-[0.74rem]'}`}>
           {person.role}
@@ -143,6 +165,34 @@ const ContributorCard = ({ person, founder = false }: { person: Contributor; fou
 
 const AboutPage = () => {
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(0);
+  const [earlyAccessOpen, setEarlyAccessOpen] = useState(false);
+  const [earlyAccessPending, setEarlyAccessPending] = useState(false);
+  const [earlyAccessError, setEarlyAccessError] = useState<string | null>(null);
+  const { isAuthenticated } = useAuth();
+  const navigate = useNavigate();
+
+  const handleEarlyAccessSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setEarlyAccessError(null);
+    setEarlyAccessPending(true);
+    const formData = new FormData(event.currentTarget);
+
+    try {
+      const email = String(formData.get('email') ?? '').trim();
+      await authService.registerEarlyAccess({
+        firstName: String(formData.get('firstName') ?? '').trim(),
+        lastName: String(formData.get('lastName') ?? '').trim(),
+        email,
+        password: String(formData.get('password') ?? ''),
+      });
+      setEarlyAccessOpen(false);
+      navigate(`/verify-email?email=${encodeURIComponent(email)}&type=user`);
+    } catch (error) {
+      setEarlyAccessError(extractApiError(error));
+    } finally {
+      setEarlyAccessPending(false);
+    }
+  };
 
   return (
     <div className="bg-[#F5F3F1] text-[#1A2B3C]">
@@ -165,12 +215,19 @@ const AboutPage = () => {
                   Explore RoomReview
                 </Button>
               </Link>
-              <Link to="/postcode-search" className="inline-flex">
-                <Button variant="secondary" size="lg">
+              {isAuthenticated ? (
+                <Button variant="secondary" size="lg" disabled>
                   Join Early Access
                 </Button>
-              </Link>
+              ) : (
+                <Button variant="secondary" size="lg" type="button" onClick={() => setEarlyAccessOpen(true)}>
+                  Join Early Access
+                </Button>
+              )}
             </div>
+            {isAuthenticated ? (
+              <p className="text-sm font-semibold text-[#B02020]">You are already participating.</p>
+            ) : null}
           </div>
           <div className="rounded-[36px] overflow-hidden shadow-[0_40px_80px_rgba(20,22,33,0.08)] border border-[#EFE9E3]">
             <img
@@ -181,6 +238,61 @@ const AboutPage = () => {
           </div>
         </div>
       </section>
+
+      {earlyAccessOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 px-4 py-6"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget && !earlyAccessPending) setEarlyAccessOpen(false);
+          }}
+        >
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="early-access-title"
+            className="relative w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl sm:p-8"
+          >
+            <button
+              type="button"
+              aria-label="Close early access form"
+              onClick={() => setEarlyAccessOpen(false)}
+              disabled={earlyAccessPending}
+              className="absolute right-4 top-4 rounded-md p-2 text-slate-500 hover:bg-slate-100 disabled:opacity-50"
+            >
+              <X aria-hidden="true" className="h-5 w-5" />
+            </button>
+            <h2 id="early-access-title" className="pr-10 text-2xl font-bold text-[#1A2B3C]">Join early access</h2>
+            <p className="mt-2 text-sm text-slate-600">Create your account and get 30 days of early access. We’ll email you a verification code before you can sign in.</p>
+            <form onSubmit={handleEarlyAccessSubmit} className="mt-6 space-y-4">
+              <label className="block text-sm font-semibold text-slate-700">
+                First name
+                <input name="firstName" autoComplete="given-name" required maxLength={100} className="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2.5 font-normal focus:border-[#B02020] focus:outline-none focus:ring-2 focus:ring-[#B02020]/20" />
+              </label>
+              <label className="block text-sm font-semibold text-slate-700">
+                Last name
+                <input name="lastName" autoComplete="family-name" required maxLength={100} className="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2.5 font-normal focus:border-[#B02020] focus:outline-none focus:ring-2 focus:ring-[#B02020]/20" />
+              </label>
+              <label className="block text-sm font-semibold text-slate-700">
+                Email
+                <input name="email" type="email" autoComplete="email" required maxLength={254} className="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2.5 font-normal focus:border-[#B02020] focus:outline-none focus:ring-2 focus:ring-[#B02020]/20" />
+              </label>
+              <label className="block text-sm font-semibold text-slate-700">
+                Password
+                <input name="password" type="password" autoComplete="new-password" required minLength={8} className="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2.5 font-normal focus:border-[#B02020] focus:outline-none focus:ring-2 focus:ring-[#B02020]/20" />
+              </label>
+              {earlyAccessError && (
+                <p role="alert" className="text-sm font-medium text-red-700">{earlyAccessError}</p>
+              )}
+              <Button type="submit" className="w-full" disabled={earlyAccessPending}>
+                {earlyAccessPending ? 'CREATING ACCOUNT...' : 'REGISTER'}
+              </Button>
+            </form>
+            <p className="mt-4 text-center text-xs text-slate-500">
+              Already have an account? <Link to="/login" className="font-semibold text-[#B02020] underline">Sign in</Link>
+            </p>
+          </section>
+        </div>
+      )}
 
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 space-y-16">
         <div className="space-y-16">

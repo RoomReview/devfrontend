@@ -35,6 +35,57 @@ interface CheckoutResponse {
   checkoutUrl: string | null;
 }
 
+const REPORT_TRIAL_CREDITS_KEY = 'roomreview-report-trial-credits';
+
+export const getStoredGuestReportCredits = (): number => {
+  if (typeof window === 'undefined') return 0;
+  const rawValue = window.localStorage.getItem(REPORT_TRIAL_CREDITS_KEY);
+  if (rawValue == null) {
+    window.localStorage.setItem(REPORT_TRIAL_CREDITS_KEY, '2');
+    return 2;
+  }
+
+  const value = Number(rawValue);
+  if (!Number.isFinite(value) || value < 0) {
+    window.localStorage.setItem(REPORT_TRIAL_CREDITS_KEY, '2');
+    return 2;
+  }
+
+  return value;
+};
+
+export const consumeGuestReportCredit = (): number => {
+  if (typeof window === 'undefined') return 0;
+  const currentBalance = getStoredGuestReportCredits();
+  if (currentBalance <= 0) {
+    window.localStorage.setItem(REPORT_TRIAL_CREDITS_KEY, '0');
+    return 0;
+  }
+
+  const nextBalance = currentBalance - 1;
+  window.localStorage.setItem(REPORT_TRIAL_CREDITS_KEY, String(nextBalance));
+  return nextBalance;
+};
+
+export const ensureReportCreditsAvailable = async (isAuthenticated: boolean): Promise<{ allowed: boolean; remainingCredits: number; source: 'user' | 'guest' | 'none' }> => {
+  if (!isAuthenticated) {
+    const remainingCredits = getStoredGuestReportCredits();
+    return {
+      allowed: remainingCredits > 0,
+      remainingCredits,
+      source: remainingCredits > 0 ? 'guest' : 'none',
+    };
+  }
+
+  const billing = await paymentService.getBilling();
+  const remainingCredits = Number(billing?.creditsBalance ?? 0);
+  return {
+    allowed: remainingCredits > 0,
+    remainingCredits,
+    source: remainingCredits > 0 ? 'user' : 'none',
+  };
+};
+
 export const paymentService = {
   createCheckout: async (reportId: string): Promise<CheckoutResponse> => {
     const response = await apiClient.post<{ data: CheckoutResponse }>(`/payments/reports/${reportId}/checkout`);
@@ -56,8 +107,11 @@ export const paymentService = {
     return response.data.data;
   },
 
-  createSubscriptionCheckout: async (): Promise<string | null> => {
-    const response = await apiClient.post<{ data: { checkoutUrl: string | null } }>('/payments/subscription/checkout');
+  createSubscriptionCheckout: async (planId?: 'individual' | 'small-team' | 'branch'): Promise<string | null> => {
+    const response = await apiClient.post<{ data: { checkoutUrl: string | null } }>(
+      '/payments/subscription/checkout',
+      planId ? { planId } : {},
+    );
     return response.data.data.checkoutUrl;
   },
 
@@ -72,4 +126,8 @@ export const paymentService = {
     link.remove();
     URL.revokeObjectURL(url);
   },
+
+  ensureReportCreditsAvailable,
+  consumeGuestReportCredit,
+  getStoredGuestReportCredits,
 };

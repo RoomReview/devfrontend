@@ -5,14 +5,14 @@ import Input from '../../components/common/Input';
 import Button from '../../components/common/Button';
 import Logo from '../../components/common/Logo';
 import { H2, Body, Small } from '../../components/common/Typography';
-import backgroundImage from '../../assets/bgimage.png';
+import backgroundImage from '../../assets/bgimage.jpg';
 import { useResetPassword } from '@/hooks/auth/useResetPassword';
 
 const ResetPasswordPage = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const email = searchParams.get('email') || '';
-  const code = searchParams.get('code') || '';
+  const code = searchParams.get('token') || searchParams.get('code') || '';
 
   const { mutate: resetPassword, isPending } = useResetPassword();
 

@@ -106,14 +106,14 @@ const HomePage = () => {
 
             <div className="flex flex-wrap items-center gap-4">
               <a href="#boroughs" className="inline-flex">
-                <button className="bg-[#8B0000] text-white px-6 py-3 rounded-lg font-bold text-sm tracking-wide uppercase hover:bg-[#700000] transition-colors flex items-center gap-2">
+                <button type="button" className="bg-[#8B0000] text-white px-6 py-3 rounded-lg font-bold text-sm tracking-wide uppercase hover:bg-[#700000] transition-colors flex items-center gap-2">
                   View Boroughs
                   <span className="text-base leading-none">↓</span>
                 </button>
               </a>
 
-              <Link to="/area-search" className="inline-flex">
-                <button className="border-2 border-[#8B0000] text-[#8B0000] px-6 py-3 rounded-lg font-bold text-sm tracking-wide uppercase hover:bg-[#8B0000]/5 transition-colors">
+              <Link to="/postcode-search" className="inline-flex">
+                <button type="button" className="border-2 border-[#8B0000] text-[#8B0000] px-6 py-3 rounded-lg font-bold text-sm tracking-wide uppercase hover:bg-[#8B0000]/5 transition-colors">
                   Search Postcode
                 </button>
               </Link>
@@ -138,7 +138,7 @@ const HomePage = () => {
         </H2>
 
         <div className="relative">
-          <div className="hidden lg:block absolute top-[22.5px] left-[150px] right-[150px] h-[1px] border-t border-dashed border-[#dcd7d7] z-0"></div>
+          <div className="hidden lg:block absolute top-[22.5px] left-[46px] right-[250px] h-[1px] border-t border-dashed border-[#dcd7d7] z-0"></div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 lg:gap-12 relative z-10">
             {[
@@ -167,7 +167,7 @@ const HomePage = () => {
                 key={step.num}
                 className="flex flex-col items-center lg:items-start text-center lg:text-left"
               >
-                <div className="w-[45px] h-[45px] rounded-full border border-[#dcd7d7] bg-white flex items-center justify-center text-[#8B0202] font-medium text-2xl mb-8 shadow-sm shrink-0 mx-auto lg:mx-0">
+                <div className="w-[45px] h-[45px] rounded-full border border-[#dcd7d7] bg-white flex items-center justify-center text-[#8B0202] font-medium text-2xl mb-4 shadow-sm shrink-0 mx-auto lg:mx-0">
                   {step.num}
                 </div>
                 <div className="bg-white border border-[#dcd7d7] rounded-[20px] p-6 w-full h-full flex flex-col gap-3 min-h-[224px]">
@@ -184,7 +184,7 @@ const HomePage = () => {
         </div>
       </section>
 
-      <section className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-[96px] py-16">
+      <section id="boroughs" className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-[96px] py-16">
         <H2 className="text-center text-[#0b0b0b] mb-12 tracking-[-0.72px] text-[36px] font-bold">
           Explore boroughs
         </H2>

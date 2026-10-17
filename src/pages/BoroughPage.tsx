@@ -1,27 +1,20 @@
 import { useState, useEffect, useMemo } from 'react';
-import { useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { ChevronDown, Info, ExternalLink } from 'lucide-react';
-import apiClient from '@/lib/apiClient';
 import BoroughInsightsPanel from '@/components/borough/BoroughInsightsPanel';
 import ThemedAreaMap from '@/components/common/ThemedAreaMap';
+import PoliticalLandscapeChart from '@/components/borough/PoliticalLandscapeChart';
 
 import { boroughService, type BoroughListItem } from '@/services/borough.service';
+import { votingDataService, type VotingDataRecord } from '@/services/voting-data.service';
 import type { BoroughApiResponse } from '@/types/borough.types';
 import boroughImages from '@/config/boroughImages';
 import boroughFallbackImage from '@img/city.jpg';
-import { annualizeQuarterlyData } from '@/utils/reportGenerator';
-
-interface VotingRecord {
-  voting_data_id: string;
-  year: number;
-  party: string;
-  percentage: number | string;
-  source: string;
-}
-
+import { getBoroughRentTrend } from '@/utils/boroughRentTrend';
 
 export default function BoroughPage() {
   const { id } = useParams<{ id?: string }>();
+  const navigate = useNavigate();
   const [selectedBorough, setSelectedBorough] = useState(() => (id ? String(id).toUpperCase() : 'BROMLEY'));
   const [selectedPropertyType, setSelectedPropertyType] = useState('ALL');
   
@@ -34,7 +27,7 @@ export default function BoroughPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [hasLoadError, setHasLoadError] = useState(false);
   const [heroImage, setHeroImage] = useState(boroughFallbackImage);
-  const [votingRecords, setVotingRecords] = useState<VotingRecord[]>([]);
+  const [votingRecords, setVotingRecords] = useState<VotingDataRecord[]>([]);
   const [hoveredDataPoint, setHoveredDataPoint] = useState<{ seriesName: string; year: string; value: number; x: number; y: number } | null>(null);
 
   useEffect(() => {
@@ -47,11 +40,16 @@ export default function BoroughPage() {
       try {
         setIsLoading(true);
         setHasLoadError(false);
-        const fetchId = id ?? selectedBorough.toLowerCase();
-        const res = await boroughService.getById(String(fetchId));
+        const isLegacyId = /^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(id);
+        const res = isLegacyId
+          ? await boroughService.getById(id)
+          : await boroughService.getBySlug(id);
+        if (isLegacyId || id !== res.slug) {
+          navigate(`/borough/${res.slug}`, { replace: true });
+        }
         setBoroughApi(res);
         setHeroImage(boroughImages[res.name] ?? res.image ?? boroughFallbackImage);
-        setSelectedBorough(String(res.name ?? res.slug ?? fetchId).toUpperCase());
+        setSelectedBorough(String(res.name ?? res.slug).toUpperCase());
 
         let availableBoroughs: BoroughListItem[] = [];
         try {
@@ -68,11 +66,14 @@ export default function BoroughPage() {
         setPropertyTypes(types.length ? types : ['ALL']);
 
         const votingResult = await Promise.allSettled([
-          apiClient.get<{ data: VotingRecord[] | null }>(`/data/voting?borough=${encodeURIComponent(res.name)}`),
+          votingDataService.getByBorough(res.name),
         ]);
+        if (votingResult[0].status === 'rejected') {
+          console.error('Could not load political data for the borough page', votingResult[0].reason);
+        }
         setVotingRecords(
-          votingResult[0].status === 'fulfilled' && Array.isArray(votingResult[0].value.data.data)
-            ? votingResult[0].value.data.data
+          votingResult[0].status === 'fulfilled'
+            ? votingResult[0].value
             : [],
         );
 
@@ -90,7 +91,7 @@ export default function BoroughPage() {
     };
 
     load();
-  }, [id]);
+  }, [id, navigate]);
 
   useEffect(() => {
     const loadComparisonData = async () => {
@@ -136,7 +137,7 @@ export default function BoroughPage() {
   const heroTitle = boroughApi?.name ?? (selectedBorough || 'Borough');
 
   const comparisonSeries = comparisonApis.map((borough) => {
-    const trend = annualizeQuarterlyData(borough.rentTrendData ?? [] as unknown[]);
+    const trend = getBoroughRentTrend(borough.rentTrendData, selectedPropertyType);
     return {
       name: borough.name,
       values: trend.map((point) => Number(point.value)),
@@ -144,14 +145,11 @@ export default function BoroughPage() {
     };
   }).filter((series) => series.values.length > 0);
 
+  const selectedRentTrend = getBoroughRentTrend(boroughApi?.rentTrendData, selectedPropertyType);
   const chartSeries = [{
     name: heroTitle,
-    values: annualizeQuarterlyData(boroughApi?.rentTrendData ?? [] as unknown[])
-      .filter((point) => Number.isFinite(Number(point.value)) && Number(point.value) > 0)
-      .map((point) => Number(point.value)),
-    years: annualizeQuarterlyData(boroughApi?.rentTrendData ?? [] as unknown[])
-      .filter((point) => Number.isFinite(Number(point.value)) && Number(point.value) > 0)
-      .map((point) => String(point.year)),
+    values: selectedRentTrend.map((point) => Number(point.value)),
+    years: selectedRentTrend.map((point) => String(point.year)),
   }, ...comparisonSeries.filter((series) => series.name !== heroTitle)];
 
   const heroText = boroughApi?.description ?? 'Detailed borough data is currently unavailable.';
@@ -510,13 +508,6 @@ export default function BoroughPage() {
 
   void [renderHousingTab, renderInfrastructureTab, renderEducationTab, renderPolicingTab];
 
-  const latestVotingYear = votingRecords.reduce((latest, record) => Math.max(latest, record.year), 0);
-  const latestPoliticalBreakdown = votingRecords
-    .filter((record) => record.year === latestVotingYear)
-    .map((record) => ({ ...record, share: Number(record.percentage) }))
-    .filter((record) => Number.isFinite(record.share))
-    .sort((first, second) => second.share - first.share);
-
   const formatCurrency = (value: number) => new Intl.NumberFormat('en-GB', {
     style: 'currency',
     currency: 'GBP',
@@ -524,19 +515,29 @@ export default function BoroughPage() {
     maximumFractionDigits: 0,
   }).format(value);
 
-  const selectedRentValues = rentDataFiltered
-    .map((record: any) => Number(record.rent ?? 0))
-    .filter((value) => Number.isFinite(value));
+  const selectedRentValues = selectedRentTrend
+    .map(({ value }) => Number(value))
+    .filter((value) => Number.isFinite(value) && value > 0);
   const firstRentValue = selectedRentValues[0] ?? 0;
   const lastRentValue = selectedRentValues[selectedRentValues.length - 1] ?? firstRentValue;
   const previousRentValue = selectedRentValues.length > 1
     ? selectedRentValues[selectedRentValues.length - 2]
     : lastRentValue;
-  const fiveYearPct = firstRentValue > 0 ? ((lastRentValue - firstRentValue) / firstRentValue) * 100 : 0;
-  const annualPct = previousRentValue > 0 ? ((lastRentValue - previousRentValue) / previousRentValue) * 100 : 0;
-  const rentMinValue = selectedRentValues.length ? Math.min(...selectedRentValues) : 0;
-  const rentMaxValue = selectedRentValues.length ? Math.max(...selectedRentValues) : 0;
-  const rentRangeValue = selectedRentValues.length ? `${formatCurrency(rentMinValue)} – ${formatCurrency(rentMaxValue)}` : 'N/A';
+  const fiveYearPct = firstRentValue > 0 && selectedRentValues.length > 1
+    ? ((lastRentValue - firstRentValue) / firstRentValue) * 100
+    : null;
+  const annualPct = previousRentValue > 0 && selectedRentValues.length > 1
+    ? ((lastRentValue - previousRentValue) / previousRentValue) * 100
+    : null;
+  const selectedCurrentRentValues = rentDataFiltered
+    .map((record) => Number(record.rent ?? 0))
+    .filter((value) => Number.isFinite(value) && value > 0);
+  const rentMinValue = selectedCurrentRentValues.length ? Math.min(...selectedCurrentRentValues) : 0;
+  const rentMaxValue = selectedCurrentRentValues.length ? Math.max(...selectedCurrentRentValues) : 0;
+  const rentRangeValue = selectedCurrentRentValues.length
+    ? `${formatCurrency(rentMinValue)} – ${formatCurrency(rentMaxValue)}`
+    : 'N/A';
+  const fiveYearStartYear = selectedRentTrend[0]?.year;
 
   if (isLoading) {
     return <div className="min-h-screen bg-[#F8FAFC] px-4 py-20 text-center text-slate-600">Loading borough data...</div>;
@@ -663,12 +664,18 @@ export default function BoroughPage() {
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <div className="rounded-[12px] border border-slate-200 bg-[#f6f3ee] p-4 shadow-[inset_0_0_0_1px_rgba(146,123,92,0.04)]">
               <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">5-year price increase</div>
-              <div className="mt-2 text-[clamp(2rem,2vw,3rem)] font-black tracking-[-0.05em] text-[#8B0000]">+{Math.abs(fiveYearPct).toFixed(1)}%</div>
-              <div className="mt-1 text-sm text-slate-500">Since 2019 average</div>
+              <div className="mt-2 text-[clamp(2rem,2vw,3rem)] font-black tracking-[-0.05em] text-[#8B0000]">
+                {fiveYearPct === null ? 'N/A' : `${fiveYearPct >= 0 ? '+' : ''}${fiveYearPct.toFixed(1)}%`}
+              </div>
+              <div className="mt-1 text-sm text-slate-500">
+                {fiveYearStartYear ? `Since ${fiveYearStartYear} average` : 'Five-year trend unavailable'}
+              </div>
             </div>
             <div className="rounded-[12px] border border-slate-200 bg-[#f6f3ee] p-4 shadow-[inset_0_0_0_1px_rgba(146,123,92,0.04)]">
               <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">Annual increase</div>
-              <div className="mt-2 text-[clamp(2rem,2vw,3rem)] font-black tracking-[-0.05em] text-[#8B0000]">+{Math.abs(annualPct).toFixed(1)}%</div>
+              <div className="mt-2 text-[clamp(2rem,2vw,3rem)] font-black tracking-[-0.05em] text-[#8B0000]">
+                {annualPct === null ? 'N/A' : `${annualPct >= 0 ? '+' : ''}${annualPct.toFixed(1)}%`}
+              </div>
               <div className="mt-1 text-sm text-slate-500">Year on year</div>
             </div>
             <div className="rounded-[12px] border border-slate-200 bg-[#f6f3ee] p-4 shadow-[inset_0_0_0_1px_rgba(146,123,92,0.04)]">
@@ -799,29 +806,20 @@ export default function BoroughPage() {
         <section className="mt-10 space-y-6">
           <BoroughInsightsPanel borough={boroughApi} />
 
-          <section className="rounded-xl border border-slate-200 bg-white p-6">
-            <div className="flex flex-wrap items-baseline justify-between gap-2">
-              <h2 className="text-2xl font-extrabold text-slate-900">Political landscape</h2>
-              {latestVotingYear > 0 ? <p className="text-sm text-slate-500">Council composition data · {latestVotingYear}</p> : null}
-            </div>
-            {latestPoliticalBreakdown.length > 0 ? (
-              <div className="mt-5 space-y-4">
-                {latestPoliticalBreakdown.map((record) => (
-                  <div key={record.voting_data_id}>
-                    <div className="mb-1 flex justify-between gap-4 text-sm">
-                      <span className="font-medium text-slate-700">{record.party}</span>
-                      <span className="tabular-nums text-slate-600">{record.share.toLocaleString('en-GB', { maximumFractionDigits: 1 })}%</span>
-                    </div>
-                    <div className="h-2 overflow-hidden rounded-full bg-slate-100">
-                      <div className="h-full rounded-full bg-[#8B0000]" style={{ width: `${Math.max(0, Math.min(100, record.share))}%` }} />
-                    </div>
-                    <p className="mt-1 text-xs text-slate-500">Source: {record.source}</p>
-                  </div>
-                ))}
+          <section className="rounded-[12px] bg-white p-7 shadow-[0_1px_6px_rgba(0,0,0,0.07)]">
+            <PoliticalLandscapeChart records={votingRecords} />
+            <div className="mt-4 flex items-center gap-3 rounded-[8px] bg-transparent p-0">
+              <div className="flex h-[35px] w-[35px] items-center justify-center rounded-[8px] bg-[#f3efe9] text-xl">📊</div>
+              <div className="flex-1 text-[14px] leading-[1.5] text-[#1a1a1a]">
+                <div className="font-bold">Data &amp; Reports</div>
+                <div className="text-[#555]">Full data access available in the property industry. Full Bromley data report available.</div>
               </div>
-            ) : (
-              <p className="mt-3 text-sm text-slate-500">No political composition data is available for {heroTitle}.</p>
-            )}
+              <div className="ml-auto">
+                <button type="button" className="rounded-[8px] bg-[#8B0000] px-4 py-2 text-[11px] font-bold uppercase tracking-[0.08em] text-white shadow-sm transition hover:bg-[#6f0000]">
+                  VIEW FULL BROMLEY REPORT
+                </button>
+              </div>
+            </div>
           </section>
         </section>
 

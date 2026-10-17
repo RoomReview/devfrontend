@@ -51,21 +51,47 @@ const normalizePdfColors = (document: Document) => {
   }
 };
 
-export const downloadReportPdf = async (element: HTMLElement, filename: string): Promise<void> => {
-  const { default: html2pdf } = await import('html2pdf.js');
+export const downloadReportPdf = async (
+  element: HTMLElement,
+  filename: string,
+  options: { captureWidth?: string; viewportWidth?: number } = {},
+): Promise<void> => {
   const exportingClass = 'pdf-exporting';
+  const styleProperties = ['width', 'max-width', 'margin-left', 'margin-right'] as const;
+  const originalStyles = new Map(
+    styleProperties.map((property) => [
+      property,
+      { value: element.style.getPropertyValue(property), priority: element.style.getPropertyPriority(property) },
+    ]),
+  );
 
   element.classList.add(exportingClass);
+  if (options.captureWidth) {
+    element.style.setProperty('width', options.captureWidth, 'important');
+    element.style.setProperty('max-width', 'none', 'important');
+    element.style.setProperty('margin-left', '0', 'important');
+    element.style.setProperty('margin-right', '0', 'important');
+  }
   try {
+    const { default: html2pdf } = await import('html2pdf.js');
     const pdfBlob = await html2pdf()
       .set({
         margin: [8, 8, 10, 8],
         filename,
         image: { type: 'jpeg', quality: 0.98 },
+        pagebreak: {
+          mode: ['css'],
+          avoid: [
+            '.buyer-report-document > main > section:not(.buyer-report-allow-page-break, .buyer-report-page-break-group)',
+            '.buyer-report-document > main > .buyer-report-page-break-group > section',
+            '.buyer-report-document > main > section:not(.buyer-report-allow-page-break, .buyer-report-page-break-group) > *',
+          ],
+        },
         html2canvas: {
           backgroundColor: '#ffffff',
           scale: 2,
           useCORS: true,
+          ...(options.viewportWidth ? { windowWidth: options.viewportWidth } : {}),
           onclone: (clonedDocument: Document) => normalizePdfColors(clonedDocument),
         },
         jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
@@ -82,5 +108,12 @@ export const downloadReportPdf = async (element: HTMLElement, filename: string):
     window.setTimeout(() => URL.revokeObjectURL(downloadUrl), 1000);
   } finally {
     element.classList.remove(exportingClass);
+    for (const [property, { value, priority }] of originalStyles) {
+      if (value) {
+        element.style.setProperty(property, value, priority);
+      } else {
+        element.style.removeProperty(property);
+      }
+    }
   }
 };

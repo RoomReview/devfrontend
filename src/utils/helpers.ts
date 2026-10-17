@@ -23,6 +23,19 @@ export const normalizePostcode = (postcode: string): string =>
 export const postcodePath = (postcode: string): string =>
   `/postcode/${normalizePostcode(postcode).replace(/ /g, '-').toLowerCase()}`;
 
+export type PostcodeReviewAction = 'read' | 'write';
+
+export const postcodeReviewPath = (postcode: string, action: PostcodeReviewAction): string =>
+  `${postcodePath(postcode)}#${action === 'write' ? 'leave-review' : 'reviews'}`;
+
+export const postcodeAreaReportPath = (postcode: string): string =>
+  `/report?postcode=${encodeURIComponent(normalizePostcode(postcode))}#form`;
+
+export const getSafePostcodeReturnTo = (returnTo: string | null): string | null =>
+  returnTo && /^\/postcode\/[a-z0-9-]+(?:#(?:reviews|leave-review))?$/.test(returnTo)
+    ? returnTo
+    : null;
+
 export const capitalizeFirst = (str: string): string => {
   return str.charAt(0).toUpperCase() + str.slice(1);
 };

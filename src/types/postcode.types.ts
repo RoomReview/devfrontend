@@ -24,6 +24,15 @@ export interface BoroughSummary {
   metrics: Record<string, unknown>;
 }
 
+export interface CrimeRateContext {
+  boroughName: string;
+  year: number;
+  population: number;
+  annualisedCrimes: number;
+  ratePer1000: number;
+  londonAveragePer1000: number | null;
+}
+
 export interface PostcodeApiResponse {
   postcode: PostcodeRow;
   lsoaMap: {
@@ -38,10 +47,11 @@ export interface PostcodeApiResponse {
     maxLat: number;
   } | null;
   borough: BoroughSummary | null;
+  crimeRateContext?: CrimeRateContext | null;
   crimeData: unknown[];
   demography: unknown[];
   propertyValueData: unknown[];
-  rentData: unknown[];
+  rentData: Array<{ rent: number; type: string }>;
   votingData: unknown[];
   educationData: unknown[];
   housingStockData: unknown[];

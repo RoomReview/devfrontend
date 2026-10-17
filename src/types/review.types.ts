@@ -23,6 +23,7 @@ export interface Review {
   updated_at: string;
   published_at: string | null;
   users?: { firstName?: string } | null;
+  postcodes?: { code: string } | null;
   propertyId?: string;
 }
 
@@ -42,3 +43,4 @@ export interface CreateReviewRequest {
 }
 
 export type UpdateReviewRequest = Partial<Omit<CreateReviewRequest, 'postcode_id'>>;
+

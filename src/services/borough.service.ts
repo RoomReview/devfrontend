@@ -16,4 +16,8 @@ export const boroughService = {
     const response = await apiClient.get<{ data: BoroughApiResponse }>(`/boroughs/${encodeURIComponent(id)}`);
     return response.data.data;
   },
+  getBySlug: async (slug: string): Promise<BoroughApiResponse> => {
+    const response = await apiClient.get<{ data: BoroughApiResponse }>(`/boroughs/slug/${encodeURIComponent(slug)}`);
+    return response.data.data;
+  },
 };

@@ -49,6 +49,12 @@ export interface StoredScoreReport {
   reportData: Record<string, unknown> | null;
 }
 
+export interface AreaReportPdfPayload {
+  html: string;
+  css: string;
+  postcode: string;
+}
+
 export const scoreReportService = {
   listMine: async (page = 1, limit = 5): Promise<UserScoreReportPage> => {
     const response = await apiClient.get<{ data: UserScoreReportPage }>('/score-reports/mine', {
@@ -81,6 +87,20 @@ export const scoreReportService = {
     return response.data.data;
   },
 
+  downloadAreaReportPdf: async (payload: AreaReportPdfPayload): Promise<void> => {
+    const response = await apiClient.post<Blob>('/score-reports/pdf-render', payload, {
+      responseType: 'blob',
+    });
+    const downloadUrl = URL.createObjectURL(response.data);
+    const downloadLink = document.createElement('a');
+    downloadLink.href = downloadUrl;
+    downloadLink.download = `roomreview-${payload.postcode.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'area-report'}.pdf`;
+    document.body.appendChild(downloadLink);
+    downloadLink.click();
+    downloadLink.remove();
+    window.setTimeout(() => URL.revokeObjectURL(downloadUrl), 1000);
+  },
+
   createAndGenerateForPostcode: async (
     postcodeCode: string,
     reportType: 'buyer' | 'investor',
@@ -107,3 +127,4 @@ export const scoreReportService = {
     await scoreReportService.generate(report.scoreReportId);
   },
 };
+

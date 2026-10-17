@@ -7,11 +7,18 @@ import {
   Share2
 } from 'lucide-react';
 import { blogService, type BlogPost } from '@/services/blog.service';
+import { newsletterService } from '@/services/newsletter.service';
+import { extractApiError } from '@/utils/apiError';
 
 const allowedWordPressTags = new Set([
   'p', 'h2', 'h3', 'h4', 'ul', 'ol', 'li', 'strong', 'b', 'em', 'i',
   'a', 'blockquote', 'br', 'figure', 'img', 'figcaption', 'hr', 'table',
   'thead', 'tbody', 'tr', 'th', 'td',
+]);
+const allowedWordPressImageHosts = new Set([
+  'roomreview.co.uk',
+  'www.roomreview.co.uk',
+  'images.unsplash.com',
 ]);
 
 const escapeHtml = (value: string) => value
@@ -48,7 +55,7 @@ const sanitizeWordPressContent = (html: string) => {
       if (src) {
         try {
           const url = new URL(src, 'https://roomreview.co.uk');
-          if (url.protocol === 'https:') attributes = ' src="' + escapeHtml(url.href) + '" alt="' + escapeHtml(node.getAttribute('alt') ?? '') + '" loading="lazy"';
+          if (url.protocol === 'https:' && allowedWordPressImageHosts.has(url.hostname)) attributes = ' src="' + escapeHtml(url.href) + '" alt="' + escapeHtml(node.getAttribute('alt') ?? '') + '" loading="lazy"';
         } catch {
           attributes = '';
         }
@@ -74,6 +81,9 @@ export const BlogPlatform: React.FC = () => {
   const [posts, setPosts] = useState<BlogPost[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [selectedPostDetails, setSelectedPostDetails] = useState<BlogPost | null>(null);
+  const [selectedPostLoading, setSelectedPostLoading] = useState(false);
+  const [selectedPostError, setSelectedPostError] = useState<string | null>(null);
 
   useEffect(() => {
     let isCurrent = true;
@@ -93,7 +103,40 @@ export const BlogPlatform: React.FC = () => {
     };
   }, []);
 
-  const selectedPost = posts.find((post) => post.id === searchParams.get('post'));
+  const selectedPostSummary = posts.find((post) => post.id === searchParams.get('post'));
+  const selectedPost = selectedPostDetails?.id === selectedPostSummary?.id
+    ? selectedPostDetails
+    : selectedPostSummary;
+
+  useEffect(() => {
+    if (!selectedPostSummary) {
+      setSelectedPostDetails(null);
+      setSelectedPostError(null);
+      setSelectedPostLoading(false);
+      return;
+    }
+
+    let isCurrent = true;
+    setSelectedPostLoading(true);
+    setSelectedPostError(null);
+    void blogService.getPost(selectedPostSummary.id)
+      .then((post) => {
+        if (isCurrent) setSelectedPostDetails(post);
+      })
+      .catch(() => {
+        if (isCurrent) {
+          setSelectedPostDetails(null);
+          setSelectedPostError('This article could not be loaded. Please try again later.');
+        }
+      })
+      .finally(() => {
+        if (isCurrent) setSelectedPostLoading(false);
+      });
+
+    return () => {
+      isCurrent = false;
+    };
+  }, [selectedPostSummary?.id]);
   const normalizeSearchText = (value: string) => value.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
   const normalizedQuery = normalizeSearchText(searchQuery);
   const categories = [...new Set(posts.flatMap((post) => post.categories))].sort((first, second) => first.localeCompare(second));
@@ -153,10 +196,21 @@ export const BlogPlatform: React.FC = () => {
           )}
 
           {/* Article Body Content */}
-          <div
-            className="wordpress-content space-y-5 text-base leading-relaxed text-[#4A5568]"
-            dangerouslySetInnerHTML={{ __html: sanitizeWordPressContent(selectedPost.content) }}
-          />
+          {selectedPost.content ? (
+            <div
+              className="wordpress-content space-y-5 text-base leading-relaxed text-[#4A5568]"
+              dangerouslySetInnerHTML={{ __html: sanitizeWordPressContent(selectedPost.content) }}
+            />
+          ) : selectedPostLoading ? (
+            <p role="status" className="text-sm text-gray-500">Loading article...</p>
+          ) : (
+            <p role="alert" className="text-sm text-red-700">
+              {selectedPostError ?? 'This article does not have any content yet.'}{' '}
+              {selectedPostError && (
+                <a href={selectedPost.link} className="font-semibold underline">Read it on RoomReview</a>
+              )}
+            </p>
+          )}
 
           {/* Social Share & Tags Footer */}
           <div className="space-y-6 pt-6 border-t border-gray-100">
@@ -393,6 +447,26 @@ export const BlogPlatform: React.FC = () => {
 
 /* Компонент формы подписки на рассылку */
 const NewsletterBanner: React.FC = () => {
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [email, setEmail] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [feedback, setFeedback] = useState<{ kind: 'success' | 'error'; message: string } | null>(null);
+
+  const handleSubscribe = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setFeedback(null);
+    setIsSubmitting(true);
+    try {
+      const response = await newsletterService.subscribe(email);
+      setFeedback({ kind: 'success', message: response.message });
+      setEmail('');
+    } catch (error) {
+      setFeedback({ kind: 'error', message: extractApiError(error) });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   return (
     <div className="relative overflow-hidden rounded-3xl bg-[#FAF5F0] p-8 sm:p-10 border border-[#F3E8E2]">
       <div className="grid grid-cols-1 items-center gap-8 lg:grid-cols-2">
@@ -407,10 +481,57 @@ const NewsletterBanner: React.FC = () => {
             From hidden red flags to local trends – we help you see what property listings don't show.
           </p>
           <div className="pt-2">
-            <button className="rounded-xl bg-[#8B0000] px-6 py-3 text-sm font-bold uppercase tracking-wider text-white shadow transition hover:bg-[#700000]">
+            <button
+              type="button"
+              aria-expanded={isFormOpen}
+              aria-controls="newsletter-signup-form"
+              onClick={() => {
+                setIsFormOpen((open) => !open);
+                setFeedback(null);
+              }}
+              className="rounded-xl bg-[#8B0000] px-6 py-3 text-sm font-bold uppercase tracking-wider text-white shadow transition hover:bg-[#700000]"
+            >
               Subscribe to Our Newsletter
             </button>
           </div>
+          {isFormOpen && (
+            <form id="newsletter-signup-form" className="space-y-3" onSubmit={handleSubscribe}>
+              <label htmlFor="newsletter-email" className="block text-sm font-semibold text-[#1A202C]">
+                Email address
+              </label>
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <input
+                  id="newsletter-email"
+                  type="email"
+                  autoComplete="email"
+                  required
+                  maxLength={254}
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                  disabled={isSubmitting}
+                  className="min-w-0 flex-1 rounded-xl border border-[#C8CDD2] bg-white px-4 py-3 text-sm text-[#1A202C] focus:outline-none focus:ring-2 focus:ring-[#8B0000]"
+                />
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="rounded-xl bg-[#1A2B3C] px-5 py-3 text-sm font-bold text-white transition hover:bg-[#263E55] disabled:cursor-wait disabled:opacity-60"
+                >
+                  {isSubmitting ? 'Submitting...' : 'Sign up'}
+                </button>
+              </div>
+              <p className="text-xs text-[#5F6D7A]">
+                Confirm your email to receive new article updates. Unsubscribe at any time.
+              </p>
+              {feedback && (
+                <p
+                  role={feedback.kind === 'error' ? 'alert' : 'status'}
+                  className={`text-sm ${feedback.kind === 'error' ? 'text-red-700' : 'text-green-800'}`}
+                >
+                  {feedback.message}
+                </p>
+              )}
+            </form>
+          )}
         </div>
 
         <div className="overflow-hidden rounded-2xl shadow-md">

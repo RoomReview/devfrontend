@@ -1,16 +1,26 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { Trash2 } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
+import { useMyReviews } from '@/hooks/reviews/useReviews';
+import { reviewService } from '@/services/review.service';
+import { queryKeys } from '@/lib/queryKeys';
 import Button from '../components/common/Button';
 import { H1, H2, H3, Body, Small } from '../components/common/Typography';
 import { paymentService, type BillingStatus } from '@/services/payment.service';
 import { scoreReportService } from '@/services/score-report.service';
 import type { UserScoreReport } from '@/services/score-report.service';
+import { savedSearchService, type SavedSearch } from '@/services/saved-search.service';
+import { postcodePath } from '@/utils/helpers';
 
 const AccountPage = () => {
   const navigate = useNavigate();
-  const { user, loading, isAuthenticated, logout } = useAuth();
+  const { user, loading, isAuthenticated } = useAuth();
+  const queryClient = useQueryClient();
+  const { data: myReviews = [], isLoading: reviewsLoading, isError: reviewsLoadFailed, refetch: refetchReviews } = useMyReviews(user?.userId);
+  const [deletingReviewId, setDeletingReviewId] = useState<string | null>(null);
+  const [reviewActionError, setReviewActionError] = useState<string | null>(null);
   const [reports, setReports] = useState<UserScoreReport[]>([]);
   const [reportPage, setReportPage] = useState(1);
   const [reportPageCount, setReportPageCount] = useState(0);
@@ -20,6 +30,10 @@ const AccountPage = () => {
   const [orderActionId, setOrderActionId] = useState<string | null>(null);
   const [billing, setBilling] = useState<BillingStatus | null>(null);
   const [subscriptionLoading, setSubscriptionLoading] = useState(false);
+  const [savedSearches, setSavedSearches] = useState<SavedSearch[]>([]);
+  const [savedSearchesLoading, setSavedSearchesLoading] = useState(false);
+  const [savedSearchesError, setSavedSearchesError] = useState<string | null>(null);
+  const [removingSavedSearchId, setRemovingSavedSearchId] = useState<string | null>(null);
   const earlyAccessDaysRemaining = billing?.trial.trialEndsAt
     ? Math.max(0, Math.ceil((new Date(billing.trial.trialEndsAt).getTime() - Date.now()) / (24 * 60 * 60 * 1000)))
     : 0;
@@ -37,6 +51,45 @@ const AccountPage = () => {
       .catch(() => setHistoryError('We could not load your reports. Please try again.'))
       .finally(() => setHistoryLoading(false));
   }, [isAuthenticated, historyRefreshKey, reportPage]);
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    setSavedSearchesLoading(true);
+    setSavedSearchesError(null);
+    void savedSearchService.list()
+      .then(setSavedSearches)
+      .catch(() => setSavedSearchesError('We could not load your saved searches. Please try again.'))
+      .finally(() => setSavedSearchesLoading(false));
+  }, [isAuthenticated]);
+
+  const removeSavedSearch = async (search: SavedSearch) => {
+    setRemovingSavedSearchId(search.savedSearchId);
+    setSavedSearchesError(null);
+    try {
+      await savedSearchService.remove(search.savedSearchId);
+      setSavedSearches((current) => current.filter((item) => item.savedSearchId !== search.savedSearchId));
+    } catch {
+      setSavedSearchesError(`We could not remove ${search.postcode}. Please try again.`);
+    } finally {
+      setRemovingSavedSearchId(null);
+    }
+  };
+
+  const deleteReview = async (reviewId: string) => {
+    if (!window.confirm('Delete this review? This cannot be undone.')) return;
+
+    setDeletingReviewId(reviewId);
+    setReviewActionError(null);
+    try {
+      await reviewService.delete(reviewId);
+      await queryClient.invalidateQueries({ queryKey: queryKeys.myReviews });
+      queryClient.invalidateQueries({ queryKey: queryKeys.reviews });
+    } catch {
+      setReviewActionError('We could not delete this review. Please try again.');
+    } finally {
+      setDeletingReviewId(null);
+    }
+  };
 
   const retryReport = async (report: UserScoreReport) => {
     setOrderActionId(report.scoreReportId);
@@ -150,9 +203,6 @@ const AccountPage = () => {
           </div>
           <div className="flex flex-col gap-3 sm:flex-row">
             {user?.role === 'ADMIN' && <Link to="/admin" className="inline-flex"><Button variant="secondary">Admin monitoring</Button></Link>}
-            <Button variant="secondary" onClick={logout}>
-              Sign out
-            </Button>
             <Link to="/area-search" className="inline-flex">
               <Button variant="primary">Search areas</Button>
             </Link>
@@ -256,25 +306,127 @@ const AccountPage = () => {
                 </div>
               )}
             </div>
-            {[
-              {
-                title: 'Saved searches',
-                description: 'View your most recent saved neighbourhood or postcode searches.',
-              },
-              {
-                title: 'My reviews',
-                description: 'Track review submissions and update the places you’ve shared feedback about.',
-              },
-              {
-                title: 'Account settings',
-                description: 'Change your password, email preferences and notification settings.',
-              },
-            ].map((item) => (
-              <div key={item.title} className="rounded-[24px] border border-[#E5DCD5] bg-white p-6 shadow-sm">
-                <H3 className="text-[#1A2B3C] mb-3">{item.title}</H3>
-                <Body>{item.description}</Body>
+            <div className="rounded-[24px] border border-[#E5DCD5] bg-white p-6 shadow-sm">
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+                <H3 className="text-[#1A2B3C]">Saved searches</H3>
+                <Link to="/postcode-search" className="text-sm font-semibold text-[#8B0202] underline">Find a postcode</Link>
               </div>
-            ))}
+              {savedSearchesError ? (
+                <div className="space-y-3">
+                  <Body className="text-[#8B0202]">{savedSearchesError}</Body>
+                  <Button size="sm" variant="secondary" onClick={() => {
+                    setSavedSearchesLoading(true);
+                    void savedSearchService.list()
+                      .then((items) => {
+                        setSavedSearches(items);
+                        setSavedSearchesError(null);
+                      })
+                      .catch(() => setSavedSearchesError('We could not load your saved searches. Please try again.'))
+                      .finally(() => setSavedSearchesLoading(false));
+                  }}>Try again</Button>
+                </div>
+              ) : savedSearchesLoading ? (
+                <Body>Loading your saved searches...</Body>
+              ) : savedSearches.length === 0 ? (
+                <Body>You have no saved postcodes yet. Open a postcode and select “Save postcode” to keep it here.</Body>
+              ) : (
+                <ul className="space-y-3">
+                  {savedSearches.map((search) => (
+                    <li key={search.savedSearchId} className="flex flex-wrap items-center justify-between gap-3 border-t border-[#E5DCD5] pt-3">
+                      <div>
+                        <Link to={postcodePath(search.postcode)} className="font-semibold text-[#8B0202] underline">{search.postcode}</Link>
+                        <Small className="block text-[#6B7280]">Saved {new Date(search.createdAt).toLocaleDateString('en-GB')}</Small>
+                      </div>
+                      <div className="flex gap-2">
+                        <Link to={postcodePath(search.postcode)} className="inline-flex items-center rounded-lg border border-[#E5DCD5] px-3 py-2 text-sm font-semibold text-[#1A2B3C] hover:bg-[#F8F4F1]">Open</Link>
+                        <button
+                          type="button"
+                          disabled={removingSavedSearchId === search.savedSearchId}
+                          onClick={() => void removeSavedSearch(search)}
+                          aria-label={`Remove ${search.postcode} from saved searches`}
+                          className="inline-flex items-center gap-2 rounded-lg border border-[#E5DCD5] px-3 py-2 text-sm font-semibold text-[#8B0202] hover:bg-red-50 disabled:cursor-wait disabled:opacity-60"
+                        >
+                          <Trash2 className="h-4 w-4" aria-hidden="true" />
+                          {removingSavedSearchId === search.savedSearchId ? 'Removing...' : 'Remove'}
+                        </button>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+            <div className="rounded-[24px] border border-[#E5DCD5] bg-white p-6 shadow-sm">
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+                <H3 className="text-[#1A2B3C]">My reviews</H3>
+                <Link to="/postcode-search" className="text-sm font-semibold text-[#8B0202] underline">Write a review</Link>
+              </div>
+              {reviewActionError && <Body className="mb-3 text-[#8B0202]" role="alert">{reviewActionError}</Body>}
+              {reviewsLoadFailed ? (
+                <div className="space-y-3">
+                  <Body className="text-[#8B0202]">We could not load your reviews. Please try again.</Body>
+                  <Button size="sm" variant="secondary" onClick={() => void refetchReviews()}>Try again</Button>
+                </div>
+              ) : reviewsLoading ? (
+                <Body>Loading your reviews...</Body>
+              ) : myReviews.length === 0 ? (
+                <Body>You have not submitted any reviews yet. Share your experience from a postcode page.</Body>
+              ) : (
+                <ul className="space-y-4">
+                  {myReviews.map((review) => {
+                    const statusLabel = review.status === 'APPROVED'
+                      ? 'Published'
+                      : review.status === 'REJECTED'
+                        ? 'Not published'
+                        : 'Pending moderation';
+                    const statusClass = review.status === 'APPROVED'
+                      ? 'bg-green-100 text-green-800'
+                      : review.status === 'REJECTED'
+                        ? 'bg-red-100 text-red-800'
+                        : 'bg-amber-100 text-amber-900';
+
+                    return (
+                      <li key={review.review_id} className="border-t border-[#E5DCD5] pt-4">
+                        <div className="flex flex-wrap items-start justify-between gap-3">
+                          <div className="min-w-0 flex-1">
+                            <div className="mb-2 flex flex-wrap items-center gap-2">
+                              <H3 className="text-[#1A2B3C]">{review.title}</H3>
+                              <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${statusClass}`}>{statusLabel}</span>
+                            </div>
+                            <Small className="block text-[#6B7280]">
+                              {review.postcodes?.code ? (
+                                <Link to={postcodePath(review.postcodes.code)} className="font-semibold text-[#8B0202] underline">{review.postcodes.code}</Link>
+                              ) : 'Postcode unavailable'}
+                              {' · '}Submitted {new Date(review.created_at).toLocaleDateString('en-GB')}
+                            </Small>
+                            <Body className="mt-2 whitespace-pre-wrap">{review.content}</Body>
+                            {review.status === 'REJECTED' && review.rejection_reason && (
+                              <Small className="mt-2 block text-[#8B0202]">Moderation note: {review.rejection_reason}</Small>
+                            )}
+                          </div>
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            isLoading={deletingReviewId === review.review_id}
+                            onClick={() => void deleteReview(review.review_id)}
+                            aria-label={`Delete review: ${review.title}`}
+                          >
+                            <Trash2 className="h-4 w-4" aria-hidden="true" />
+                            Delete
+                          </Button>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
+            <div className="rounded-[24px] border border-[#E5DCD5] bg-white p-6 shadow-sm">
+              <H3 className="text-[#1A2B3C] mb-3">Account settings</H3>
+              <Body className="mb-4">Change your password and manage review email preferences.</Body>
+              <Link to="/account/settings" className="inline-flex rounded-lg border border-[#8B0202] px-4 py-2 text-sm font-semibold text-[#8B0202] hover:bg-red-50">
+                Manage account settings
+              </Link>
+            </div>
           </div>
         </div>
       </div>

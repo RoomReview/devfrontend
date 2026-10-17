@@ -8,10 +8,11 @@ import thirdImage from '@img/Tenant tips & Area highlights3.jpg';
 import { BarChart3, Bus, Home, Search, Shield, Star, ThumbsDown, ThumbsUp, TreePine, User, Users } from 'lucide-react';
 import { boroughService } from '@/services/borough.service';
 import type { BoroughApiResponse } from '@/types/borough.types';
+import type { PostcodeReviewAction } from '@/utils/helpers';
 
 export const LandingPage: FC = () => {
   const navigate = useNavigate();
-  const [activeChart, setActiveChart] = useState<'prices' | 'safety' | 'transport'>('prices');
+  const [activeChart, setActiveChart] = useState<'prices' | 'safety'>('prices');
   const [searchQuery, setSearchQuery] = useState('');
   const [boroughData, setBoroughData] = useState<BoroughApiResponse | null>(null);
   const [boroughs, setBoroughs] = useState<Array<{ boroughId: string; name: string; slug: string }>>([]);
@@ -47,7 +48,7 @@ export const LandingPage: FC = () => {
     ));
 
     if (exactMatch) {
-      navigate(`/borough/${exactMatch.boroughId}`);
+      navigate(`/borough/${exactMatch.slug}`);
       return;
     }
 
@@ -57,11 +58,15 @@ export const LandingPage: FC = () => {
     ));
 
     if (partialMatch) {
-      navigate(`/borough/${partialMatch.boroughId}`);
+      navigate(`/borough/${partialMatch.slug}`);
       return;
     }
 
     navigate('/area-search');
+  };
+
+  const startPostcodeReviewJourney = (action: PostcodeReviewAction) => {
+    navigate(`/postcode-search?reviewAction=${action}`);
   };
 
   const propertyValues = (() => {
@@ -98,20 +103,19 @@ export const LandingPage: FC = () => {
   const totalDwellings = boroughData?.housingStockData?.find((item) => item.label === 'Total dwellings')?.value;
   const chartSeries = activeChart === 'safety'
     ? (boroughData?.crimeTrendData ?? []).map((item) => ({ label: String(item.year), value: item.totalCrimesPer1000 }))
-    : activeChart === 'prices'
-      ? propertyValues
-      : [];
+    : propertyValues;
   const chartTitle = activeChart === 'prices'
     ? 'Property price trend'
-    : activeChart === 'safety'
-      ? 'Crime rate trend (per 1,000)'
-      : 'Transport trend';
+    : 'Crime rate trend (per 1,000)';
   const chartValueFormat = activeChart === 'prices'
     ? (value: number) => `£${Math.round(value / 1000)}k`
     : (value: number) => value.toLocaleString('en-GB', { maximumFractionDigits: 1 });
   const formatCurrency = (value: number | undefined) => value === undefined
     ? 'Unavailable'
     : new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP', maximumFractionDigits: 0 }).format(value);
+  const formatMonthlyRent = (value: number | undefined) => value === undefined
+    ? 'Unavailable'
+    : `${formatCurrency(value)} / month`;
   const formatNumber = (value: number | undefined) => value === undefined
     ? 'Unavailable'
     : new Intl.NumberFormat('en-GB', { maximumFractionDigits: 0 }).format(value);
@@ -252,9 +256,9 @@ export const LandingPage: FC = () => {
 
             {/* Floating Card: Avg Monthly Rent */}
             <div className="absolute right-6 top-6 rounded-2xl bg-white/95 px-4 py-2.5 text-right shadow-lg backdrop-blur-sm">
-              <span className="block text-[9px] font-bold uppercase text-gray-400">Avg. Monthly Rent</span>
+              <span className="block text-[9px] font-bold uppercase text-gray-400">Average monthly rent</span>
               <div className="text-xs font-bold text-[#1A202C]">
-                £2,150 <span className="text-[10px] text-emerald-600 font-semibold">+3.2%</span>
+                £2,150 / month <span className="text-[10px] text-emerald-600 font-semibold">+3.2%</span>
               </div>
             </div>
 
@@ -423,14 +427,14 @@ export const LandingPage: FC = () => {
               <div className="flex flex-wrap items-center gap-3 pt-1">
                 <button
                   type="button"
-                  onClick={() => navigate('/reviews')}
+                  onClick={() => startPostcodeReviewJourney('write')}
                   className="rounded-lg bg-[#8B0000] px-4 py-2 text-[11px] font-bold uppercase text-white shadow transition hover:bg-[#700000]"
                 >
                   Write a Review
                 </button>
                 <button
                   type="button"
-                  onClick={() => navigate('/reviews')}
+                  onClick={() => startPostcodeReviewJourney('read')}
                   className="rounded-lg border-2 border-[#1A2B3C] bg-white px-4 py-2 text-[11px] font-bold uppercase text-[#1A202C] transition hover:bg-gray-50"
                 >
                   Read Reviews
@@ -477,7 +481,6 @@ export const LandingPage: FC = () => {
               {([
                 ['prices', 'Prices'],
                 ['safety', 'Safety'],
-                ['transport', 'Transport'],
               ] as const).map(([value, label]) => (
                 <button
                   key={value}
@@ -518,7 +521,7 @@ export const LandingPage: FC = () => {
                     ? chartSeries.map((item, index) => (
                         <span key={`${item.label}-${index}`}>{item.label}</span>
                       ))
-                    : <span>{activeChart === 'transport' ? 'Transport trend data unavailable' : 'No data available'}</span>}
+                    : <span>No data available</span>}
                 </div>
               </div>
             </div>
@@ -528,7 +531,7 @@ export const LandingPage: FC = () => {
               <div className="rounded-xl bg-gray-50 p-4 space-y-2">
                 <span className="text-[9px] font-bold uppercase text-gray-400">Database snapshot</span>
                 <div className="space-y-1.5 text-xs">
-                  <div className="flex justify-between"><span className="text-gray-500">Average rent</span><strong className="text-[#1A202C]">{formatCurrency(averageRent)}</strong></div>
+                  <div className="flex justify-between"><span className="text-gray-500">Average monthly rent</span><strong className="text-[#1A202C]">{formatMonthlyRent(averageRent)}</strong></div>
                   <div className="flex justify-between"><span className="text-gray-500">Latest property price</span><strong className="text-[#1A202C]">{formatCurrency(latestPropertyValue)}</strong></div>
                   <div className="flex justify-between"><span className="text-gray-500">Total dwellings</span><strong className="text-[#1A202C]">{formatNumber(totalDwellings)}</strong></div>
                 </div>
@@ -544,7 +547,7 @@ export const LandingPage: FC = () => {
 
                 <div className="rounded-xl bg-blue-50/60 p-3 space-y-1 border border-blue-100">
                   <Bus className="h-4 w-4 text-blue-600" />
-                  <span className="block text-xs font-bold text-[#1A202C]">{formatCurrency(averageRent)}</span>
+                  <span className="block text-xs font-bold text-[#1A202C]">{formatMonthlyRent(averageRent)}</span>
                   <span className="block text-[9px] text-gray-500 leading-tight">Average monthly rent</span>
                 </div>
 
@@ -643,10 +646,10 @@ export const LandingPage: FC = () => {
             </button>
             <button
               type="button"
-              onClick={() => navigate('/report')}
+              onClick={() => navigate('/postcode-search?journey=area-report')}
               className="rounded-xl border border-gray-300 bg-white px-6 py-3 text-xs font-bold uppercase tracking-wider text-[#1A202C] shadow-sm transition hover:bg-gray-50"
             >
-              Value a Property
+              Download area report
             </button>
           </div>
         </div>

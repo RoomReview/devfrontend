@@ -9,6 +9,7 @@ import { GoogleIcon, FacebookIcon } from '../../components/common/Icons';
 import backgroundImage from '../../assets/bgimage.jpg';
 import { useRegister } from '@/hooks/auth/useRegister';
 import type { UserRole } from '@/types/user.types';
+import { getSafePostcodeReturnTo } from '@/utils/helpers';
 
 const ROLE_MAP: Record<string, UserRole> = {
   user:     'TENANT',
@@ -24,6 +25,7 @@ const RegisterPage = () => {
   const [searchParams] = useSearchParams();
   const { mutate: register, isPending, error, reset } = useRegister();
   const subscriptionPlan = searchParams.get('subscriptionPlan');
+  const returnTo = getSafePostcodeReturnTo(searchParams.get('returnTo'));
 
   const [userType, setUserType] = useState<UserType>('user');
   const [emailError, setEmailError] = useState('');
@@ -78,6 +80,7 @@ const RegisterPage = () => {
             type: userType,
           });
           if (subscriptionPlan) verificationParams.set('subscriptionPlan', subscriptionPlan);
+          if (returnTo) verificationParams.set('returnTo', returnTo);
           navigate(`/verify-email?${verificationParams.toString()}`);
         },
       },
@@ -101,7 +104,9 @@ const RegisterPage = () => {
       <Body className="mb-6 text-sm sm:text-base">
         Already have an account?{' '}
         <Link
-          to={subscriptionPlan ? `/login?subscriptionPlan=${encodeURIComponent(subscriptionPlan)}` : '/login'}
+          to={subscriptionPlan
+            ? `/login?subscriptionPlan=${encodeURIComponent(subscriptionPlan)}${returnTo ? `&returnTo=${encodeURIComponent(returnTo)}` : ''}`
+            : returnTo ? `/login?returnTo=${encodeURIComponent(returnTo)}` : '/login'}
           className="text-primary font-bold hover:underline"
         >
           Sign In

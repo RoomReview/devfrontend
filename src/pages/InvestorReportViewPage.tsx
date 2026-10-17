@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { CompleteInvestorReport } from './InvestorReport';
 import type { InvestorReportData } from '../types/investorReport';
 import type { FullInvestorReportData } from './InvestorReport';
+import { votingDataService, type VotingDataRecord } from '../services/voting-data.service';
 
 const toCompleteReportData = (data: InvestorReportData): FullInvestorReportData => ({
   reportDate: data.reportDate,
@@ -104,13 +105,37 @@ export const InvestorReportViewPage: React.FC = () => {
   const navigate = useNavigate();
   const state = location.state as { reportData?: InvestorReportData; printAfterLoad?: boolean; downloadAfterLoad?: boolean } | null;
   const reportData = state?.reportData;
+  const [politicalRecords, setPoliticalRecords] = React.useState<VotingDataRecord[]>([]);
+  const [isPoliticalDataLoaded, setIsPoliticalDataLoaded] = React.useState(false);
   const handlePrintReport = () => window.print();
 
   useEffect(() => {
-    if (!state?.printAfterLoad || !reportData) return;
+    setPoliticalRecords([]);
+    setIsPoliticalDataLoaded(!reportData);
+    if (!reportData) return;
+
+    let cancelled = false;
+    void votingDataService.getByBorough(reportData.property.borough)
+      .then((records) => {
+        if (!cancelled) setPoliticalRecords(records);
+      })
+      .catch((error: unknown) => {
+        console.error('Could not load political data for the investor report', error);
+      })
+      .finally(() => {
+        if (!cancelled) setIsPoliticalDataLoaded(true);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [reportData]);
+
+  useEffect(() => {
+    if (!state?.printAfterLoad || !reportData || !isPoliticalDataLoaded) return;
     const timeoutId = window.setTimeout(handlePrintReport, 400);
     return () => window.clearTimeout(timeoutId);
-  }, [state?.printAfterLoad, reportData]);
+  }, [state?.printAfterLoad, reportData, isPoliticalDataLoaded]);
 
   if (!reportData) {
     return (
@@ -128,5 +153,13 @@ export const InvestorReportViewPage: React.FC = () => {
     );
   }
 
-  return <CompleteInvestorReport data={toCompleteReportData(reportData)} downloadAfterLoad={state?.downloadAfterLoad} onPrintReport={handlePrintReport} />;
+  return (
+    <CompleteInvestorReport
+      data={toCompleteReportData(reportData)}
+      politicalRecords={politicalRecords}
+      politicalDataLoaded={isPoliticalDataLoaded}
+      downloadAfterLoad={state?.downloadAfterLoad}
+      onPrintReport={handlePrintReport}
+    />
+  );
 };

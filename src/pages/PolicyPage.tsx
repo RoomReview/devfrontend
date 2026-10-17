@@ -227,8 +227,8 @@ const PrivacyPolicyPage: React.FC<PolicyPageProps> = () => {
           </div>
           <div className="rounded-lg bg-[#EBF3FA] p-3 text-center text-[11px] text-[#4A5568]">
             To exercise any of these rights, please contact us at{' '}
-            <a href="mailto:privacy@roomreview.co.uk" className="text-[#8B0000] hover:underline">
-              privacy@roomreview.co.uk
+            <a href="mailto:info@roomreview.co.uk" className="text-[#8B0000] hover:underline">
+              info@roomreview.co.uk
             </a>
             . We will respond within 30 days.
           </div>

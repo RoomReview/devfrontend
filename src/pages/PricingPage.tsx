@@ -180,7 +180,7 @@ const PricingPage = () => {
         <UsersRound className="h-5 w-5 shrink-0 text-[#B23A3A]" aria-hidden="true" />
         <p>
           Each plan includes access for the number of users shown. Need more than 10 users?{' '}
-          <Link to="/about" className="font-semibold text-[#A20B0B] underline underline-offset-2">
+          <Link to="/contact" className="font-semibold text-[#A20B0B] underline underline-offset-2">
             Contact us for agency pricing
           </Link>
           .

@@ -80,7 +80,16 @@ export interface BoroughApiResponse {
   housingStockData: BoroughDatasetItem[];
   districtData: BoroughDistrictItem[];
   rentData: { rent: number; type: string }[];
-  rentTrendData?: { year: number; quarter: number; value: number }[];
+  rentTrendData?: Array<{
+    year: number;
+    quarter: number;
+    value: number;
+    rentAll?: number;
+    rentOneBed?: number;
+    rentTwoBed?: number;
+    rentThreeBed?: number;
+    rentFourPlusBed?: number;
+  }>;
   propertyValueData: BoroughDatasetItem[];
   priceTrendData?: { year: number; quarter: number; value: number }[];
   crimeData: BoroughDatasetItem[];

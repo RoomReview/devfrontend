@@ -14,3 +14,5 @@ export const API_VERSION: string = import.meta.env.VITE_API_VERSION ?? 'v1';
 
 /** Full base for every service call, e.g. "/api/v1" */
 export const API_BASE: string = `${API_BASE_URL}/${API_VERSION}`;
+export const ENABLE_GOOGLE_SSO = import.meta.env.VITE_ENABLE_GOOGLE_SSO === 'true';
+export const ENABLE_FACEBOOK_SSO = import.meta.env.VITE_ENABLE_FACEBOOK_SSO === 'true';

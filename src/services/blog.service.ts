@@ -7,7 +7,7 @@ export interface BlogPost {
   link: string;
   title: string;
   excerpt: string;
-  content: string;
+  content?: string;
   author: string;
   image: string;
   categories: string[];
@@ -28,5 +28,10 @@ export const blogService = {
   getPosts: async (): Promise<BlogPostsResponse> => {
     const response = await apiClient.get<BlogPostsResponse>('/blog/posts?page=1&per_page=100');
     return response.data;
+  },
+
+  getPost: async (id: string): Promise<BlogPost> => {
+    const response = await apiClient.get<{ data: BlogPost }>(`/blog/posts/${encodeURIComponent(id)}`);
+    return response.data.data;
   },
 };

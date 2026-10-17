@@ -26,6 +26,9 @@ export const queryKeys = {
 
   /** All reviews */
   reviews: ['reviews'] as const,
+  /** Reviews submitted by the currently authenticated user */
+  myReviews: ['reviews', 'mine'] as const,
+  myReviewsFor: (userId: string) => ['reviews', 'mine', userId] as const,
   /** Single review by ID */
   review: (id: string) => ['reviews', id] as const,
   /** All reviews for a specific property */

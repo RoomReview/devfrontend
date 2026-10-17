@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { AlertTriangle, ArrowLeft, ArrowRight, Ban, CheckCircle2, FileText, RefreshCw, ShoppingBag, UserCheck, Users } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, ArrowRight, Ban, Check, CheckCircle2, FileText, RefreshCw, ShoppingBag, UserCheck, Users, X } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import Button from '@/components/common/Button';
 import { H1, H2, Body } from '@/components/common/Typography';
 import { adminService, type AdminOverview, type AdminUser } from '@/services/admin.service';
+import type { Review } from '@/types/review.types';
 
 type UserSort = 'name' | 'subscription' | 'access';
 const USERS_PER_PAGE = 10;
@@ -13,9 +14,13 @@ const AdminDashboardPage = () => {
   const { user, loading } = useAuth();
   const [overview, setOverview] = useState<AdminOverview | null>(null);
   const [users, setUsers] = useState<AdminUser[]>([]);
+  const [reviews, setReviews] = useState<Review[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [updatingUser, setUpdatingUser] = useState<string | null>(null);
+  const [updatingReview, setUpdatingReview] = useState<string | null>(null);
+  const [reviewError, setReviewError] = useState<string | null>(null);
+  const [reviewNotice, setReviewNotice] = useState<string | null>(null);
   const [userSort, setUserSort] = useState<UserSort>('name');
   const [userPage, setUserPage] = useState(1);
 
@@ -23,14 +28,54 @@ const AdminDashboardPage = () => {
     setRefreshing(true);
     setError(null);
     try {
-      const [nextOverview, nextUsers] = await Promise.all([adminService.getOverview(), adminService.getUsers()]);
+      const [nextOverview, nextUsers, nextReviews] = await Promise.all([
+        adminService.getOverview(),
+        adminService.getUsers(),
+        adminService.getReviews(),
+      ]);
       setOverview(nextOverview);
       setUsers(nextUsers);
+      setReviews(nextReviews);
       setUserPage(1);
     } catch {
       setError('The administrative overview could not be loaded.');
     } finally {
       setRefreshing(false);
+    }
+  };
+
+  const moderate = async (review: Review, status: 'APPROVED' | 'REJECTED') => {
+    const rejectionReason = status === 'REJECTED'
+      ? window.prompt('Enter a reason for rejecting this review (shown to the author):')
+      : undefined;
+    if (status === 'REJECTED' && !rejectionReason?.trim()) return;
+
+    setUpdatingReview(review.review_id);
+    setReviewError(null);
+    setReviewNotice(null);
+    try {
+      const result = await adminService.moderateReview(review.review_id, status, rejectionReason?.trim());
+      setReviews((current) => current.map((item) => item.review_id === review.review_id ? result.review : item));
+      if (result.notificationWarning) setReviewNotice(result.notificationWarning);
+    } catch {
+      setReviewError(`“${review.title}” could not be moderated. Refresh and try again.`);
+    } finally {
+      setUpdatingReview(null);
+    }
+  };
+
+  const deleteAnyReview = async (review: Review) => {
+    if (!window.confirm(`Delete “${review.title}”? This cannot be undone.`)) return;
+
+    setUpdatingReview(review.review_id);
+    setReviewError(null);
+    try {
+      await adminService.deleteReview(review.review_id);
+      setReviews((current) => current.filter((item) => item.review_id !== review.review_id));
+    } catch {
+      setReviewError(`“${review.title}” could not be deleted. Refresh and try again.`);
+    } finally {
+      setUpdatingReview(null);
     }
   };
 
@@ -122,6 +167,79 @@ const AdminDashboardPage = () => {
               </div>
             </section>
 
+            <section aria-label="Review moderation" className="mt-8 rounded-2xl border border-[#E5DCD5] bg-white p-6">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <H2 className="text-xl">Review moderation</H2>
+                  <Body className="mt-1">Approve reviews to publish them, or reject them with a reason for the author.</Body>
+                </div>
+                <span className="rounded-full bg-amber-100 px-3 py-1 text-sm font-semibold text-amber-900" aria-live="polite">
+                  {reviews.filter((review) => review.status === 'PENDING').length} pending
+                </span>
+              </div>
+              {reviewNotice && <p role="status" className="mt-4 rounded-lg bg-amber-50 p-3 text-sm font-semibold text-amber-900">{reviewNotice}</p>}
+              {reviewError && <p role="alert" className="mt-4 rounded-lg bg-red-50 p-3 text-sm font-semibold text-red-800">{reviewError}</p>}
+              {reviews.length === 0 ? (
+                <Body className="mt-5">No reviews have been submitted.</Body>
+              ) : (
+                <ul className="mt-5 divide-y divide-[#E5DCD5]">
+                  {reviews.map((review) => {
+                    const isUpdating = updatingReview === review.review_id;
+                    const statusLabel = review.status === 'APPROVED'
+                      ? 'Published'
+                      : review.status === 'REJECTED'
+                        ? 'Rejected'
+                        : 'Pending moderation';
+                    return (
+                      <li key={review.review_id} className="py-5 first:pt-0 last:pb-0">
+                        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                          <div className="min-w-0 flex-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <h3 className="text-lg font-bold text-[#1A2B3C]">{review.title}</h3>
+                              <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
+                                review.status === 'APPROVED'
+                                  ? 'bg-green-100 text-green-800'
+                                  : review.status === 'REJECTED'
+                                    ? 'bg-red-100 text-red-800'
+                                    : 'bg-amber-100 text-amber-900'
+                              }`}>{statusLabel}</span>
+                            </div>
+                            <p className="mt-1 text-sm text-[#64707A]">
+                              {review.postcodes?.code ?? 'Postcode unavailable'} · Submitted {new Date(review.created_at).toLocaleDateString('en-GB')}
+                              {' · '}{review.anonymous ? 'Anonymous author' : review.users?.firstName ?? 'Account holder'}
+                            </p>
+                            <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-[#1A2B3C]">{review.content}</p>
+                            <p className="mt-2 text-sm font-semibold text-[#64707A]">Overall rating: {review.overall_rating} / 5</p>
+                          </div>
+                          <div className="flex flex-wrap gap-2 lg:shrink-0">
+                            {review.status === 'PENDING' && (
+                              <>
+                                <Button size="sm" isLoading={isUpdating} disabled={Boolean(updatingReview)} onClick={() => void moderate(review, 'APPROVED')}>
+                                  <Check className="h-4 w-4" aria-hidden="true" /> Approve &amp; publish
+                                </Button>
+                                <Button size="sm" variant="outline" disabled={Boolean(updatingReview)} onClick={() => void moderate(review, 'REJECTED')}>
+                                  <X className="h-4 w-4" aria-hidden="true" /> Reject
+                                </Button>
+                              </>
+                            )}
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              isLoading={isUpdating}
+                              disabled={Boolean(updatingReview)}
+                              onClick={() => void deleteAnyReview(review)}
+                            >
+                              <Ban className="h-4 w-4" aria-hidden="true" /> Delete
+                            </Button>
+                          </div>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </section>
+
             <section className="mt-8 rounded-2xl border border-[#E5DCD5] bg-white p-6">
               <H2 className="text-xl">Recent failures</H2>
               {overview.recentFailures.length === 0 ? <Body className="mt-4">No recent report or payment failures.</Body> : <div className="mt-4 divide-y divide-[#E5DCD5]">{overview.recentFailures.map((failure) => <div key={`${failure.kind}-${failure.id}`} className="flex flex-col gap-1 py-4 text-sm sm:flex-row sm:items-center sm:justify-between"><div><p className="font-semibold text-[#1A2B3C]">{failure.kind} · {failure.status}</p><p className="text-[#64707A]">{failure.reason ?? failure.id}</p></div><time className="text-[#64707A]" dateTime={failure.createdAt}>{new Date(failure.createdAt).toLocaleString()}</time></div>)}</div>}
@@ -181,4 +299,3 @@ const AdminDashboardPage = () => {
 };
 
 export default AdminDashboardPage;
-

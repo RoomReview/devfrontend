@@ -19,9 +19,11 @@ const ReportPage = lazy(() => import('./pages/ReportPage').then((module) => ({ d
 const BuyerReportViewPage = lazy(() => import('./pages/BuyerReportViewPage').then((module) => ({ default: module.BuyerReportViewPage })));
 const InvestorReportViewPage = lazy(() => import('./pages/InvestorReportViewPage').then((module) => ({ default: module.InvestorReportViewPage })));
 const AccountPage = lazy(() => import('./pages/AccountPage'));
+const AccountSettingsPage = lazy(() => import('./pages/AccountSettingsPage'));
 const ReviewsPage = lazy(() => import('./pages/ReviewsPage'));
 const PricingPage = lazy(() => import('./pages/PricingPage'));
 const LoginPage = lazy(() => import('./pages/auth/LoginPage'));
+const SsoCallbackPage = lazy(() => import('./pages/auth/SsoCallbackPage'));
 const RegisterPage = lazy(() => import('./pages/auth/RegisterPage'));
 const VerifyEmailPage = lazy(() => import('./pages/auth/VerifyEmailPage'));
 const EmailVerifiedPage = lazy(() => import('./pages/auth/EmailVerifiedPage'));
@@ -81,6 +83,8 @@ function App() {
         <Route path="password-reset-success" element={<PasswordResetSuccessPage />} />
         <Route path="checkout/success" element={<CheckoutSuccessPage />} />
         <Route path="checkout/cancel" element={<CheckoutCancelPage />} />
+        <Route path="auth/sso/callback" element={<SsoCallbackPage />} />
+        <Route path="auth/sso/error" element={<SsoCallbackPage />} />
 
         <Route path="/" element={<Layout />}>
           <Route index element={<HomePage />} />
@@ -98,6 +102,7 @@ function App() {
           <Route path="cookie-policy" element={<CookiesPolicyPage />} />
           <Route path="data-sources" element={<DataSourcesPage />} />
           <Route path="account" element={<AccountPage />} />
+          <Route path="account/settings" element={<AccountSettingsPage />} />
           <Route path="admin" element={<AdminRoute />} />
           <Route path="reviews" element={<ReviewsPage />} />
           <Route path="pricing" element={<PricingPage />} />

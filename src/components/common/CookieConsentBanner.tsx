@@ -66,4 +66,3 @@ const CookieConsentBanner = () => {
 };
 
 export default CookieConsentBanner;
-

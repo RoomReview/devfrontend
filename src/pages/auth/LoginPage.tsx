@@ -8,6 +8,8 @@ import { H2, Body } from '../../components/common/Typography';
 import { GoogleIcon, FacebookIcon } from '../../components/common/Icons';
 import backgroundImage from '../../assets/bgimage.jpg';
 import { useLogin } from '@/hooks/auth/useLogin';
+import { getSafePostcodeReturnTo } from '@/utils/helpers';
+import { API_BASE, ENABLE_FACEBOOK_SSO, ENABLE_GOOGLE_SSO } from '@/config/api.config';
 
 const LoginPage = () => {
   const [email, setEmail] = useState('');
@@ -17,6 +19,11 @@ const LoginPage = () => {
   const [searchParams] = useSearchParams();
   const { mutate: login, isPending } = useLogin();
   const subscriptionPlan = searchParams.get('subscriptionPlan');
+  const returnTo = getSafePostcodeReturnTo(searchParams.get('returnTo'));
+
+  const startSsoLogin = (provider: 'google' | 'facebook') => {
+    window.location.assign(`${API_BASE}/sso/${provider}`);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -33,7 +40,7 @@ const LoginPage = () => {
         onSuccess: () => navigate(
           subscriptionPlan
             ? `/pricing?checkoutPlan=${encodeURIComponent(subscriptionPlan)}`
-            : '/',
+            : returnTo ?? '/',
         ),
       },
     );
@@ -49,7 +56,9 @@ const LoginPage = () => {
       <Body className="mb-6 sm:mb-8 text-sm sm:text-base">
         Don't have an account?{' '}
         <Link
-          to={subscriptionPlan ? `/register?subscriptionPlan=${encodeURIComponent(subscriptionPlan)}` : '/register'}
+          to={subscriptionPlan
+            ? `/register?subscriptionPlan=${encodeURIComponent(subscriptionPlan)}${returnTo ? `&returnTo=${encodeURIComponent(returnTo)}` : ''}`
+            : returnTo ? `/register?returnTo=${encodeURIComponent(returnTo)}` : '/register'}
           className="text-primary font-semibold hover:underline"
         >
           Sign Up
@@ -93,11 +102,23 @@ const LoginPage = () => {
       </div>
 
       <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
-        <Button variant="outline" className="flex-1" type="button" disabled>
+        <Button
+          variant="outline"
+          className="flex-1"
+          type="button"
+          disabled={!ENABLE_GOOGLE_SSO}
+          onClick={() => startSsoLogin('google')}
+        >
           <GoogleIcon />
           <span className="text-sm sm:text-base">GOOGLE</span>
         </Button>
-        <Button variant="outline" className="flex-1" type="button" disabled>
+        <Button
+          variant="outline"
+          className="flex-1"
+          type="button"
+          disabled={!ENABLE_FACEBOOK_SSO}
+          onClick={() => startSsoLogin('facebook')}
+        >
           <FacebookIcon />
           <span className="text-sm sm:text-base">FACEBOOK</span>
         </Button>

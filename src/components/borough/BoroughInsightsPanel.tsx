@@ -533,7 +533,7 @@ export default function BoroughInsightsPanel({ borough }: { borough: BoroughApiR
                 </div>
               )
             ) : null}
-            {averageRent ? <p className="text-xs text-slate-500">Average monthly rent: {formatValue('rent', averageRent.rent)}. Rent observations are shown in the borough rent section below.</p> : null}
+            {averageRent ? <p className="text-xs text-slate-500">Average monthly rent: {formatValue('rent', averageRent.rent)} / month. Rent observations are shown in the borough rent section below.</p> : null}
           </div>
         ) : null}
 

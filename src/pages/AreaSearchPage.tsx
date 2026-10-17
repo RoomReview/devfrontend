@@ -11,10 +11,15 @@ import { Link, useNavigate } from "react-router-dom";
 import apiClient from "@/lib/apiClient";
 import boroughImages from '@/config/boroughImages';
 import fallbackBoroughImage from '@img/Stay updated with Tips.jpg';
+import type { BoroughListItem } from '@/services/borough.service';
 
 const HomePage = () => {
   const navigate = useNavigate();
-  const [boroughs, setBoroughs] = useState<any[]>([]);
+  const [boroughs, setBoroughs] = useState<Array<BoroughListItem & {
+    zones: string;
+    trend: string;
+    imageSrc: string;
+  }>>([]);
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [searchQuery, setSearchQuery] = useState('');
@@ -26,11 +31,14 @@ const HomePage = () => {
       try {
         setLoading(true);
         const response = await apiClient.get<{
-          data: any[];
+          data: Array<BoroughListItem & {
+            metrics?: { zones?: string; trend?: string };
+            image?: string;
+          }>;
           pagination?: { totalPages?: number };
         }>(`/boroughs?page=1&limit=100`);
-        const items = (response.data.data ?? []).map((borough: any) => ({
-          id: borough.boroughId,
+        const items = (response.data.data ?? []).map((borough) => ({
+          ...borough,
           name: borough.name,
           zones: borough.metrics?.zones ?? 'Live data',
           trend: borough.metrics?.trend ?? 'Updated',
@@ -70,7 +78,7 @@ const HomePage = () => {
 
     if (matchingBorough) {
       event.preventDefault();
-      navigate(`/borough/${matchingBorough.id}`);
+      navigate(`/borough/${matchingBorough.slug}`);
     }
   };
 
@@ -241,9 +249,9 @@ const HomePage = () => {
           ) : visibleBoroughs.length > 0 ? (
             visibleBoroughs.map((borough) => (
               <BoroughCard
-                key={borough.id}
+                key={borough.boroughId}
                 {...borough}
-                linkTo={`/borough/${borough.id}`}
+                linkTo={`/borough/${borough.slug}`}
               />
             ))
           ) : (

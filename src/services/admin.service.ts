@@ -1,4 +1,5 @@
 import apiClient from '@/lib/apiClient';
+import type { Review } from '@/types/review.types';
 
 export interface AdminOverview {
   users: { total: number; active: number; unverified: number };
@@ -25,6 +26,8 @@ export interface AdminUser {
   } | null;
 }
 
+export type ReviewModerationStatus = 'APPROVED' | 'REJECTED';
+
 export const adminService = {
   getOverview: async (): Promise<AdminOverview> => {
     const response = await apiClient.get<{ data: AdminOverview }>('/admin/overview');
@@ -33,6 +36,29 @@ export const adminService = {
   getUsers: async (): Promise<AdminUser[]> => {
     const response = await apiClient.get<{ data: AdminUser[] }>('/admin/users');
     return response.data.data;
+  },
+  getReviews: async (): Promise<Review[]> => {
+    const response = await apiClient.get<{ data: Review[] }>('/admin/reviews');
+    return response.data.data;
+  },
+  deleteReview: async (reviewId: string): Promise<void> => {
+    await apiClient.delete(`/admin/reviews/${encodeURIComponent(reviewId)}`);
+  },
+  moderateReview: async (
+    reviewId: string,
+    status: ReviewModerationStatus,
+    rejection_reason?: string,
+  ): Promise<{ review: Review; notificationWarning?: string }> => {
+    const response = await apiClient.patch<{ data: Review; message?: string }>(
+      `/admin/reviews/${encodeURIComponent(reviewId)}/moderation`,
+      { status, rejection_reason },
+    );
+    return {
+      review: response.data.data,
+      notificationWarning: response.data.message?.includes('email notification could not be sent')
+        ? response.data.message
+        : undefined,
+    };
   },
   cancelSubscription: async (userId: string): Promise<void> => {
     await apiClient.post(`/admin/users/${userId}/cancel-subscription`);

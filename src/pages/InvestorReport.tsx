@@ -1,6 +1,8 @@
 import React from 'react';
 import { Train, CheckCircle2, Download, Printer } from 'lucide-react';
 import { downloadReportPdf } from '@/utils/downloadReportPdf';
+import PoliticalLandscapeChart from '@/components/borough/PoliticalLandscapeChart';
+import type { VotingDataRecord } from '@/services/voting-data.service';
 
 export interface FullInvestorReportData {
   reportDate: string;
@@ -84,9 +86,11 @@ export interface FullInvestorReportData {
 
 export const CompleteInvestorReport: React.FC<{
   data: FullInvestorReportData;
+  politicalRecords?: VotingDataRecord[];
+  politicalDataLoaded?: boolean;
   downloadAfterLoad?: boolean;
   onPrintReport?: () => void;
-}> = ({ data, downloadAfterLoad = false, onPrintReport }) => {
+}> = ({ data, politicalRecords = [], politicalDataLoaded = true, downloadAfterLoad = false, onPrintReport }) => {
   const reportDocumentRef = React.useRef<HTMLDivElement>(null);
   const autoDownloadStarted = React.useRef(false);
   const [isDownloadingPdf, setIsDownloadingPdf] = React.useState(false);
@@ -114,11 +118,11 @@ export const CompleteInvestorReport: React.FC<{
   };
 
   React.useEffect(() => {
-    if (!downloadAfterLoad || autoDownloadStarted.current) return;
+    if (!downloadAfterLoad || !politicalDataLoaded || autoDownloadStarted.current) return;
     autoDownloadStarted.current = true;
     const timeoutId = window.setTimeout(() => void handleDownloadPdf(), 500);
     return () => window.clearTimeout(timeoutId);
-  }, [downloadAfterLoad]);
+  }, [downloadAfterLoad, politicalDataLoaded]);
 
   return (
     <>
@@ -269,7 +273,7 @@ export const CompleteInvestorReport: React.FC<{
             <span className="text-5xl font-black text-[#8B0000] block my-2">{pct(data.rentalAnalysis.grossYield)}</span>
           </div>
           <div className="grid grid-cols-2 gap-4 col-span-2">
-            <div className="p-4 bg-sky-50 rounded"><span className="text-xs text-slate-500 block">Monthly Rent</span><span className="text-xl font-bold">{fmt(data.rentalAnalysis.monthlyRent)}</span></div>
+            <div className="p-4 bg-sky-50 rounded"><span className="text-xs text-slate-500 block">Average monthly rent</span><span className="text-xl font-bold">{fmt(data.rentalAnalysis.monthlyRent)} / month</span></div>
             <div className="p-4 bg-sky-50 rounded"><span className="text-xs text-slate-500 block">Annual Income</span><span className="text-xl font-bold">{fmt(data.rentalAnalysis.annualIncome)}</span></div>
           </div>
         </div>
@@ -349,15 +353,7 @@ export const CompleteInvestorReport: React.FC<{
       {/* 09. POLICY & GOVERNANCE CONTEXT */}
       <section className="p-8 border-b">
         <span className="text-xs font-bold text-rose-800 uppercase block mb-1">09 • Policy & Governance Context</span>
-        <h2 className="text-2xl font-extrabold mb-6">Local Authority & Governance</h2>
-        <div className="p-6 bg-orange-50/50 border rounded flex justify-between items-center">
-          <div>
-            <span className="text-xs uppercase font-bold text-slate-500 block">Current Borough Control</span>
-            <span className="text-3xl font-black text-rose-900">{data.governance.boroughControl}</span>
-            <span className="text-xs text-slate-500 block mt-1">{num(data.governance.controlSinceYear, ' election year')} • {data.governance.seatsRatio}</span>
-          </div>
-          <span className="px-3 py-1 bg-emerald-100 text-emerald-800 font-bold rounded text-sm">{data.governance.policyStability}</span>
-        </div>
+        <PoliticalLandscapeChart records={politicalRecords} />
       </section>
 
       {/* 10. SCORE BREAKDOWN */}

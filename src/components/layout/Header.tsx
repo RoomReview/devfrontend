@@ -1,14 +1,19 @@
-import { useState } from "react";
-import { Link, useLocation } from "react-router-dom";
-import { Menu, X } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { ChevronDown, Menu, X } from "lucide-react";
 import logoReview from "../../assets/logoReview.png";
 import { useAuth } from "@/hooks/useAuth";
 
 const Header = () => {
   const location = useLocation();
+  const navigate = useNavigate();
   const currentPath = location.pathname;
   const { user, isAuthenticated, logout } = useAuth();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
+  const [logoutError, setLogoutError] = useState(false);
+  const accountMenuRef = useRef<HTMLDivElement>(null);
+  const accountButtonRef = useRef<HTMLButtonElement>(null);
 
   const navItems = [
     { label: "Postcode", path: "/postcode-search" },
@@ -21,6 +26,45 @@ const Header = () => {
   ];
 
   const handleNavClick = () => setIsMenuOpen(false);
+  const handleLogout = async () => {
+    setIsAccountMenuOpen(false);
+    setIsMenuOpen(false);
+    try {
+      await logout();
+    } catch (error) {
+      console.error("Could not invalidate the server session during logout", error);
+      setLogoutError(true);
+    } finally {
+      navigate("/", { replace: true });
+    }
+  };
+
+  useEffect(() => {
+    setIsAccountMenuOpen(false);
+  }, [location.pathname]);
+
+  useEffect(() => {
+    if (!isAccountMenuOpen) return;
+
+    const handlePointerDown = (event: PointerEvent) => {
+      if (event.target instanceof Node && !accountMenuRef.current?.contains(event.target)) {
+        setIsAccountMenuOpen(false);
+      }
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setIsAccountMenuOpen(false);
+        accountButtonRef.current?.focus();
+      }
+    };
+
+    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isAccountMenuOpen]);
 
   return (
     <header className="w-full border-b border-slate-200 bg-white">
@@ -62,41 +106,53 @@ const Header = () => {
           })}
         </nav>
 
-        <div className="hidden items-center gap-3 sm:flex">
+        <div className="flex items-center gap-3">
           {isAuthenticated ? (
-            <>
-              <div
-                className="flex h-10 w-10 items-center justify-center rounded-full bg-[#8B0202] text-sm font-bold text-white select-none"
-                title={`${user?.firstName} ${user?.lastName}`}
-              >
-                {`${user?.firstName?.[0] ?? "U"}${user?.lastName?.[0] ?? ""}`}
-              </div>
-
-              <Link
-                to="/account"
-                className="rounded-full px-3 py-2 text-sm font-semibold text-slate-900 transition-colors hover:text-slate-600"
-              >
-                Account
-              </Link>
-
+            <div className="relative" ref={accountMenuRef}>
               <button
-                onClick={logout}
-                className="rounded-full px-3 py-2 text-sm font-semibold text-slate-900 transition-colors hover:text-slate-600"
+                ref={accountButtonRef}
+                type="button"
+                aria-label={`Account menu for ${user?.firstName ?? "user"}`}
+                aria-expanded={isAccountMenuOpen}
+                aria-controls="account-menu"
+                onClick={() => setIsAccountMenuOpen((open) => !open)}
+                className="inline-flex h-10 items-center gap-1.5 rounded-full p-1 pr-2 text-slate-900 transition-colors hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#8B0202]"
               >
-                Log out
+                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#8B0202] text-xs font-bold text-white">
+                  {`${user?.firstName?.[0] ?? "U"}${user?.lastName?.[0] ?? ""}`}
+                </span>
+                <ChevronDown className="h-4 w-4" aria-hidden="true" />
               </button>
-            </>
+              {isAccountMenuOpen ? (
+                <div id="account-menu" className="absolute right-0 z-50 mt-2 w-48 rounded-xl border border-slate-200 bg-white p-1.5 shadow-lg">
+                  <Link
+                    to="/account"
+                    onClick={() => setIsAccountMenuOpen(false)}
+                    className="block rounded-lg px-3 py-2 text-sm font-medium text-slate-800 hover:bg-slate-100 focus-visible:bg-slate-100 focus-visible:outline-none"
+                  >
+                    Account
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={() => void handleLogout()}
+                    className="block w-full rounded-lg px-3 py-2 text-left text-sm font-medium text-slate-800 hover:bg-slate-100 focus-visible:bg-slate-100 focus-visible:outline-none"
+                  >
+                    Log out
+                  </button>
+                </div>
+              ) : null}
+            </div>
           ) : (
             <>
               <Link
                 to="/login"
-                className="rounded-xl border border-[#8B0202] bg-white px-5 py-2 text-sm font-semibold text-[#8B0202] transition-colors hover:bg-[#8B0202]/5"
+                className="hidden rounded-xl border border-[#8B0202] bg-white px-5 py-2 text-sm font-semibold text-[#8B0202] transition-colors hover:bg-[#8B0202]/5 sm:inline-flex"
               >
                 Log in
               </Link>
               <Link
                 to="/register"
-                className="rounded-xl bg-[#8B0202] px-5 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#6A0101]"
+                className="hidden rounded-xl bg-[#8B0202] px-5 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#6A0101] sm:inline-flex"
               >
                 Register
               </Link>
@@ -113,6 +169,12 @@ const Header = () => {
           {isMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
         </button>
       </div>
+
+      {logoutError ? (
+        <p role="status" className="border-t border-amber-200 bg-amber-50 px-4 py-2 text-center text-sm text-amber-900">
+          You have been signed out on this device, but the server could not confirm session invalidation.
+        </p>
+      ) : null}
 
       {isMenuOpen ? (
         <div className="border-t border-[#e8ddd5] bg-[#F3E6DE] px-4 pb-4 sm:px-6 lg:hidden">
@@ -140,22 +202,9 @@ const Header = () => {
           <div className="mx-auto mt-4 flex max-w-7xl flex-col gap-2 sm:flex-row">
             {isAuthenticated ? (
               <>
-                <Link
-                  to="/account"
-                  onClick={handleNavClick}
-                  className="rounded-xl border border-[#1E293B] bg-white px-4 py-3 text-center text-base font-semibold text-[#1E293B] shadow-sm"
-                >
-                  Account
-                </Link>
-                <button
-                  onClick={() => {
-                    handleNavClick();
-                    void logout();
-                  }}
-                  className="rounded-xl bg-[#1E293B] px-4 py-3 text-base font-semibold text-white shadow-sm"
-                >
-                  Log out
-                </button>
+                <p className="px-2 py-2 text-sm font-medium text-[#1E293B]">
+                  Signed in as {user?.firstName ?? "User"}
+                </p>
               </>
             ) : (
               <>

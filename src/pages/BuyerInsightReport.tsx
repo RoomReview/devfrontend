@@ -438,8 +438,8 @@ export const BuyerInsightReport: React.FC<BuyerInsightReportProps> = ({
 
           <div className="grid grid-cols-3 gap-3">
             <div className="bg-sky-50/60 p-4 rounded-2xl text-center border border-sky-100">
-              <span className="text-[10px] text-slate-400 font-semibold block uppercase">Average Rent (pcm)</span>
-              <span className="text-lg font-extrabold text-[#8B0000]">{formatCurrency(rentalContext.avgRentPcm)}</span>
+              <span className="text-[10px] text-slate-400 font-semibold block uppercase">Average monthly rent</span>
+              <span className="text-lg font-extrabold text-[#8B0000]">{formatCurrency(rentalContext.avgRentPcm)} / month</span>
             </div>
             <div className="bg-sky-50/60 p-4 rounded-2xl text-center border border-sky-100">
               <span className="text-[10px] text-slate-400 font-semibold block uppercase">Demand Level</span>
@@ -662,15 +662,19 @@ export const BuyerInsightReport: React.FC<BuyerInsightReportProps> = ({
           <div className="grid grid-cols-3 gap-3">
             <div className="bg-sky-50/60 p-4 rounded-2xl text-center border border-sky-100">
               <span className="text-[10px] text-slate-400 font-semibold block uppercase">Connectivity Score</span>
-              <span className="text-xl font-extrabold text-[#8B0000]">{transportAndConnectivity.connectivityScore}/100</span>
+              <span className="text-xl font-extrabold text-[#8B0000]">Not available</span>
             </div>
             <div className="bg-sky-50/60 p-4 rounded-2xl text-center border border-sky-100">
               <span className="text-[10px] text-slate-400 font-semibold block uppercase">Nearest Station</span>
-              <span className="text-xl font-extrabold text-[#8B0000]">{transportAndConnectivity.nearestStationMi} mi</span>
+              <span className="text-xl font-extrabold text-[#8B0000]">
+                {transportAndConnectivity.nearestStationMi != null && Number.isFinite(transportAndConnectivity.nearestStationMi)
+                  ? `${transportAndConnectivity.nearestStationMi} mi`
+                  : 'Not available'}
+              </span>
             </div>
             <div className="bg-sky-50/60 p-4 rounded-2xl text-center border border-sky-100">
               <span className="text-[10px] text-slate-400 font-semibold block uppercase">Zone</span>
-              <span className="text-xl font-extrabold text-[#8B0000]">{transportAndConnectivity.zone}</span>
+              <span className="text-xl font-extrabold text-[#8B0000]">{transportAndConnectivity.zone ?? 'Not available'}</span>
             </div>
           </div>
 

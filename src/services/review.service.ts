@@ -32,6 +32,11 @@ export const reviewService = {
     return response.data?.data ?? [];
   },
 
+  getMine: async (): Promise<Review[]> => {
+    const response = await apiClient.get<{ data?: Review[] }>('/reviews/mine');
+    return response.data?.data ?? [];
+  },
+
   /** GET /reviews/:id */
   getById: async (id: string): Promise<Review> => {
     const response = await apiClient.get<{ data?: Review }>(`/reviews/${id}`);

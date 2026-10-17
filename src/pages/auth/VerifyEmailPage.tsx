@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import Logo from "../../components/common/Logo";
 import Button from "../../components/common/Button";
@@ -9,19 +9,48 @@ import {
   useVerifyEmail,
   useResendVerification,
 } from "@/hooks/auth/useVerifyEmail";
+import { getSafePostcodeReturnTo } from '@/utils/helpers';
 
 const VerifyEmailPage = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const email = searchParams.get("email") || "";
+  const linkedCode = searchParams.get("code") || "";
+  const hasValidVerificationLink = Boolean(email) && /^\d{6}$/.test(linkedCode);
   const userType = searchParams.get("type") || "user";
   const subscriptionPlan = searchParams.get("subscriptionPlan");
+  const returnTo = getSafePostcodeReturnTo(searchParams.get("returnTo"));
 
   const [code, setCode] = useState("");
   const [error, setError] = useState("");
 
-  const { mutate: verifyEmail, isPending: isVerifying } = useVerifyEmail();
+  const { mutate: verifyEmail, isPending: isVerifying, isError: verificationFailed } = useVerifyEmail();
   const { mutate: resend, isPending: isResending } = useResendVerification();
+  const hasSubmittedLink = useRef(false);
+
+  useEffect(() => {
+    if (!hasValidVerificationLink || hasSubmittedLink.current) return;
+    hasSubmittedLink.current = true;
+    verifyEmail(
+      { email, code: linkedCode },
+      {
+        onSuccess: () => navigate(
+          subscriptionPlan
+            ? `/pricing?checkoutPlan=${encodeURIComponent(subscriptionPlan)}`
+            : returnTo ?? (userType === 'agency' ? '/complete-profile' : '/account'),
+        ),
+      },
+    );
+  }, [
+    email,
+    hasValidVerificationLink,
+    linkedCode,
+    navigate,
+    returnTo,
+    subscriptionPlan,
+    userType,
+    verifyEmail,
+  ]);
 
   const handleCodeChange = (value: string) => {
     setCode(value);
@@ -42,7 +71,7 @@ const VerifyEmailPage = () => {
         onSuccess: () => navigate(
           subscriptionPlan
             ? `/pricing?checkoutPlan=${encodeURIComponent(subscriptionPlan)}`
-            : userType === 'agency' ? '/complete-profile' : '/account',
+            : returnTo ?? (userType === 'agency' ? '/complete-profile' : '/account'),
         ),
       },
     );
@@ -68,17 +97,28 @@ const VerifyEmailPage = () => {
         </H2>
 
         <form onSubmit={handleSubmit} className="space-y-6">
-          <div className="flex justify-center">
-            <CodeInput length={6} onChange={handleCodeChange} error={error} />
-          </div>
+          {(!hasValidVerificationLink || verificationFailed) && (
+            <div className="flex justify-center">
+              <CodeInput length={6} onChange={handleCodeChange} error={error} />
+            </div>
+          )}
 
           <div className="text-center">
             <Body className="text-sm text-gray-dark/80">
-              A verification code has been sent to <strong>{email}</strong>.
+              {isVerifying
+                ? "Verifying your email address..."
+                : <>A verification code has been sent to <strong>{email}</strong>.</>}
             </Body>
-            <Body className="text-sm text-gray-dark/80">
-              Enter the code here to confirm your account.
-            </Body>
+            {verificationFailed && (
+              <Body className="text-sm text-red-700">
+                This verification link may have expired. Enter your code or request a new one.
+              </Body>
+            )}
+            {(!hasValidVerificationLink || verificationFailed) && (
+              <Body className="text-sm text-gray-dark/80">
+                Enter the code here to confirm your account.
+              </Body>
+            )}
           </div>
 
           <div className="text-center">
@@ -95,9 +135,11 @@ const VerifyEmailPage = () => {
             </Small>
           </div>
 
-          <Button type="submit" className="w-full" disabled={isVerifying}>
-            {isVerifying ? "VERIFYING..." : "SUBMIT CODE"}
-          </Button>
+          {(!hasValidVerificationLink || verificationFailed) && (
+            <Button type="submit" className="w-full" disabled={isVerifying}>
+              {isVerifying ? "VERIFYING..." : "SUBMIT CODE"}
+            </Button>
+          )}
         </form>
       </div>
     </div>

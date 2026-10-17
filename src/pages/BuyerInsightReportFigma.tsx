@@ -5,14 +5,40 @@ import {
   Download,
   GraduationCap,
   Home,
-  MapPinned,
   Printer,
   ShieldCheck,
   Train,
   TrendingUp,
-  Users,
 } from 'lucide-react';
 import type { BuyerInsightReportData } from './BuyerInsightReport.types';
+import PoliticalLandscapeChart from '@/components/borough/PoliticalLandscapeChart';
+import type { VotingDataRecord } from '@/services/voting-data.service';
+import { scoreReportService } from '@/services/score-report.service';
+
+const getReportStylesheets = () => Array.from(document.styleSheets)
+  .flatMap((stylesheet) => {
+    if (stylesheet.href && new URL(stylesheet.href).origin !== window.location.origin) return [];
+    return Array.from(stylesheet.cssRules, (rule) => rule.cssText);
+  })
+  .join('\n');
+
+const createPdfMarkup = (report: HTMLElement) => {
+  const clone = report.cloneNode(true) as HTMLElement;
+  clone.querySelectorAll('.buyer-report-print-control, button, script, iframe, object, embed')
+    .forEach((element) => element.remove());
+  clone.querySelectorAll('*').forEach((element) => {
+    for (const attribute of Array.from(element.attributes)) {
+      if (/^on/i.test(attribute.name)) {
+        element.removeAttribute(attribute.name);
+      } else if (['src', 'srcset', 'href'].includes(attribute.name.toLowerCase())
+        && !attribute.value.startsWith('data:image/')
+        && !attribute.value.startsWith('#')) {
+        element.removeAttribute(attribute.name);
+      }
+    }
+  });
+  return clone.outerHTML;
+};
 
 export const demoBuyerReportDataFigma = {
   area: 'E14 – Canary Wharf',
@@ -20,28 +46,27 @@ export const demoBuyerReportDataFigma = {
   narrative:
     "E14 is one of London's most exciting areas, offering excellent transport links, strong rental demand and ongoing regeneration, making it a great place to live or invest.",
   score: 78,
-  rent: '£1,650 pcm',
+  rent: '£1,650 / month',
   price: '£504,000',
   crime: 'Lower than London average',
   population: '23,392',
 };
 
 const otherHighlights = [
-  { icon: Building2, label: 'Ongoing Regeneration', description: 'Billions invested in new homes, commercial spaces and infrastructure.' },
-  { icon: TrendingUp, label: 'Strong Rental Market', description: 'High demand from professionals working in Canary Wharf.' },
-  { icon: ShieldCheck, label: 'Green & Waterfront Living', description: 'Access to parks, riverside walks and modern amenities.' },
+  { icon: Building2, label: 'Development context', description: 'Review planned development and infrastructure updates affecting the local area.' },
+  { icon: TrendingUp, label: 'Rental market', description: 'Compare current rent levels and historical trends when assessing local demand.' },
+  { icon: ShieldCheck, label: 'Green space & amenities', description: 'Explore nearby parks, open spaces and local amenities.' },
 ];
 
 const scoreCategoryStyles: Record<string, { label: string; color: string }> = {
   safety: { label: 'Crime/Safety', color: '#EF4444' },
-  transport: { label: 'Transport', color: '#F59E0B' },
   affordability: { label: 'Affordability', color: '#3B82F6' },
   amenities: { label: 'Amenities', color: '#10B981' },
   health: { label: 'Environment', color: '#6366F1' },
   education: { label: 'Education', color: '#8B5CF6' },
 };
 
-const scoreCategoryOrder = ['safety', 'transport', 'affordability', 'amenities', 'health', 'education'];
+const scoreCategoryOrder = ['safety', 'affordability', 'amenities', 'health', 'education'];
 
 type TrendPoint = { year: string; x: number; y: number; value: string; numericValue: number };
 
@@ -58,7 +83,7 @@ const createTrendChart = (
   const axisMax = stepFactor * magnitude * 3;
   const points = validHistory.map(({ year, value }, index) => ({
     year,
-    x: validHistory.length === 1 ? 190 : 50 + (index * 280) / (validHistory.length - 1),
+    x: validHistory.length === 1 ? 206 : 72 + (index * 268) / (validHistory.length - 1),
     y: 140 - (value / axisMax) * 120,
     value: formatValue(value),
     numericValue: value,
@@ -106,13 +131,23 @@ type BuyerInsightReportFigmaProps = {
     rentHistory?: NonNullable<BuyerInsightReportData['rentalContext']['rentHistory']>;
   };
   preparedForName?: string;
+  politicalRecords?: VotingDataRecord[];
+  politicalDataLoaded?: boolean;
   downloadAfterLoad?: boolean;
   onPrintReport?: () => void;
   onMethodologyClick?: () => void;
   onSourceClick?: (sourceId: string) => void;
 };
 
-export const BuyerInsightReportFigma: React.FC<BuyerInsightReportFigmaProps> = ({ data, trendData, preparedForName = '', downloadAfterLoad = false, onPrintReport }) => {
+export const BuyerInsightReportFigma: React.FC<BuyerInsightReportFigmaProps> = ({
+  data,
+  trendData,
+  preparedForName = '',
+  politicalRecords = [],
+  politicalDataLoaded = true,
+  downloadAfterLoad = false,
+  onPrintReport,
+}) => {
   const [activeRentPoint, setActiveRentPoint] = React.useState<number | null>(null);
   const [activePricePoint, setActivePricePoint] = React.useState<number | null>(null);
   const [isDownloadingPdf, setIsDownloadingPdf] = React.useState(false);
@@ -139,8 +174,6 @@ export const BuyerInsightReportFigma: React.FC<BuyerInsightReportFigmaProps> = (
     .join(' ');
   const agencyLogoDataUrl = agencyBranding?.logoDataUrl ?? '';
   const hasAgencyBranding = Boolean(companyName || agencyContactName || agencyLogoDataUrl);
-  const propertyDetails = reportData?.propertyContext?.details;
-  const targetBudget = reportData?.propertyContext?.targetBudget;
   const numericOverallScore = Number(reportData?.meta?.overallScore);
   const overallScore = Number.isFinite(numericOverallScore)
     ? Math.max(0, Math.min(100, numericOverallScore))
@@ -149,7 +182,7 @@ export const BuyerInsightReportFigma: React.FC<BuyerInsightReportFigmaProps> = (
   const normalizedScoreCategories = availableScoreCategories.map(({ category, score }) => ({
     category: /safety|crime/i.test(category) ? 'safety' : category,
     score,
-  }));
+  })).filter(({ category }) => !/transport/i.test(category));
   const hasSafetyCategory = normalizedScoreCategories.some(({ category }) => category === 'safety');
   const numericSafetyScore = Number(reportData?.meta?.safetyScore);
   const crimeMetric = reportData?.areaSnapshot?.find(({ metric }) => metric.startsWith('Crime rate'));
@@ -170,17 +203,14 @@ export const BuyerInsightReportFigma: React.FC<BuyerInsightReportFigmaProps> = (
         score: null,
         displayValue: crimeMetric?.value ?? crimeHighlight?.value ?? 'No data',
       }, ...scoreRows.map((row) => ({ ...row, displayValue: undefined }))];
-  const transportScore = [...(reportData?.availableScoreCategories ?? [])]
-    .find(({ category, score }) => /transport/i.test(category) && Number.isFinite(score) && score > 0)?.score;
-  const rentMetric = reportData?.areaSnapshot?.find(({ metric }) => metric === 'Average rent (pcm)');
+  const rentMetric = reportData?.areaSnapshot?.find(({ metric }) => metric === 'Average monthly rent');
   const propertyPriceMetric = reportData?.areaSnapshot?.find(({ metric }) => metric.startsWith('Average property price'));
-  const population = reportData?.communityProfile?.totalPopulation;
   const propertyPricePeriod = propertyPriceMetric?.metric.match(/\((.+)\)$/)?.[1];
   const stats = [
     {
       icon: Building2,
-      value: rentMetric ? `${rentMetric.value} pcm` : 'Unavailable',
-      label: 'Average Rent (pcm)',
+      value: rentMetric ? `${rentMetric.value} / month` : 'Unavailable',
+      label: 'Average monthly rent',
       trend: rentMetric ? 'Latest postcode data' : 'No rent data available',
     },
     {
@@ -199,7 +229,6 @@ export const BuyerInsightReportFigma: React.FC<BuyerInsightReportFigmaProps> = (
   const scoreCategoryWeights: Record<string, number> = {
     safety: 20,
     affordability: 20,
-    transport: 18,
     amenities: 16,
     health: 13,
     education: 13,
@@ -220,14 +249,12 @@ export const BuyerInsightReportFigma: React.FC<BuyerInsightReportFigmaProps> = (
     scoreRingOffset += length + scoreRingGap;
     return { color, length, offset };
   });
-  const transportAccessibility = !transport
-    ? 'Not rated'
-    : busRoutes.length >= 10 ? 'Excellent'
-      : busRoutes.length >= 3 ? 'Poor'
-        : 'Very limited';
-  const transportAccessibilityDetail = transport
-    ? `${busRoutes.length} bus routes${station ? ` · ${station.name}, about ${station.walkMinutesEstimate} min walk` : ''}`
-    : 'No transport records available';
+  const transportAccessibility = transport
+    ? `${busRoutes.length} nearby bus routes`
+    : 'Not available';
+  const transportAccessibilityDetail = station
+    ? `Nearest station: ${station.name}, about ${station.walkMinutesEstimate} min walk`
+    : transport ? 'Nearest station data not available' : 'Transport records are not available';
   const additionalDataPanels = [
     ...(reportData?.educationProfile ? [{
       icon: GraduationCap,
@@ -238,29 +265,10 @@ export const BuyerInsightReportFigma: React.FC<BuyerInsightReportFigmaProps> = (
       panel: reportData.housingStockProfile,
     }] : []),
   ];
-  const propertyFacts: Array<{ label: string; value: string }> = propertyDetails ? [
-    { label: 'Property type', value: propertyDetails.propertyType },
-    { label: 'Bedrooms', value: String(propertyDetails.bedrooms) },
-    { label: 'Bathrooms', value: String(propertyDetails.bathrooms) },
-    { label: 'Floor area', value: `${propertyDetails.floorAreaSqFt.toLocaleString('en-GB')} sq ft` },
-    { label: 'Tenure', value: propertyDetails.tenure },
-    ...(propertyDetails.yearBuilt ? [{ label: 'Year built', value: String(propertyDetails.yearBuilt) }] : []),
-    ...(propertyDetails.condition ? [{ label: 'Condition', value: propertyDetails.condition }] : []),
-    ...(propertyDetails.parking ? [{ label: 'Parking', value: propertyDetails.parking }] : []),
-    ...(propertyDetails.garden ? [{ label: 'Outdoor space', value: propertyDetails.garden }] : []),
-    ...(propertyDetails.leaseYearsRemaining ? [{ label: 'Lease remaining', value: `${propertyDetails.leaseYearsRemaining} years` }] : []),
-    ...(propertyDetails.serviceChargeGroundRent ? [{ label: 'Service charge / ground rent', value: propertyDetails.serviceChargeGroundRent }] : []),
-    ...(propertyDetails.buyerPriority ? [{ label: 'Buyer priority', value: propertyDetails.buyerPriority }] : []),
-    ...(targetBudget != null ? [{
-      label: 'Target budget',
-      value: new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP', maximumFractionDigits: 0 })
-        .format(targetBudget),
-    }] : []),
-  ] : [];
   const heroHighlights = [
     {
       icon: Train,
-      label: 'Transport Accessibility',
+      label: 'Nearby bus routes',
       value: transportAccessibility,
       detail: transportAccessibilityDetail,
     },
@@ -307,7 +315,7 @@ export const BuyerInsightReportFigma: React.FC<BuyerInsightReportFigmaProps> = (
   const highlights = [transportHighlight, ...otherHighlights];
   const rentTrendChart = createTrendChart(
     (trendData?.rentHistory?.length ? trendData.rentHistory : chartData?.rentalContext?.rentHistory)?.map(({ year, avgRentPcm }) => ({ year, value: avgRentPcm })) ?? [],
-    (value) => `£${Math.round(value).toLocaleString('en-GB')} pcm`,
+    (value) => `£${Math.round(value).toLocaleString('en-GB')} / month`,
   );
   const rentTrendPoints = rentTrendChart.points;
   const propertyPriceTrendChart = createTrendChart(
@@ -316,6 +324,14 @@ export const BuyerInsightReportFigma: React.FC<BuyerInsightReportFigmaProps> = (
   );
   const propertyPriceTrendPoints = propertyPriceTrendChart.points;
 
+  const handlePrintReport = () => {
+    if (onPrintReport) {
+      onPrintReport();
+      return;
+    }
+    window.print();
+  };
+
   const handleDownloadPdf = async () => {
     const reportDocument = reportDocumentRef.current;
     if (!reportDocument || isDownloadingPdf) return;
@@ -323,49 +339,103 @@ export const BuyerInsightReportFigma: React.FC<BuyerInsightReportFigmaProps> = (
     setIsDownloadingPdf(true);
     setPdfError(null);
     try {
-      const { downloadReportPdf } = await import('@/utils/downloadReportPdf');
-      const postcodeFilename = reportPostcode.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-      await downloadReportPdf(reportDocument, `roomreview-${postcodeFilename || 'property-report'}.pdf`);
+      await scoreReportService.downloadAreaReportPdf({
+        html: createPdfMarkup(reportDocument),
+        css: getReportStylesheets(),
+        postcode: reportPostcode,
+      });
     } catch (error) {
       console.error('Buyer report PDF export failed', error);
-      setPdfError('PDF could not be created. Please try printing the report instead.');
+      setPdfError('PDF could not be downloaded. Please try again or use Print.');
     } finally {
       setIsDownloadingPdf(false);
     }
   };
 
   React.useEffect(() => {
-    if (!downloadAfterLoad || autoDownloadStarted.current) return;
+    if (!downloadAfterLoad || !politicalDataLoaded || autoDownloadStarted.current) return;
     autoDownloadStarted.current = true;
     const timeoutId = window.setTimeout(() => void handleDownloadPdf(), 500);
     return () => window.clearTimeout(timeoutId);
-  }, [downloadAfterLoad]);
+  }, [downloadAfterLoad, politicalDataLoaded]);
 
   return (
     <div className="buyer-report-page min-h-screen bg-white px-4 py-8 text-[#1A202C] antialiased">
       <style>{`
+        .buyer-report-metrics-grid {
+          grid-template-columns: repeat(auto-fit, minmax(min(100%, 145px), 1fr));
+        }
+        .buyer-report-document.pdf-exporting .buyer-report-score-value {
+          transform: translateY(-8px);
+        }
+        .buyer-report-document.pdf-exporting > main > section:not(.buyer-report-allow-page-break, .buyer-report-page-break-group) {
+          break-inside: avoid !important;
+          page-break-inside: avoid !important;
+        }
+        .buyer-report-document.pdf-exporting > main > section:not(.buyer-report-allow-page-break, .buyer-report-page-break-group) > * {
+          break-inside: avoid !important;
+          page-break-inside: avoid !important;
+        }
+        .buyer-report-document.pdf-exporting .buyer-report-page-break-group {
+          display: block !important;
+        }
+        .buyer-report-document.pdf-exporting .buyer-report-page-break-group > section {
+          break-inside: avoid !important;
+          page-break-inside: avoid !important;
+          margin-bottom: 24px;
+        }
+        .buyer-report-document.pdf-exporting .buyer-report-trend-layout {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+        .buyer-report-document.pdf-exporting .buyer-report-trend-layout > :nth-child(3) {
+          grid-column: 1 / -1;
+        }
+        .buyer-report-document.pdf-exporting .buyer-report-trend-layout > * {
+          min-width: 0;
+          break-inside: avoid !important;
+          page-break-inside: avoid !important;
+        }
+        .buyer-report-transport-row > :first-child {
+          flex: 1 1 auto;
+          min-width: 0;
+        }
+        .buyer-report-transport-distance {
+          flex: 0 1 52%;
+          max-width: 52%;
+          min-width: 0;
+          white-space: normal;
+          overflow-wrap: anywhere;
+        }
         @media print {
           @page { size: A4; margin: 12mm; }
           html, body, #root { min-height: 0 !important; background: #fff !important; }
           body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-          .buyer-report-page { min-height: 0 !important; padding: 0 !important; background: #fff !important; }
-          .buyer-report-document { max-width: none !important; overflow: visible !important; border: 0 !important; border-radius: 0 !important; box-shadow: none !important; }
+          #root > .app-shell > :not(main) { display: none !important; }
+          #root > .app-shell > main { display: block !important; margin: 0 !important; padding: 0 !important; }
+          body * { visibility: hidden !important; }
+          .buyer-report-page, .buyer-report-page * { visibility: visible !important; }
+          .buyer-report-page { min-height: 0 !important; margin: 0 !important; padding: 0 !important; background: #fff !important; }
+          .buyer-report-document { width: 100% !important; max-width: none !important; margin: 0 !important; overflow: visible !important; border: 0 !important; border-radius: 0 !important; box-shadow: none !important; }
+          .buyer-report-document > main { padding: 0 !important; }
+          .buyer-report-score-value { transform: translateY(-8px); }
+          .buyer-report-document > header,
+          .buyer-report-document > main > section:not(.buyer-report-allow-page-break, .buyer-report-page-break-group) {
+            break-inside: avoid !important;
+            page-break-inside: avoid !important;
+          }
+          .buyer-report-page-break-group { display: block !important; }
+          .buyer-report-page-break-group > section {
+            break-inside: avoid !important;
+            page-break-inside: avoid !important;
+            margin-bottom: 24px !important;
+          }
+          .buyer-report-trend-layout { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+          .buyer-report-trend-layout > :nth-child(3) { grid-column: 1 / -1; }
           .buyer-report-print-control { display: none !important; }
         }
       `}</style>
       <div className="buyer-report-print-control mx-auto mb-4 max-w-[1240px]">
         <div className="flex flex-wrap justify-end gap-2">
-          {onPrintReport && (
-            <button
-              type="button"
-              onClick={onPrintReport}
-              className="inline-flex items-center gap-2 rounded-md border border-[#8B0000] bg-white px-4 py-2 text-sm font-semibold text-[#8B0000] transition-colors hover:bg-[#8B0000]/5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#8B0000]"
-              aria-label="Print report"
-            >
-              <Printer className="h-4 w-4" aria-hidden="true" />
-              Print
-            </button>
-          )}
           <button
             type="button"
             onClick={() => void handleDownloadPdf()}
@@ -375,6 +445,15 @@ export const BuyerInsightReportFigma: React.FC<BuyerInsightReportFigmaProps> = (
           >
             <Download className="h-4 w-4" aria-hidden="true" />
             {isDownloadingPdf ? 'Preparing PDF...' : 'Download PDF'}
+          </button>
+          <button
+            type="button"
+            onClick={handlePrintReport}
+            className="inline-flex items-center gap-2 rounded-md border border-[#8B0000] bg-white px-4 py-2 text-sm font-semibold text-[#8B0000] transition-colors hover:bg-[#8B0000]/5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#8B0000]"
+            aria-label="Print report"
+          >
+            <Printer className="h-4 w-4" aria-hidden="true" />
+            Print
           </button>
         </div>
         {pdfError && <p className="mt-2 text-right text-sm text-red-700" role="alert">{pdfError}</p>}
@@ -431,25 +510,8 @@ export const BuyerInsightReportFigma: React.FC<BuyerInsightReportFigmaProps> = (
         </header>
 
         <main className="bg-white p-4 md:p-6 space-y-6">
-          {propertyFacts.length > 0 && (
-            <section className="border-y border-[#E7DFDB] py-5" aria-label="Submitted property details">
-              <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
-                <h2 className="text-[11px] font-bold uppercase tracking-[0.2em] text-slate-500">Property details</h2>
-                <p className="text-[10px] text-slate-500">Based on the information you entered</p>
-              </div>
-              <dl className="grid grid-cols-2 gap-x-5 gap-y-3 sm:grid-cols-3 lg:grid-cols-5">
-                {propertyFacts.map(({ label, value }) => (
-                  <div key={label} className="min-w-0">
-                    <dt className="text-[10px] text-slate-500">{label}</dt>
-                    <dd className="mt-0.5 break-words text-[12px] font-semibold text-[#1B2430]">{value}</dd>
-                  </div>
-                ))}
-              </dl>
-            </section>
-          )}
-
           {/* HERO BANNER SECTION */}
-          <section className="grid overflow-hidden rounded-[22px] border border-[#D7CFC7] bg-[#0B132B] text-white md:grid-cols-[1.18fr_0.82fr]">
+          <section className="buyer-report-allow-page-break grid overflow-hidden rounded-[22px] border border-[#D7CFC7] bg-[#0B132B] text-white md:grid-cols-[1.18fr_0.82fr]">
             <div className="relative px-7 py-8 md:px-10 md:py-10 flex flex-col justify-between">
               <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.08),transparent_35%),linear-gradient(135deg,#0b132b_0%,#0f172a_100%)]" />
               <div className="relative z-10">
@@ -517,7 +579,7 @@ export const BuyerInsightReportFigma: React.FC<BuyerInsightReportFigmaProps> = (
                       ))}
                     </svg>
                     <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-                      <div className="text-[38px] font-black leading-none text-[#1B2430]">{overallScore ?? '—'}</div>
+                      <div className="buyer-report-score-value text-[38px] font-black leading-none text-[#1B2430]">{overallScore ?? '—'}</div>
                       <div className="text-[11px] text-slate-500 font-semibold">/100</div>
                     </div>
                   </div>
@@ -544,9 +606,9 @@ export const BuyerInsightReportFigma: React.FC<BuyerInsightReportFigmaProps> = (
             </div>
 
             {/* KEY METRICS CARDS */}
-            <div className="grid grid-cols-2 self-center sm:grid-cols-4">
+            <div className="buyer-report-metrics-grid grid self-center">
               {stats.map(({ icon: Icon, value, label, trend }, index) => (
-                <div key={label} className={`flex flex-col items-center gap-1 px-2 text-center sm:px-3 lg:px-4 ${index > 0 ? 'border-l border-[#E7E9EE]' : ''}`}>
+                <div key={label} className={`flex min-w-0 flex-col items-center gap-1 px-2 text-center sm:px-3 lg:px-4 ${index > 0 ? 'border-l border-[#E7E9EE]' : ''}`}>
                   <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#EDF3F8] text-[#0B1733]">
                     <Icon className="h-[22px] w-[22px]" />
                   </div>
@@ -558,8 +620,12 @@ export const BuyerInsightReportFigma: React.FC<BuyerInsightReportFigmaProps> = (
             </div>
           </section>
 
+          <section className="rounded-[22px] border border-[#E5DCD8] bg-white p-6 shadow-sm">
+            <PoliticalLandscapeChart records={politicalRecords} />
+          </section>
+
           {/* RENT TRENDS, PRICE TRENDS, HIGHLIGHTS */}
-          <section className="grid gap-6 xl:grid-cols-[1.1fr_1.1fr_0.9fr]">
+          <section className="buyer-report-trend-layout grid gap-6 xl:grid-cols-[1.1fr_1.1fr_0.9fr]">
             {/* RENT TRENDS */}
             <div className="rounded-[22px] border border-[#E5DCD8] bg-white p-5 shadow-sm flex flex-col justify-between">
               <div>
@@ -570,6 +636,7 @@ export const BuyerInsightReportFigma: React.FC<BuyerInsightReportFigmaProps> = (
                   <svg
                     viewBox="0 0 360 180"
                     className="h-full w-full overflow-visible"
+                    preserveAspectRatio="xMidYMid meet"
                     onMouseMove={(event) => {
                       const screenMatrix = event.currentTarget.getScreenCTM();
                       if (!screenMatrix) return;
@@ -577,7 +644,7 @@ export const BuyerInsightReportFigma: React.FC<BuyerInsightReportFigmaProps> = (
                       pointer.x = event.clientX;
                       pointer.y = event.clientY;
                       const pointerX = pointer.matrixTransform(screenMatrix.inverse()).x;
-                      if (!rentTrendPoints.length || pointerX < 40 || pointerX > 340) {
+                      if (!rentTrendPoints.length || pointerX < 64 || pointerX > 350) {
                         setActiveRentPoint(null);
                         return;
                       }
@@ -587,17 +654,20 @@ export const BuyerInsightReportFigma: React.FC<BuyerInsightReportFigmaProps> = (
                     }}
                     onMouseLeave={() => setActiveRentPoint(null)}
                   >
-                    <line x1="20" y1="20" x2="340" y2="20" stroke="#E7DFDB" strokeWidth="1" strokeDasharray="3 3" />
-                    <line x1="20" y1="60" x2="340" y2="60" stroke="#E7DFDB" strokeWidth="1" strokeDasharray="3 3" />
-                    <line x1="20" y1="100" x2="340" y2="100" stroke="#E7DFDB" strokeWidth="1" strokeDasharray="3 3" />
-                    <line x1="20" y1="140" x2="340" y2="140" stroke="#E7DFDB" strokeWidth="1" strokeDasharray="3 3" />
+                    <line x1="72" y1="20" x2="340" y2="20" stroke="#E7DFDB" strokeWidth="1" strokeDasharray="3 3" />
+                    <line x1="72" y1="60" x2="340" y2="60" stroke="#E7DFDB" strokeWidth="1" strokeDasharray="3 3" />
+                    <line x1="72" y1="100" x2="340" y2="100" stroke="#E7DFDB" strokeWidth="1" strokeDasharray="3 3" />
+                    <line x1="72" y1="140" x2="340" y2="140" stroke="#E7DFDB" strokeWidth="1" strokeDasharray="3 3" />
                     
                     {rentTrendChart.axisLabels.map((label, index) => (
-                      <text key={label} x="10" y={[24, 64, 104, 144][index]} fill="#94A3B8" fontSize="9">{label}</text>
+                      <text key={label} x="65" y={[24, 64, 104, 144][index]} fill="#94A3B8" fontSize="9" textAnchor="end">{label}</text>
                     ))}
 
                     {rentTrendPoints.length > 1 && <path d={createTrendPath(rentTrendPoints)} fill="none" stroke="#8B0000" strokeWidth="3" strokeLinecap="round" />}
                     {!rentTrendPoints.length && <text x="180" y="88" fill="#94A3B8" fontSize="11" textAnchor="middle">Historical data unavailable</text>}
+                    {rentTrendPoints.map(({ year, x }) => (
+                      <text key={`year-${year}`} x={x} y="166" fill="#94A3B8" fontSize="9" fontWeight="600" textAnchor="middle">{year}</text>
+                    ))}
                     {rentTrendPoints.map(({ year, x, y, value }, index) => (
                       <g key={year}>
                         <circle
@@ -619,12 +689,9 @@ export const BuyerInsightReportFigma: React.FC<BuyerInsightReportFigmaProps> = (
                     {renderTrendTooltip(activeRentPoint === null ? undefined : rentTrendPoints[activeRentPoint])}
                   </svg>
                 </div>
-                <div className="mt-2 flex justify-between text-[10px] font-semibold text-slate-400 px-6">
-                  {rentTrendPoints.map(({ year }) => <span key={year}>{year}</span>)}
-                </div>
               </div>
               <div className="mt-4 pt-3 border-t border-[#E8DED9] flex items-center justify-between">
-                <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-500">5 YEAR GROWTH</span>
+                <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-500">RENT GROWTH</span>
                 <span className="text-[14px] font-black text-[#0F7A3F]">{getGrowthLabel(rentTrendPoints)}</span>
               </div>
             </div>
@@ -640,6 +707,7 @@ export const BuyerInsightReportFigma: React.FC<BuyerInsightReportFigmaProps> = (
                     <svg
                       viewBox="0 0 360 180"
                       className="h-full w-full overflow-visible"
+                      preserveAspectRatio="xMidYMid meet"
                       onMouseMove={(event) => {
                         const screenMatrix = event.currentTarget.getScreenCTM();
                         if (!screenMatrix) return;
@@ -647,7 +715,7 @@ export const BuyerInsightReportFigma: React.FC<BuyerInsightReportFigmaProps> = (
                         pointer.x = event.clientX;
                         pointer.y = event.clientY;
                         const pointerX = pointer.matrixTransform(screenMatrix.inverse()).x;
-                        if (pointerX < 40 || pointerX > 340) {
+                        if (pointerX < 64 || pointerX > 350) {
                           setActivePricePoint(null);
                           return;
                         }
@@ -657,16 +725,19 @@ export const BuyerInsightReportFigma: React.FC<BuyerInsightReportFigmaProps> = (
                       }}
                       onMouseLeave={() => setActivePricePoint(null)}
                     >
-                      <line x1="20" y1="20" x2="340" y2="20" stroke="#E7DFDB" strokeWidth="1" strokeDasharray="3 3" />
-                      <line x1="20" y1="60" x2="340" y2="60" stroke="#E7DFDB" strokeWidth="1" strokeDasharray="3 3" />
-                      <line x1="20" y1="100" x2="340" y2="100" stroke="#E7DFDB" strokeWidth="1" strokeDasharray="3 3" />
-                      <line x1="20" y1="140" x2="340" y2="140" stroke="#E7DFDB" strokeWidth="1" strokeDasharray="3 3" />
+                      <line x1="72" y1="20" x2="340" y2="20" stroke="#E7DFDB" strokeWidth="1" strokeDasharray="3 3" />
+                      <line x1="72" y1="60" x2="340" y2="60" stroke="#E7DFDB" strokeWidth="1" strokeDasharray="3 3" />
+                      <line x1="72" y1="100" x2="340" y2="100" stroke="#E7DFDB" strokeWidth="1" strokeDasharray="3 3" />
+                      <line x1="72" y1="140" x2="340" y2="140" stroke="#E7DFDB" strokeWidth="1" strokeDasharray="3 3" />
 
                       {propertyPriceTrendChart.axisLabels.map((label, index) => (
-                        <text key={label} x="5" y={[24, 64, 104, 144][index]} fill="#94A3B8" fontSize="9">{label}</text>
+                        <text key={label} x="65" y={[24, 64, 104, 144][index]} fill="#94A3B8" fontSize="9" textAnchor="end">{label}</text>
                       ))}
 
                       {propertyPriceTrendPoints.length > 1 && <path d={createTrendPath(propertyPriceTrendPoints)} fill="none" stroke="#8B0000" strokeWidth="3" strokeLinecap="round" />}
+                      {propertyPriceTrendPoints.map(({ year, x }) => (
+                        <text key={`year-${year}`} x={x} y="166" fill="#94A3B8" fontSize="9" fontWeight="600" textAnchor="middle">{year}</text>
+                      ))}
                       {propertyPriceTrendPoints.map(({ year, x, y, value }, index) => (
                         <g key={year}>
                           <circle
@@ -693,15 +764,10 @@ export const BuyerInsightReportFigma: React.FC<BuyerInsightReportFigmaProps> = (
                     </div>
                   )}
                 </div>
-                {propertyPriceTrendPoints.length ? (
-                  <div className="mt-2 flex justify-between text-[10px] font-semibold text-slate-400 px-6">
-                    {propertyPriceTrendPoints.map(({ year }) => <span key={year}>{year}</span>)}
-                  </div>
-                ) : null}
               </div>
               {propertyPriceTrendPoints.length > 1 ? (
                 <div className="mt-4 pt-3 border-t border-[#E8DED9] flex items-center justify-between">
-                  <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-500">5 YEAR GROWTH</span>
+                  <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-500">PRICE GROWTH</span>
                   <span className="text-[14px] font-black text-[#0F7A3F]">{getGrowthLabel(propertyPriceTrendPoints)}</span>
                 </div>
               ) : null}
@@ -727,48 +793,41 @@ export const BuyerInsightReportFigma: React.FC<BuyerInsightReportFigmaProps> = (
           </section>
 
           {/* TRANSPORT, DEMOGRAPHICS & AREA COMPARISON */}
-          <section className="grid gap-6 xl:grid-cols-3">
+          <section className="buyer-report-page-break-group grid gap-6 xl:grid-cols-3">
             {/* TRANSPORT */}
-            <div className="rounded-[22px] border border-[#E5DCD8] bg-white p-5 shadow-sm flex flex-col justify-between">
+            <section className="rounded-[22px] border border-[#E5DCD8] bg-white p-5 shadow-sm flex flex-col justify-between">
               <div>
                 <div className="mb-4 text-[10px] font-bold uppercase tracking-[0.26em] text-slate-500">TRANSPORT</div>
                 <div className="space-y-2.5 text-[13px]">
                   {transportRows.map(({ icon: Icon, title, detail, distance }) => {
                     return (
-                      <div key={`${title}-${detail}`} className="rounded-[12px] border border-[#E8DED9] bg-white p-3 flex items-center justify-between gap-3">
-                        <div className="flex items-center gap-3">
+                      <div key={`${title}-${detail}`} className="buyer-report-transport-row rounded-[12px] border border-[#E8DED9] bg-white p-3 flex items-center justify-between gap-3">
+                        <div className="flex min-w-0 items-center gap-3">
                           <Icon className="h-4 w-4 shrink-0 text-[#111827]" />
                           <div className="min-w-0">
                             <div className="font-bold text-[#1B2430]">{title}</div>
                             <div className="text-[11px] text-slate-500">{detail}</div>
                           </div>
                         </div>
-                        <div className="shrink-0 text-right font-bold text-[11px] text-[#6B7280]">{distance}</div>
+                        <div className="buyer-report-transport-distance text-right font-bold text-[11px] text-[#6B7280]">{distance}</div>
                       </div>
                     );
                   })}
                   {!transportRows.length && <p className="text-[12px] text-slate-500">Transport records are unavailable for this area.</p>}
                 </div>
               </div>
-              {(transportScore != null && Number.isFinite(transportScore) && transportScore > 0)
-                || (transport?.connectivityScore != null && Number.isFinite(transport.connectivityScore) && transport.connectivityScore > 0) ? (
-                  <div className="mt-4 rounded-[12px] bg-[#0B132B] p-3 text-white flex items-center justify-between gap-3">
-                    <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-300">Transport score</span>
-                    <span className="text-[11px] font-bold text-white">
-                      {Math.round(transportScore ?? transport?.connectivityScore ?? 0)}/100
-                    </span>
-                  </div>
-                ) : (
-                  <div className="mt-4 rounded-[12px] bg-[#0B132B] p-3 text-white flex items-center justify-between gap-3">
-                    <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-300">LSOA area data</span>
-                    <span className="text-[11px] font-bold text-white">{transport?.lsoaCode ?? 'Area unavailable'}</span>
-                  </div>
-                )}
-              <p className="mt-2 text-[10px] text-slate-500">{transport?.sourceAttribution ?? 'Transport source date unavailable.'}</p>
-            </div>
+              <div className="mt-4 rounded-[12px] bg-[#0B132B] p-3 text-white flex items-center justify-between gap-3">
+                <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-300">Transport score</span>
+                <span className="text-[11px] font-bold text-white">Not available</span>
+              </div>
+              <p className="mt-2 text-[10px] text-slate-500">
+                {transport?.lsoaCode ? `Area: ${transport.lsoaCode} · ` : ''}
+                {transport?.sourceAttribution ?? 'RoomReview LSOA transport data; source date unavailable.'}
+              </p>
+            </section>
 
             {/* DEMOGRAPHICS */}
-            <div className="rounded-[22px] border border-[#E5DCD8] bg-white p-5 shadow-sm flex flex-col justify-between">
+            <section className="rounded-[22px] border border-[#E5DCD8] bg-white p-5 shadow-sm flex flex-col justify-between">
               <div>
                 <div className="mb-4 text-[10px] font-bold uppercase tracking-[0.26em] text-slate-500">DEMOGRAPHICS · LSOA-WEIGHTED AGE GROUPS</div>
                 {ageBars.length ? (
@@ -780,7 +839,7 @@ export const BuyerInsightReportFigma: React.FC<BuyerInsightReportFigmaProps> = (
                           <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-[#E6E1DB]">
                             <div className="h-full rounded-full bg-[#0B132B]" style={{ width: `${Math.min(100, value * 2.5)}%` }} />
                           </div>
-                          <span className="w-10 text-right font-bold text-[#1B2430]">{value.toFixed(1)}%</span>
+                          <span className="w-10 text-right font-bold tabular-nums text-[#1B2430]">{value.toFixed(1)}%</span>
                         </div>
                       ))}
                       </div>
@@ -798,27 +857,27 @@ export const BuyerInsightReportFigma: React.FC<BuyerInsightReportFigmaProps> = (
                   <span className="text-[11px] font-bold text-[#0F7A3F]">{dominantAgeGroup.label} ({dominantAgeGroup.value.toFixed(1)}%)</span>
                 </div>
               )}
-            </div>
+            </section>
 
             {/* AREA DATA SNAPSHOT */}
-            <div className="rounded-[6px] border border-[#E7E9EE] bg-[#F8EFEA] p-[14px] shadow-none flex flex-col justify-between">
+            <section className="rounded-[6px] border border-[#E7E9EE] bg-[#F8EFEA] p-[14px] shadow-none flex flex-col justify-between">
               <div>
                 <div className="mb-[10px] text-[10px] font-bold uppercase tracking-[0.5px] text-[#0B1733]">
                   AREA DATA SNAPSHOT <span className="font-normal text-[#657085]">({reportPostcode})</span>
                 </div>
                 <div className="overflow-hidden text-[9px]">
-                  <table className="w-full border-separate border-spacing-0 text-left">
+                  <table className="w-full table-fixed border-separate border-spacing-0 text-left">
                     <thead>
                       <tr>
-                        <th className="pb-[6px] text-left text-[9px] font-semibold text-[#657085]">Metric</th>
-                        <th className="pb-[6px] text-right text-[9px] font-semibold text-[#657085]">Value</th>
+                        <th className="w-2/3 pb-[6px] text-left text-[9px] font-semibold text-[#657085]">Metric</th>
+                        <th className="w-1/3 pb-[6px] text-right text-[9px] font-semibold text-[#657085]">Value</th>
                       </tr>
                     </thead>
                     <tbody>
                       {(reportData?.areaSnapshot ?? []).map(({ metric, value }) => (
                         <tr key={metric} className="border-t border-[#E7E9EE]">
-                          <td className="py-[5px] text-[#657085]">{metric}</td>
-                          <td className="py-[5px] text-right font-semibold text-[#0B1733]">{value}</td>
+                          <td className="break-words py-[5px] text-[#657085]">{metric}</td>
+                          <td className="break-words py-[5px] text-right font-semibold tabular-nums text-[#0B1733]">{value}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -826,13 +885,13 @@ export const BuyerInsightReportFigma: React.FC<BuyerInsightReportFigmaProps> = (
                   {!reportData?.areaSnapshot?.length && <p className="pt-2 text-[10px] text-slate-500">No area metrics are available for this postcode.</p>}
                 </div>
               </div>
-            </div>
+            </section>
           </section>
 
           {additionalDataPanels.length > 0 && (
-            <section className="grid gap-6 xl:grid-cols-3">
+            <section className="buyer-report-page-break-group grid gap-6 xl:grid-cols-3">
               {additionalDataPanels.map(({ icon: Icon, panel }) => (
-                <div key={panel.title} className="rounded-[22px] border border-[#E5DCD8] bg-white p-5 shadow-sm">
+                <section key={panel.title} className="rounded-[22px] border border-[#E5DCD8] bg-white p-5 shadow-sm">
                   <div className="mb-4 flex items-center gap-3">
                     <div className="flex h-10 w-10 items-center justify-center rounded-[10px] bg-[#F8EFEA] text-[#8B0000]">
                       <Icon className="h-5 w-5" />
@@ -856,27 +915,27 @@ export const BuyerInsightReportFigma: React.FC<BuyerInsightReportFigmaProps> = (
                       <p className="text-[11px] text-slate-500">No additional data is available for this category yet.</p>
                     )}
                   </div>
-                </div>
+                </section>
               ))}
             </section>
           )}
 
           {/* LOCAL INSIGHT & ABOUT THIS REPORT */}
-          <section className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
-            <div className="rounded-[22px] border border-[#E5DCD8] bg-white p-6 shadow-sm flex flex-col justify-between">
+          <section className="buyer-report-page-break-group grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
+            <section className="rounded-[22px] border border-[#E5DCD8] bg-white p-6 shadow-sm flex flex-col justify-between">
               <div>
                 <div className="text-[10px] font-bold uppercase tracking-[0.26em] text-[#8B0000]">LOCAL INSIGHT</div>
                 <p className="mt-3 text-[13px] leading-[1.7] text-slate-700">
-                  E14 continues to be one of London’s strongest performer areas. With major investment in infrastructure, business hubs and residential developments, it offers excellent long-term potential for both homeowners and investors.
+                  Explore housing trends, transport, demographics and local services for {reportAreaName} ({reportPostcode}) using the latest available area data.
                 </p>
               </div>
               <div className="mt-4 pt-4 border-t border-[#E8DED9]">
-                <div className="text-[13px] font-bold text-[#1B2430]">Thinking of buying, renting or investing in E14?</div>
-                <div className="text-[12px] text-slate-600 mt-0.5">Contact ABC Estates for expert advice tailored to your needs.</div>
+                <div className="text-[13px] font-bold text-[#1B2430]">Thinking of buying, renting or investing in {reportAreaName}?</div>
+                <div className="text-[12px] text-slate-600 mt-0.5">Speak with a local property adviser for guidance tailored to your needs.</div>
               </div>
-            </div>
+            </section>
 
-            <div className="rounded-[22px] border border-[#E5DCD8] bg-white p-6 shadow-sm flex flex-col justify-between">
+            <section className="rounded-[22px] border border-[#E5DCD8] bg-white p-6 shadow-sm flex flex-col justify-between">
               <div>
                 <div className="text-[10px] font-bold uppercase tracking-[0.26em] text-slate-500">ABOUT THIS REPORT</div>
                 <p className="mt-3 text-[12px] leading-[1.6] text-slate-600">
@@ -892,7 +951,7 @@ export const BuyerInsightReportFigma: React.FC<BuyerInsightReportFigmaProps> = (
                 </div>
                 <span className="text-[10px] font-medium text-slate-500">Data-driven property intelligence you can trust.</span>
               </div>
-            </div>
+            </section>
           </section>
 
           {/* FOOTER */}

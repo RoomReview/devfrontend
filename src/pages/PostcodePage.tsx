@@ -1,14 +1,15 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { useParams, Link, useLocation, useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, ChevronLeft, ChevronRight, MapPin, Star, UserRound } from 'lucide-react';
+import { ArrowLeft, BookmarkPlus, ChevronLeft, ChevronRight, MapPin, Star, Trash2, UserRound } from 'lucide-react';
 import { H1, H2, H3, Body, } from '../components/common/Typography';
 import { usePostcodeData } from '@/hooks/postcode/usePostcodeData';
-import { normalizePostcode, postcodePath } from '@/utils/helpers';
+import { normalizePostcode, postcodePath, postcodeReviewPath } from '@/utils/helpers';
 import { usePostcodeReviews } from '@/hooks/reviews/useReviews';
 import { useAuth } from '@/hooks/useAuth';
 import { reviewService } from '@/services/review.service';
 import { scoreReportService } from '@/services/score-report.service';
+import { savedSearchService, type SavedSearch } from '@/services/saved-search.service';
 import { queryKeys } from '@/lib/queryKeys';
 import { extractApiError } from '@/utils/apiError';
 
@@ -163,12 +164,12 @@ const PostcodePage = () => {
   useEffect(() => {
     const canonicalPath = postcodePath(normalized);
     if (normalized && location.pathname !== canonicalPath) {
-      navigate(canonicalPath, { replace: true });
+      navigate(`${canonicalPath}${location.hash}`, { replace: true });
     }
-  }, [location.pathname, navigate, normalized]);
+  }, [location.hash, location.pathname, navigate, normalized]);
 
   const { data, isLoading, isError, error } = usePostcodeData(normalized);
-  const { loading: authLoading, isAuthenticated } = useAuth();
+  const { user, loading: authLoading, isAuthenticated } = useAuth();
   const queryClient = useQueryClient();
   const [overallScore, setOverallScore] = useState<number | null>(null);
   const [districtGeometry, setDistrictGeometry] = useState<DistrictGeometry | null>(null);
@@ -187,8 +188,56 @@ const PostcodePage = () => {
   const [isSubmittingReview, setIsSubmittingReview] = useState(false);
   const [reviewError, setReviewError] = useState('');
   const [reviewSubmitted, setReviewSubmitted] = useState(false);
+  const [deletingReviewId, setDeletingReviewId] = useState<string | null>(null);
+  const [deleteReviewError, setDeleteReviewError] = useState('');
+  const [savedSearch, setSavedSearch] = useState<SavedSearch | null>(null);
+  const [savedSearchLoading, setSavedSearchLoading] = useState(false);
+  const [savedSearchError, setSavedSearchError] = useState('');
+  const [savedSearchNotice, setSavedSearchNotice] = useState('');
 
   const postcodeData = data?.postcode ?? null;
+  useEffect(() => {
+    let isCurrent = true;
+    setSavedSearch(null);
+    setSavedSearchError('');
+    setSavedSearchNotice('');
+    if (!isAuthenticated) return () => { isCurrent = false; };
+
+    void savedSearchService.list()
+      .then((searches) => {
+        if (isCurrent) setSavedSearch(searches.find((item) => item.postcode === normalized) ?? null);
+      })
+      .catch(() => {
+        if (isCurrent) setSavedSearchError('Saved postcode status could not be checked. Please try again.');
+      });
+
+    return () => { isCurrent = false; };
+  }, [isAuthenticated, normalized]);
+
+  const savePostcode = async () => {
+    setSavedSearchLoading(true);
+    setSavedSearchError('');
+    setSavedSearchNotice('');
+    try {
+      setSavedSearch(await savedSearchService.save(postcodeData?.code ?? normalized));
+      setSavedSearchNotice('Postcode saved to your account.');
+    } catch {
+      setSavedSearchError('This postcode could not be saved. Please try again.');
+    } finally {
+      setSavedSearchLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!location.hash || isLoading || isError) return;
+
+    const animationFrame = window.requestAnimationFrame(() => {
+      document.getElementById(location.hash.slice(1))?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+
+    return () => window.cancelAnimationFrame(animationFrame);
+  }, [isError, isLoading, location.hash, postcodeData?.postcodeId]);
+
   const {
     data: postcodeReviews = [],
     isLoading: reviewsLoading,
@@ -197,10 +246,11 @@ const PostcodePage = () => {
   const rentData = data?.rentData ?? [];
   const demographicData = data?.demography ?? [];
   const crimeData = data?.crimeData ?? [];
+  const crimeRateContext = data?.crimeRateContext ?? null;
 
-  const avgRent = rentData.length
-    ? `£${Number((rentData[0] as any).rent ?? 0).toLocaleString()}`
-    : 'N/A';
+  const averageMonthlyRent = rentData.find((item) =>
+    item.type.toLowerCase() === 'average' && Number.isFinite(item.rent) && item.rent > 0,
+  )?.rent;
   useEffect(() => {
     let isCurrent = true;
 
@@ -228,7 +278,9 @@ const PostcodePage = () => {
   }, [postcodeData]);
 
   const score = overallScore == null ? '—' : String(overallScore);
-  const priceLabel = avgRent === 'N/A' ? null : avgRent;
+  const averageMonthlyRentLabel = averageMonthlyRent == null
+    ? null
+    : `£${averageMonthlyRent.toLocaleString('en-GB')} / month`;
   const mapCoordinates = postcodeData?.latitude != null && postcodeData.longitude != null
     ? { latitude: postcodeData.latitude, longitude: postcodeData.longitude }
     : null;
@@ -251,7 +303,19 @@ const PostcodePage = () => {
     (item) => /total crimes per/i.test(String(item.label ?? '')),
   );
 
-  const totalCrimeRate = Number(totalCrimeItem?.crime_rate ?? totalCrimeItem?.value ?? 1);
+  const rawTotalCrimeRate = Number(totalCrimeItem?.crime_rate ?? totalCrimeItem?.value);
+  const calculatedCrimeRate = crimeRateContext
+    && Number.isFinite(crimeRateContext.annualisedCrimes)
+    && Number.isFinite(crimeRateContext.population)
+    && crimeRateContext.population > 0
+    ? crimeRateContext.annualisedCrimes / crimeRateContext.population * 1000
+    : null;
+  const isCrimeRateVerified = calculatedCrimeRate !== null
+    && Number.isFinite(crimeRateContext?.ratePer1000)
+    && Math.abs(calculatedCrimeRate - Number(crimeRateContext?.ratePer1000)) < 0.1;
+  const totalCrimeRate = crimeRateContext
+    ? isCrimeRateVerified ? calculatedCrimeRate : 0
+    : Number.isFinite(rawTotalCrimeRate) ? rawTotalCrimeRate : 0;
 
   const relativeCrimeData = (crimeData as Array<{ label?: string; crime_rate?: number | string; value?: number | string }>).filter(
     (item) => !/total crimes per/i.test(String(item.label ?? '')),
@@ -307,9 +371,31 @@ const PostcodePage = () => {
     }
   };
 
+  const handleReviewDelete = async (reviewId: string) => {
+    if (!window.confirm('Delete this review? This cannot be undone.')) return;
+
+    setDeletingReviewId(reviewId);
+    setDeleteReviewError('');
+    try {
+      await reviewService.delete(reviewId);
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.postcodeReviews(postcodeData?.postcodeId ?? ''),
+      });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.myReviews });
+      queryClient.invalidateQueries({ queryKey: queryKeys.reviews });
+    } catch {
+      setDeleteReviewError('This review could not be deleted. Please try again.');
+    } finally {
+      setDeletingReviewId(null);
+    }
+  };
+
+  const reviewLoginPath = `/login?returnTo=${encodeURIComponent(postcodeReviewPath(normalized, 'write'))}`;
+  const reviewRegisterPath = `/register?returnTo=${encodeURIComponent(postcodeReviewPath(normalized, 'write'))}`;
+
   const formatRent = (value: unknown) => {
     const rent = Number(value);
-    return Number.isFinite(rent) && rent > 0 ? `£${rent.toLocaleString('en-GB')} pcm` : 'Data unavailable';
+    return Number.isFinite(rent) && rent > 0 ? `£${rent.toLocaleString('en-GB')} / month` : 'Data unavailable';
   };
 
   const formatRentType = (type: unknown) => {
@@ -406,6 +492,42 @@ const PostcodePage = () => {
             <div className="flex flex-wrap items-center gap-3">
               <H1 className="text-[#1A2B3C] leading-tight">{normalized || 'Postcode'}</H1>
             </div>
+            {!isLoading && postcodeData && (
+              <div className="mt-4 flex flex-wrap items-center gap-3">
+                {authLoading ? (
+                  <Body className="text-sm text-[#6B7280]">Checking account...</Body>
+                ) : isAuthenticated ? (
+                  savedSearch ? (
+                    <>
+                      <span className="inline-flex items-center gap-2 rounded-lg bg-[#E8F7EE] px-3 py-2 text-sm font-semibold text-[#046C3D]">
+                        Saved to your account
+                      </span>
+                      <Link to="/account" className="text-sm font-semibold text-[#8B0202] underline">View saved searches</Link>
+                    </>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => void savePostcode()}
+                      disabled={savedSearchLoading}
+                      className="inline-flex items-center gap-2 rounded-lg bg-[#8B0202] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#700000] disabled:cursor-wait disabled:opacity-60"
+                    >
+                      <BookmarkPlus className="h-4 w-4" aria-hidden="true" />
+                      {savedSearchLoading ? 'Saving...' : 'Save postcode'}
+                    </button>
+                  )
+                ) : (
+                  <Link
+                    to={`/login?returnTo=${encodeURIComponent(postcodePath(normalized))}`}
+                    className="inline-flex items-center gap-2 rounded-lg bg-[#8B0202] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#700000]"
+                  >
+                    <BookmarkPlus className="h-4 w-4" aria-hidden="true" />
+                    Sign in to save postcode
+                  </Link>
+                )}
+                {savedSearchError && <p role="alert" className="text-sm text-[#8B0202]">{savedSearchError}</p>}
+                {savedSearchNotice && <p role="status" className="text-sm text-[#046C3D]">{savedSearchNotice}</p>}
+              </div>
+            )}
           </div>
 
           <div className="flex flex-wrap gap-3 items-center">
@@ -413,7 +535,7 @@ const PostcodePage = () => {
               <span>RoomReview Score:</span>
               <span className="text-[#0B640D]">{score}%</span>
             </div> : null}
-            {priceLabel ? <div className="inline-flex items-center gap-2 rounded-full bg-[#FBE7F1] px-4 py-3 text-sm font-semibold text-[#9D174D] shadow-sm"><span>Avg. Price:</span><span>{priceLabel}</span></div> : null}
+            {averageMonthlyRentLabel ? <div className="inline-flex items-center gap-2 rounded-full bg-[#FBE7F1] px-4 py-3 text-sm font-semibold text-[#9D174D] shadow-sm"><span>Average monthly rent:</span><span>{averageMonthlyRentLabel}</span></div> : null}
           </div>
         </div>
 
@@ -516,10 +638,7 @@ const PostcodePage = () => {
                   <Body className="text-[#4B5563] mb-6">Crime statistics are based on publicly available data and are provided as a general indication of area trends. Information may vary over time and should be used as a guide only.</Body>
                   <div className="space-y-4">
                     {crimeData.length ? (() => {
-                      const totalItem = (crimeData as Array<{ label?: string; crime_rate?: number | string; value?: number | string }>).find(
-                        (item) => /total crimes per/i.test(String(item.label ?? '')),
-                      );
-                      const totalRate = Number(totalItem?.crime_rate ?? totalItem?.value ?? 0);
+                      const totalRate = totalCrimeRate;
                       const rows = (crimeData as Array<{ label?: string; crime_rate?: number | string; value?: number | string; borough?: string }>).slice(0, 6);
 
                       return rows.map((item, index: number) => {
@@ -527,9 +646,8 @@ const PostcodePage = () => {
                         const isTotal = /total crimes per/i.test(String(item.label ?? ''));
 
                         if (isTotal) {
-                          const normalizedTotal = rawValue / 10;
-                          const displayValue = `${formatCrimeValue(normalizedTotal)}`;
-                          const barWidth = Math.min(100, (normalizedTotal / BENCHMARK_MAX_CRIMES) * 100);
+                          const displayValue = totalRate > 0 ? formatCrimeValue(totalRate) : 'Unavailable';
+                          const barWidth = Math.min(100, (totalRate / BENCHMARK_MAX_CRIMES) * 100);
 
                           return (
                             <div key={`${item.label ?? index}-${index}`}>
@@ -547,9 +665,9 @@ const PostcodePage = () => {
                           );
                         }
 
-                        const pct = totalRate > 0 ? (rawValue / totalRate) * 100 : (rawValue > 100 ? rawValue / 10 : rawValue);
-                        const displayValue = `${formatCrimeValue(pct)}%`;
-                        const barWidth = Math.max(0, Math.min(100, pct));
+                        const pct = totalRate > 0 ? (rawValue / totalRate) * 100 : null;
+                        const displayValue = pct === null ? 'n/a' : `${formatCrimeValue(pct)}%`;
+                        const barWidth = pct === null ? 0 : Math.max(0, Math.min(100, pct));
                         const barColor = barWidth >= 30
                           ? 'bg-[#DC2626]'
                           : barWidth >= 15
@@ -573,7 +691,27 @@ const PostcodePage = () => {
                       });
                     })() : <Body className="text-[#6B7280]">Crime data unavailable for this postcode.</Body>}
                   </div>
-                  <p className="mt-4 text-xs text-[#6B7280]">Values are shown as a percentage of the local risk level for comparison.</p>
+                  <div className="mt-4 space-y-1 text-xs leading-5 text-[#6B7280]">
+                    <p>
+                      Recorded crimes per 1,000 residents during the period shown. This helps compare areas with different population sizes; it is not your personal chance of becoming a victim.
+                    </p>
+                    <p>
+                      Period and area level:{' '}
+                      {crimeRateContext
+                        ? `${crimeRateContext.year} (annualised), ${crimeRateContext.boroughName} borough.`
+                        : 'unavailable in the source data.'}
+                    </p>
+                    {crimeRateContext && isCrimeRateVerified ? (
+                      <p>
+                        Formula: {Math.round(crimeRateContext.annualisedCrimes).toLocaleString('en-GB')} recorded/annualised crimes ÷ {Math.round(crimeRateContext.population).toLocaleString('en-GB')} residents × 1,000 = {formatCrimeValue(calculatedCrimeRate ?? 0)}.
+                      </p>
+                    ) : crimeRateContext ? (
+                      <p role="status">The source crime count and population do not reconcile, so the per-1,000 rate and category percentages are unavailable.</p>
+                    ) : null}
+                    <p>
+                      Category percentages are each category’s recorded-crime rate per 1,000 divided by the total recorded-crime rate per 1,000, multiplied by 100. They describe the share of the rate, not personal risk.
+                    </p>
+                  </div>
                 </div>
 
                 <section className="space-y-4" aria-labelledby="postcode-demographics-title">
@@ -619,6 +757,7 @@ const PostcodePage = () => {
                 </Body>
               ) : postcodeReviews.length ? (
                 <div className="mt-6 space-y-4">
+                  {deleteReviewError && <Body role="alert" className="rounded-xl bg-red-50 p-3 text-sm text-red-800">{deleteReviewError}</Body>}
                   {postcodeReviews.map((review) => (
                     <article key={review.review_id} className="rounded-2xl border border-[#E5DCD5] bg-white p-5">
                       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -647,6 +786,20 @@ const PostcodePage = () => {
                       {review.cons.length > 0 ? (
                         <Body className="mt-1 text-sm text-[#4B5563]"><strong>Cons:</strong> {review.cons.join(' · ')}</Body>
                       ) : null}
+                      {(user?.userId === review.author_id || user?.role === 'ADMIN') && (
+                        <div className="mt-4 flex justify-end">
+                          <button
+                            type="button"
+                            disabled={deletingReviewId === review.review_id}
+                            onClick={() => void handleReviewDelete(review.review_id)}
+                            aria-label={`Delete review: ${review.title}`}
+                            className="inline-flex items-center gap-2 rounded-lg border border-red-200 px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-50 disabled:cursor-wait disabled:opacity-60"
+                          >
+                            <Trash2 className="h-4 w-4" aria-hidden="true" />
+                            {deletingReviewId === review.review_id ? 'Deleting...' : 'Delete review'}
+                          </button>
+                        </div>
+                      )}
                     </article>
                   ))}
                 </div>
@@ -807,10 +960,10 @@ const PostcodePage = () => {
                 <div className="mt-6 space-y-3 text-center">
                   <p className="text-sm text-[#4B5563]">Sign in to submit your review.</p>
                   <div className="flex flex-col justify-center gap-3 sm:flex-row">
-                    <Link to="/login" className="rounded-lg border border-[#8B0202] px-5 py-3 text-sm font-semibold text-[#8B0202] transition hover:bg-white">
+                    <Link to={reviewLoginPath} className="rounded-lg border border-[#8B0202] px-5 py-3 text-sm font-semibold text-[#8B0202] transition hover:bg-white">
                       Sign in
                     </Link>
-                    <Link to="/register" className="rounded-lg bg-[#8B0202] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#6A0101]">
+                    <Link to={reviewRegisterPath} className="rounded-lg bg-[#8B0202] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#6A0101]">
                       Create an account
                     </Link>
                   </div>

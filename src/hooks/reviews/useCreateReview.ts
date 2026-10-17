@@ -21,6 +21,7 @@ export const useCreateReview = () => {
     mutationFn: reviewService.create,
     onSuccess: (newReview) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.reviews });
+      queryClient.invalidateQueries({ queryKey: queryKeys.myReviews });
       if (newReview.postcode_id) {
         queryClient.invalidateQueries({
           queryKey: queryKeys.postcodeReviews(newReview.postcode_id),

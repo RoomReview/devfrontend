@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { generateBuyerReport } from '@/utils/reportGenerator';
 import { useAuth } from '@/hooks/useAuth';
+import { normalizePostcode } from '@/utils/helpers';
 import { paymentService } from '@/services/payment.service';
 import { scoreReportService } from '@/services/score-report.service';
 import {
@@ -308,8 +309,12 @@ export const RoomReviewPage: React.FC<RoomReviewPageProps> = ({
   onNavigateToSection,
 }) => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const selectedPostcode = normalizePostcode(searchParams.get('postcode') ?? '');
   const { isAuthenticated, user } = useAuth();
-  const [formData, setFormData] = useState<Record<string, unknown>>({});
+  const [formData, setFormData] = useState<Record<string, unknown>>(() =>
+    selectedPostcode ? { propertyAddress: selectedPostcode } : {},
+  );
   const [agencyBranding, setAgencyBranding] = useState({
     companyName: '',
     firstName: '',
@@ -320,6 +325,15 @@ export const RoomReviewPage: React.FC<RoomReviewPageProps> = ({
   const [openFaqId, setOpenFaqId] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (selectedPostcode) {
+      setFormData((current) => ({ ...current, propertyAddress: selectedPostcode }));
+      window.requestAnimationFrame(() => {
+        document.getElementById('form')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
+    }
+  }, [selectedPostcode]);
 
   const handleLogoChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];

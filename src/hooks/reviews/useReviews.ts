@@ -21,6 +21,15 @@ export const useReviews = () => {
   });
 };
 
+export const useMyReviews = (userId: string | undefined) => {
+  return useQuery<Review[]>({
+    queryKey: queryKeys.myReviewsFor(userId ?? ''),
+    queryFn: reviewService.getMine,
+    enabled: Boolean(userId),
+    staleTime: 1000 * 60 * 2,
+  });
+};
+
 export const usePostcodeReviews = (postcodeId: string | undefined) => {
   return useQuery<Review[]>({
     queryKey: queryKeys.postcodeReviews(postcodeId ?? ''),

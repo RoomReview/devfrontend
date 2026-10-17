@@ -17,6 +17,18 @@ const ContactUsPage = () => (
             info@roomreview.co.uk
           </a>
         </p>
+        <p>
+          <span className="font-semibold text-[#1F2D3D]">Federico:</span>{' '}
+          <a className="text-[#8B0000] underline underline-offset-2" href="mailto:federico@roomreview.co.uk">
+            federico@roomreview.co.uk
+          </a>
+        </p>
+        <p>
+          <span className="font-semibold text-[#1F2D3D]">Yuliia:</span>{' '}
+          <a className="text-[#8B0000] underline underline-offset-2" href="mailto:Yuliia@roomreview.co.uk">
+            Yuliia@roomreview.co.uk
+          </a>
+        </p>
       </div>
     </div>
   </section>

@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { ChevronLeft, ChevronRight, Home, Plus, Shield, Star, TrendingUp } from 'lucide-react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { ArrowDownUp, ChevronDown, ChevronLeft, ChevronRight, Home, Plus, Shield, Star, TrendingUp } from 'lucide-react';
 import { H1, Body, Small } from '../components/common/Typography';
 import Button from '../components/common/Button';
 import heroImage from '@img/city.jpg';
-import { postcodePath } from '@/utils/helpers';
+import { postcodeAreaReportPath, postcodePath, postcodeReviewPath, type PostcodeReviewAction } from '@/utils/helpers';
 import { postcodeService, type PostcodeListItem } from '@/services/postcode.service';
 
 const formatCurrency = (value: number) => new Intl.NumberFormat('en-GB', {
@@ -12,6 +12,11 @@ const formatCurrency = (value: number) => new Intl.NumberFormat('en-GB', {
   currency: 'GBP',
   maximumFractionDigits: 0,
 }).format(value);
+
+type PostcodeSort = 'alphabetical-asc' | 'alphabetical-desc' | 'crime-asc' | 'crime-desc' | 'price-asc' | 'price-desc' | 'rating-desc';
+type CrimeFilter = 'all' | 'below-london' | 'above-london';
+type PropertyValueFilter = 'all' | 'under-500k' | '500k-1m' | 'over-1m';
+type RatingFilter = 'all' | '4-plus' | '3-plus' | 'unrated';
 
 const PostcodeSearchPage = () => {
   const [postcode, setPostcode] = useState('');
@@ -23,8 +28,53 @@ const PostcodeSearchPage = () => {
   const [totalPostcodes, setTotalPostcodes] = useState(0);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [crimeFilter, setCrimeFilter] = useState<CrimeFilter>('all');
+  const [propertyValueFilter, setPropertyValueFilter] = useState<PropertyValueFilter>('all');
+  const [ratingFilter, setRatingFilter] = useState<RatingFilter>('all');
+  const [sortBy, setSortBy] = useState<PostcodeSort>('alphabetical-asc');
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const requestedAction = searchParams.get('reviewAction');
+  const reviewAction: PostcodeReviewAction | null = requestedAction === 'read' || requestedAction === 'write'
+    ? requestedAction
+    : null;
+  const isAreaReportJourney = searchParams.get('journey') === 'area-report';
   const pageSize = 100;
+
+  const visiblePostcodes = postcodes
+    .filter((item) => {
+      if (crimeFilter === 'below-london' && (item.crimeRatePer1000 === null || item.londonAverageCrimeRatePer1000 === null || item.crimeRatePer1000 > item.londonAverageCrimeRatePer1000)) return false;
+      if (crimeFilter === 'above-london' && (item.crimeRatePer1000 === null || item.londonAverageCrimeRatePer1000 === null || item.crimeRatePer1000 <= item.londonAverageCrimeRatePer1000)) return false;
+      if (propertyValueFilter === 'under-500k' && (item.averagePrice === null || item.averagePrice >= 500_000)) return false;
+      if (propertyValueFilter === '500k-1m' && (item.averagePrice === null || item.averagePrice < 500_000 || item.averagePrice >= 1_000_000)) return false;
+      if (propertyValueFilter === 'over-1m' && (item.averagePrice === null || item.averagePrice < 1_000_000)) return false;
+      if (ratingFilter === 'unrated' && item.averageRating !== null) return false;
+      if (ratingFilter === '4-plus' && (item.averageRating === null || item.averageRating < 4)) return false;
+      if (ratingFilter === '3-plus' && (item.averageRating === null || item.averageRating < 3)) return false;
+      return true;
+    })
+    .sort((left, right) => {
+      const compareNullable = (a: number | null, b: number | null, direction: number) =>
+        a === null ? (b === null ? 0 : 1) : b === null ? -1 : (a - b) * direction;
+      switch (sortBy) {
+        case 'alphabetical-desc':
+          return right.code.localeCompare(left.code);
+        case 'crime-asc':
+          return compareNullable(left.crimeRatePer1000, right.crimeRatePer1000, 1) || left.code.localeCompare(right.code);
+        case 'crime-desc':
+          return compareNullable(left.crimeRatePer1000, right.crimeRatePer1000, -1) || left.code.localeCompare(right.code);
+        case 'price-asc':
+          return compareNullable(left.averagePrice, right.averagePrice, 1) || left.code.localeCompare(right.code);
+        case 'price-desc':
+          return compareNullable(left.averagePrice, right.averagePrice, -1) || left.code.localeCompare(right.code);
+        case 'rating-desc':
+          return compareNullable(left.averageRating, right.averageRating, -1) || left.code.localeCompare(right.code);
+        default:
+          return left.code.localeCompare(right.code);
+      }
+    });
+
+  const dropdownClassName = 'w-full appearance-none bg-transparent py-3 pl-11 pr-8 text-base text-[#151515] outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#8B0202]';
 
   useEffect(() => {
     let isCurrent = true;
@@ -63,7 +113,9 @@ const PostcodeSearchPage = () => {
     }
 
     setError('');
-    navigate(postcodePath(trimmed));
+    navigate(isAreaReportJourney
+      ? postcodeAreaReportPath(trimmed)
+      : reviewAction ? postcodeReviewPath(trimmed, reviewAction) : postcodePath(trimmed));
   };
 
   return (
@@ -116,14 +168,69 @@ const PostcodeSearchPage = () => {
               <Body className="mt-2 text-[#4A4A4A]">
                 {loading
                   ? 'Loading postcodes...'
+                  : loadError
+                    ? 'Postcode data is unavailable. Use “Try again” below.'
                   : totalPostcodes > 0
-                    ? `${totalPostcodes.toLocaleString('en-GB')} postcodes available. Showing page ${currentPage} of ${totalPages}.`
+                    ? `Showing page ${currentPage} of ${totalPages}.`
                     : 'No postcodes are available yet.'}
               </Body>
             </div>
             <div className="flex items-center gap-3 text-sm text-[#6B7280]" aria-live="polite">
-              {loading ? 'Loading postcode listings' : `${postcodes.length} on this page`}
+              {loading ? 'Loading postcode listings' : `${visiblePostcodes.length} matches on this page`}
             </div>
+          </div>
+
+          <div className="mt-8 grid gap-4 rounded-2xl border border-[#E5E5E5] bg-white p-4 md:grid-cols-2 xl:grid-cols-4">
+            <label className="relative flex items-center rounded-lg border border-[#E5E5E5]">
+              <Shield className="pointer-events-none absolute left-3 h-5 w-5 fill-[#111] text-[#111]" aria-hidden="true" />
+              <span className="sr-only">Filter by crime rating</span>
+              <select className={dropdownClassName} value={crimeFilter} onChange={(event) => setCrimeFilter(event.target.value as CrimeFilter)}>
+                <option value="all">Crime Rating</option>
+                <option value="below-london">Below London average</option>
+                <option value="above-london">Above London average</option>
+              </select>
+              <ChevronDown className="pointer-events-none absolute right-3 h-4 w-4 text-[#111]" aria-hidden="true" />
+            </label>
+
+            <label className="relative flex items-center rounded-lg border border-[#E5E5E5]">
+              <Home className="pointer-events-none absolute left-3 h-5 w-5 fill-[#111] text-[#111]" aria-hidden="true" />
+              <span className="sr-only">Filter by property value</span>
+              <select className={dropdownClassName} value={propertyValueFilter} onChange={(event) => setPropertyValueFilter(event.target.value as PropertyValueFilter)}>
+                <option value="all">Property Value</option>
+                <option value="under-500k">Under £500,000</option>
+                <option value="500k-1m">£500,000–£999,999</option>
+                <option value="over-1m">£1,000,000 and over</option>
+              </select>
+              <ChevronDown className="pointer-events-none absolute right-3 h-4 w-4 text-[#111]" aria-hidden="true" />
+            </label>
+
+            <label className="relative flex items-center rounded-lg border border-[#E5E5E5]">
+              <Star className="pointer-events-none absolute left-3 h-5 w-5 fill-[#111] text-[#111]" aria-hidden="true" />
+              <span className="sr-only">Filter by review rating</span>
+              <select className={dropdownClassName} value={ratingFilter} onChange={(event) => setRatingFilter(event.target.value as RatingFilter)}>
+                <option value="all">Rating</option>
+                <option value="4-plus">4 stars and above</option>
+                <option value="3-plus">3 stars and above</option>
+                <option value="unrated">No reviews yet</option>
+              </select>
+              <ChevronDown className="pointer-events-none absolute right-3 h-4 w-4 text-[#111]" aria-hidden="true" />
+            </label>
+
+            <label className="relative flex items-center rounded-lg border border-[#E5E5E5]">
+              <ArrowDownUp className="pointer-events-none absolute left-3 h-6 w-6 text-[#111]" aria-hidden="true" />
+              <span className="sr-only">Sort postcode results</span>
+              <select className={`${dropdownClassName} pl-12`} value={sortBy} onChange={(event) => setSortBy(event.target.value as PostcodeSort)}>
+                <option value="alphabetical-asc">Sort by: Alphabetical (A → Z)</option>
+                <option value="alphabetical-desc">Sort by: Alphabetical (Z → A)</option>
+                <option value="crime-asc">Sort by: Crime rating (low to high)</option>
+                <option value="crime-desc">Sort by: Crime rating (high to low)</option>
+                <option value="price-asc">Sort by: Property value (low to high)</option>
+                <option value="price-desc">Sort by: Property value (high to low)</option>
+                <option value="rating-desc">Sort by: Rating (high to low)</option>
+              </select>
+              <ChevronDown className="pointer-events-none absolute right-3 h-4 w-4 text-[#111]" aria-hidden="true" />
+            </label>
+            <p className="text-xs text-[#6B7280] md:col-span-2 xl:col-span-4">Filters and sorting apply to the postcodes on the current page.</p>
           </div>
 
           {loadError && (
@@ -142,14 +249,18 @@ const PostcodeSearchPage = () => {
           {!loadError && (
             <>
               <div className="mt-8 grid grid-cols-1 gap-3 sm:grid-cols-3">
-                {postcodes.map((result) => (
+                {visiblePostcodes.map((result) => (
                   <article
                     key={result.postcodeId}
                     className="group relative flex min-h-[162px] flex-col rounded-xl border border-[#E5E5E5] bg-white p-3.5 shadow-[0_3px_12px_rgba(15,23,42,0.06)] transition-shadow hover:shadow-md"
                   >
                     <Link
-                      to={postcodePath(result.code)}
-                      aria-label={`View postcode details for ${result.code}`}
+                      to={isAreaReportJourney
+                        ? postcodeAreaReportPath(result.code)
+                        : reviewAction ? postcodeReviewPath(result.code, reviewAction) : postcodePath(result.code)}
+                      aria-label={isAreaReportJourney
+                        ? `Download area report for ${result.code}`
+                        : `View postcode details for ${result.code}`}
                       className="absolute inset-0 z-0 rounded-xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#8B0202]"
                     />
                     <div className="pointer-events-none relative z-10 flex min-h-[132px] flex-col">
@@ -177,7 +288,11 @@ const PostcodeSearchPage = () => {
                         </span>
                       )}
                       <Link
-                        to={`${postcodePath(result.code)}#reviews`}
+                        to={isAreaReportJourney
+                          ? postcodeAreaReportPath(result.code)
+                          : reviewAction
+                          ? postcodeReviewPath(result.code, reviewAction)
+                          : `${postcodePath(result.code)}#reviews`}
                         className="pointer-events-auto relative z-20 inline-flex items-center gap-1 rounded-full border border-[#E5E5E5] px-1.5 py-0.5 text-[10px] leading-none text-[#555] hover:border-[#D97706]"
                       >
                         <Star className="h-3 w-3 fill-[#F4B400] text-[#F4B400]" aria-hidden="true" />
@@ -191,17 +306,17 @@ const PostcodeSearchPage = () => {
 
                     <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
                       <span
-                        title={result.priceSource === 'borough' ? 'Average price is the latest available borough-wide figure.' : 'Average price is calculated from available sales for this postcode.'}
+                        title={result.priceSource === 'borough' ? 'Average sale price is the latest available borough-wide figure.' : 'Average sale price is calculated from available sales for this postcode.'}
                         className="inline-flex items-center gap-1 rounded-full border border-[#E5E5E5] px-1.5 py-0.5 text-[10px] leading-none text-[#555]"
                       >
                         <Home className="h-3 w-3 text-[#111]" aria-hidden="true" />
                         {result.averagePrice !== null
                           ? (
                             <>
-                              Avg. Price: <span className="font-semibold text-[#222]">{formatCurrency(result.averagePrice)}</span>
+                              Avg. Sale Price: <span className="font-semibold text-[#222]">{formatCurrency(result.averagePrice)}</span>
                             </>
                           )
-                          : 'Avg. Price: n/a'}
+                          : 'Avg. Sale Price: n/a'}
                       </span>
                       <span
                         title={`Year-over-year price trend${result.priceSource === 'borough' ? ' for this borough' : ' for this postcode'}.`}
@@ -215,11 +330,13 @@ const PostcodeSearchPage = () => {
                     </div>
 
                     <Link
-                      to={postcodePath(result.code)}
+                      to={isAreaReportJourney
+                        ? postcodeAreaReportPath(result.code)
+                        : postcodeReviewPath(result.code, 'write')}
                       className="pointer-events-auto relative z-20 mt-auto inline-flex w-fit items-center gap-1 pt-4 text-[10px] text-[#334155] hover:text-[#8B0202]"
                     >
                       <Plus className="h-3 w-3" aria-hidden="true" />
-                      Add review
+                      {isAreaReportJourney ? 'Download area report' : 'Add review'}
                     </Link>
                     </div>
                   </article>

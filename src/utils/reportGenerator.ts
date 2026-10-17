@@ -5,10 +5,39 @@ import apiClient from '@/lib/apiClient';
 const SCORE_CATEGORY_WEIGHTS: Record<string, number> = {
   safety: 20,
   affordability: 20,
-  transport: 18,
   amenities: 16,
   health: 13,
   education: 13,
+};
+
+export const deriveTransportScore = (
+  backendScore: number | null | undefined,
+  busRoutes: Array<{ nearestStopM?: number | null }>,
+  nearestStation: { distanceM?: number | null } | null | undefined,
+): number => {
+  if (typeof backendScore === 'number' && Number.isFinite(backendScore)) {
+    return Math.round(Math.max(0, Math.min(100, backendScore)));
+  }
+
+  const stationDistance = nearestStation?.distanceM;
+  const stationScore = typeof stationDistance === 'number' && Number.isFinite(stationDistance)
+    ? Math.max(0, 100 - (stationDistance / 1600) * 100)
+    : 0;
+  const routeScores = busRoutes
+    .map(({ nearestStopM }) =>
+      typeof nearestStopM === 'number' && Number.isFinite(nearestStopM)
+        ? Math.max(0, 100 - (nearestStopM / 800) * 100)
+        : null,
+    )
+    .filter((score): score is number => score !== null);
+  const averageRouteScore = routeScores.length
+    ? routeScores.reduce((total, score) => total + score, 0) / routeScores.length
+    : 0;
+  const hasTransportData = typeof stationDistance === 'number' || routeScores.length > 0;
+
+  return hasTransportData
+    ? Math.round(Math.max(0, Math.min(100, stationScore * 0.6 + averageRouteScore * 0.4)))
+    : 0;
 };
 
 const calculateBoroughScoreWithCategories = (
@@ -49,36 +78,6 @@ const calculateBoroughScoreWithCategories = (
     : Math.max(0, Math.min(100, baselineValue)) * 0.12 + categoryScore * 0.88;
 
   return Math.round(Math.max(0, Math.min(100, combinedScore)));
-};
-
-export const deriveTransportScore = (
-  scoreValue: number | null | undefined,
-  nearbyBusRoutes: Array<{ routeShortName?: string; destinationLabel?: string; nearestStopM?: number | null }>,
-  nearestStationDetails: { distanceM?: number | null } | null | undefined,
-) => {
-  if (Number.isFinite(scoreValue) && scoreValue != null && scoreValue > 0) {
-    return Math.max(0, Math.min(100, scoreValue));
-  }
-
-  let inferred = 0;
-  if (nearestStationDetails && Number.isFinite(nearestStationDetails.distanceM)) {
-    const distanceM = Number(nearestStationDetails.distanceM);
-    if (distanceM <= 500) inferred += 40;
-    else if (distanceM <= 1000) inferred += 30;
-    else if (distanceM <= 1500) inferred += 20;
-    else if (distanceM <= 2500) inferred += 10;
-  }
-
-  if (nearbyBusRoutes.length >= 10) inferred += 50;
-  else if (nearbyBusRoutes.length >= 5) inferred += 35;
-  else if (nearbyBusRoutes.length >= 2) inferred += 20;
-  else if (nearbyBusRoutes.length >= 1) inferred += 10;
-
-  if (inferred === 0 && (nearbyBusRoutes.length > 0 || nearestStationDetails)) {
-    inferred = 15;
-  }
-
-  return Math.max(0, Math.min(100, inferred));
 };
 
 export const annualizeQuarterlyData = (observations: unknown[]) => {
@@ -315,7 +314,7 @@ export const generateBuyerReport = async (formData: Record<string, unknown>): Pr
         category: 'rent' as const,
         label: 'Rental Demand',
         value: rentalDemandLevel,
-        detail: `Postcode average ${formatCurrency(Number(averageRent))} vs borough average ${formatCurrency(boroughAverageRent)} pcm`,
+        detail: `Postcode average ${formatCurrency(Number(averageRent))} / month vs borough average ${formatCurrency(boroughAverageRent)} / month`,
       }] : []),
       ...(housingGrowthLabel && housingGrowthDetail ? [{
         category: 'housing' as const,
@@ -336,7 +335,7 @@ export const generateBuyerReport = async (formData: Record<string, unknown>): Pr
     ];
     const areaSnapshot = [
       Number(averageRent) > 0
-        ? { metric: 'Average rent (pcm)', value: formatCurrency(Number(averageRent)) }
+        ? { metric: 'Average monthly rent', value: formatCurrency(Number(averageRent)) }
         : null,
       latestPropertyValue
         ? {
@@ -393,22 +392,7 @@ export const generateBuyerReport = async (formData: Record<string, unknown>): Pr
     const baseScoreBreakdown = Object.entries(boroughBreakdown)
       .filter((entry): entry is [string, number] => typeof entry[1] === 'number' && Number.isFinite(entry[1]))
       .map(([category, score]) => ({ category, score }));
-    const transportScoreValue = Number(
-      boroughBreakdown.transport ??
-      boroughBreakdown.transportScore ??
-      boroughBreakdown.accessScore ??
-      boroughBreakdown.publicTransportScore ??
-      boroughBreakdown.commuteScore,
-    );
-    const derivedTransportScore = deriveTransportScore(transportScoreValue, nearbyBusRoutes, nearestStationDetails);
-    const transportBreakdownScore = baseScoreBreakdown.find(({ category }) => /transport/i.test(category))?.score;
-    const hasValidTransportBreakdown = Number.isFinite(transportBreakdownScore) && (transportBreakdownScore ?? 0) > 0;
-    const scoreBreakdown = hasValidTransportBreakdown
-      ? baseScoreBreakdown
-      : [
-          ...baseScoreBreakdown.filter(({ category }) => !/transport/i.test(category)),
-          { category: 'transport', score: derivedTransportScore },
-        ];
+    const scoreBreakdown = baseScoreBreakdown.filter(({ category }) => !/transport/i.test(category));
     const safetyScore = baseScoreBreakdown.find(({ category }) => /safety|crime/i.test(category))?.score
       ?? Number(boroughBreakdown.safety);
     const crimeRate = Number(totalCrimeRate);
@@ -462,7 +446,7 @@ export const generateBuyerReport = async (formData: Record<string, unknown>): Pr
       summaryOfFindings: {
         overallAssessmentTitle: 'Area Overview',
         overallAssessmentSubtitle: `Score: ${overallScore}`,
-        narrativeSummary: `This area has been evaluated based on comprehensive metrics from our database including transport connectivity, affordability, safety, amenities, schools, and green spaces.`,
+        narrativeSummary: `This area has been evaluated using available affordability, safety, amenities, school, and green-space metrics. Transport is presented as nearby route and station observations; no validated transport score is available.`,
         strengths: [
           {
             title: 'Data-Driven Analysis',
@@ -566,7 +550,7 @@ export const generateBuyerReport = async (formData: Record<string, unknown>): Pr
       housingStockProfile,
       neighbourhoodProfile,
       transportAndConnectivity: {
-        connectivityScore: Number.isFinite(derivedTransportScore) ? derivedTransportScore : null,
+        connectivityScore: null,
         nearestStationMi: nearestStationDetails ? nearestStationDetails.distanceM / 1609.344 : null,
         zone: null,
         nearbyStations,
@@ -705,9 +689,10 @@ export const generateInvestorReport = async (formData: Record<string, unknown>):
     .map((item: any) => ({ year: Number(item.label), price: Number(item.value) }))
     .filter((item: any) => Number.isFinite(item.year));
   const scoreBreakdown = Object.entries(preview.scoreBreakdown?.borough ?? {})
+    .filter(([category]) => !/transport/i.test(category))
     .map(([category, value]) => ({
       category,
-      weight: ({ safety: 20, affordability: 20, transport: 18, amenities: 16, health: 13, education: 13 } as Record<string, number>)[category] ?? 0,
+      weight: ({ safety: 20, affordability: 20, amenities: 16, health: 13, education: 13 } as Record<string, number>)[category] ?? 0,
       score: Number(value),
     }))
     .filter((item) => Number.isFinite(item.score));

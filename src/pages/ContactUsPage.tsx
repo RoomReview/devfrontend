@@ -8,10 +8,6 @@ const ContactUsPage = () => (
       </p>
       <div className="mt-8 space-y-3 border-t border-[#E7DFDB] pt-6 text-sm leading-6 text-[#516078]">
         <p>
-          <span className="font-semibold text-[#1F2D3D]">Registered office:</span>{' '}
-          51a-53a High Road, London, England, NW10 2SU
-        </p>
-        <p>
           <span className="font-semibold text-[#1F2D3D]">Email:</span>{' '}
           <a className="text-[#8B0000] underline underline-offset-2" href="mailto:info@roomreview.co.uk">
             info@roomreview.co.uk

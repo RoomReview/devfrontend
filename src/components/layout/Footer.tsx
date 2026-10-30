@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import roomReviewLogo from '@img/roomreview.webp';
+import roomReviewLogo from '@img/roomreview.png';
 
 const Footer = () => {
   return (

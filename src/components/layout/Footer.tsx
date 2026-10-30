@@ -1,9 +1,9 @@
 import { Link } from 'react-router-dom';
-import roomReviewLogo from '@img/roomreview.png';
+import roomReviewLogo from '@img/roomreview.webp';
 
 const Footer = () => {
   return (
-    <footer className="bg-[#071424] text-white">
+    <footer id="site-footer" className="bg-[#071424] text-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
         <div className="grid gap-10 sm:grid-cols-2 xl:grid-cols-[1.4fr_1fr_1fr_1fr]">
           <div className="space-y-4">
@@ -17,7 +17,6 @@ const Footer = () => {
             <div className="space-y-1 text-sm text-gray-400">
               <p className="font-semibold text-white">ROOMREVIEW LTD</p>
               <p>Company number: 16307644</p>
-              <p>Registered office: 51a-53a High Road, London, England, NW10 2SU</p>
               <p>Email: info@roomreview.co.uk</p>
             </div>
           </div>

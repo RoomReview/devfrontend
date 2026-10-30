@@ -3,7 +3,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowDownUp, ChevronDown, ChevronLeft, ChevronRight, Home, Plus, Shield, Star, TrendingUp } from 'lucide-react';
 import { H1, Body, Small } from '../components/common/Typography';
 import Button from '../components/common/Button';
-import heroImage from '@img/city.webp';
+import heroImage from '@img/city.jpg';
 import { postcodeAreaReportPath, postcodePath, postcodeReviewPath, type PostcodeReviewAction } from '@/utils/helpers';
 import { postcodeService, type PostcodeListItem, type PostcodeSort } from '@/services/postcode.service';
 import { trackAnalyticsEvent } from '@/lib/cookieConsent';

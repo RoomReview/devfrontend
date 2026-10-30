@@ -7,24 +7,24 @@ import { extractApiError } from '@/utils/apiError';
 import { H1, H2, H3, Body } from '../components/common/Typography';
 import Button from '../components/common/Button';
 
-import heroImage from '@img/3943474de3cacbeadcd921662ef36656d7b2740e.webp';
-import communityImage from '@img/b3f887ea2c439857b8501264d689869cf54fd421.webp';
-import neighbourhoodImage from '@img/af432de379ac10cea142202121cefffd5457157e.webp';
-import localImage from '@img/fa0f8a56b19d70afad2601dab96005bee78e6451.webp';
-import sceneImage1 from '@img/5f5064b20e73e98611517a7211ef41b6b55ef53e.webp';
+import heroImage from '@img/3943474de3cacbeadcd921662ef36656d7b2740e.png';
+import communityImage from '@img/b3f887ea2c439857b8501264d689869cf54fd421.png';
+import neighbourhoodImage from '@img/af432de379ac10cea142202121cefffd5457157e.png';
+import localImage from '@img/fa0f8a56b19d70afad2601dab96005bee78e6451.png';
+import sceneImage1 from '@img/5f5064b20e73e98611517a7211ef41b6b55ef53e.png';
 import AccessibleIcon from '@img/Accessible.png';
 import StructuredIcon from '@img/Structured.png';
 import ActionableIcon from '@img/Actionable.png';
-import FedericoImage from '@img/CEO.webp';
+import FedericoImage from '@img/CEO.png';
 import YuliiaImage from '@img/COO.png';
-import MichaelImage from '@img/Designer.webp';
-import IrinaImage from '@img/UX UI Designer.webp';
-import TereseImage from '@img/UI Disigner.webp';
-import AlamkheerImage from '@img/Software engineer (2).webp';
-import MubtasinImage from '@img/Data Engineer (2).webp';
-import FrederickImage from '@img/Data engineer.webp';
+import MichaelImage from '@img/Designer.png';
+import IrinaImage from '@img/UX UI Designer.png';
+import TereseImage from '@img/UI Disigner.png';
+import AlamkheerImage from '@img/Software engineer (2).png';
+import MubtasinImage from '@img/Data Engineer (2).png';
+import FrederickImage from '@img/Data engineer.png';
 import FullstackImage from '@img/Fullstack Tech Lead.png';
-import JoyImage from '@img/Project Manger.webp';
+import JoyImage from '@img/Project Manger.png';
 import LinkedInImage from '@img/LinkIN.png';
 
 const FAQ_ITEMS = [

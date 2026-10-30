@@ -319,6 +319,7 @@ export const RoomReviewPage: React.FC<RoomReviewPageProps> = ({
     companyName: '',
     firstName: '',
     lastName: '',
+    phone: '',
     logoDataUrl: '',
   });
   const [logoError, setLogoError] = useState<string | null>(null);
@@ -394,6 +395,7 @@ export const RoomReviewPage: React.FC<RoomReviewPageProps> = ({
         companyName: agencyBranding.companyName.trim(),
         firstName: agencyBranding.firstName.trim(),
         lastName: agencyBranding.lastName.trim(),
+        phone: agencyBranding.phone.trim(),
         logoDataUrl: agencyBranding.logoDataUrl,
       };
       if (Object.values(trimmedBranding).some(Boolean)) {
@@ -737,12 +739,12 @@ export const RoomReviewPage: React.FC<RoomReviewPageProps> = ({
               <fieldset className="mt-6 rounded-xl border border-[#E5DCD8] p-4">
                 <legend className="px-2 text-sm font-semibold text-[#1F2D3D]">Optional agency branding</legend>
                 <p className="mb-4 text-xs leading-5 text-[#516078]">
-                  Add the details you want displayed on this report. Leave any field blank to omit it.
+                  Add the details you want displayed. RoomReview branding is used if no agency logo is uploaded; a blank phone number is omitted.
                 </p>
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="sm:col-span-2">
                     <label htmlFor="agency-logo" className="mb-1 block text-[12px] font-semibold text-[#2A3542]">
-                      Agency logo
+                      Agency logo (optional)
                     </label>
                     <input
                       id="agency-logo"
@@ -784,6 +786,19 @@ export const RoomReviewPage: React.FC<RoomReviewPageProps> = ({
                       id="agency-last-name"
                       value={agencyBranding.lastName}
                       onChange={(event) => setAgencyBranding((previous) => ({ ...previous, lastName: event.target.value }))}
+                      className="w-full rounded-[6px] border border-[#D9D5D1] bg-white px-3 py-2.5 text-[12px] text-[#1F2D3D] outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="agency-phone" className="mb-1 block text-[12px] font-semibold text-[#2A3542]">
+                      Phone number
+                    </label>
+                    <input
+                      id="agency-phone"
+                      type="tel"
+                      autoComplete="tel"
+                      value={agencyBranding.phone}
+                      onChange={(event) => setAgencyBranding((previous) => ({ ...previous, phone: event.target.value }))}
                       className="w-full rounded-[6px] border border-[#D9D5D1] bg-white px-3 py-2.5 text-[12px] text-[#1F2D3D] outline-none"
                     />
                   </div>
@@ -829,3 +844,4 @@ export const RoomReviewPage: React.FC<RoomReviewPageProps> = ({
 };
 
 export default RoomReviewPage;
+

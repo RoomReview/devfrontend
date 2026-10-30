@@ -1,4 +1,5 @@
 import { API_BASE } from '@/config/api.config';
+import { setGa4Consent, trackGa4Event, trackGa4PageView } from '@/lib/ga4';
 
 export type CookiePreferences = {
   necessary: true;
@@ -77,8 +78,10 @@ export const saveCookiePreferences = (preferences: CookiePreferences) => {
 
   if (normalizedPreferences.analytics) {
     getAnalyticsId();
+    setGa4Consent(true);
   } else {
     removeCookie(ANALYTICS_ID_COOKIE);
+    setGa4Consent(false);
   }
 
   window.dispatchEvent(new Event(COOKIE_PREFERENCES_CHANGED_EVENT));
@@ -87,6 +90,8 @@ export const saveCookiePreferences = (preferences: CookiePreferences) => {
 export const trackPageView = (path: string) => {
   if (!getCookiePreferences().analytics) return;
 
+  setGa4Consent(true);
+  void trackGa4PageView(path);
   void fetch(`${API_BASE}/analytics/events`, {
     method: 'POST',
     keepalive: true,
@@ -94,10 +99,16 @@ export const trackPageView = (path: string) => {
     body: JSON.stringify({
       eventName: 'page_view',
       anonymousId: getAnalyticsId(),
-      path,
-      referrer: document.referrer || undefined,
+      path: path.split(/[?#]/, 1)[0] || '/',
     }),
   }).catch(() => {
     // Analytics must never interrupt the user's browsing experience.
   });
 };
+
+export const trackAnalyticsEvent = (eventName: Exclude<Parameters<typeof trackGa4Event>[0], 'page_view'>) => {
+  if (!getCookiePreferences().analytics) return;
+  setGa4Consent(true);
+  void trackGa4Event(eventName);
+};
+

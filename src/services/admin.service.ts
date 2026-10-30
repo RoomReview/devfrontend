@@ -26,6 +26,18 @@ export interface AdminUser {
   } | null;
 }
 
+export interface AdminAuditLogEntry {
+  auditLogId: string;
+  actorUserId: string;
+  actorEmail: string;
+  action: string;
+  resource: string;
+  resourceId: string | null;
+  details: Record<string, string | boolean> | null;
+  statusCode: number | null;
+  createdAt: string;
+}
+
 export type ReviewModerationStatus = 'APPROVED' | 'REJECTED';
 
 export const adminService = {
@@ -35,6 +47,10 @@ export const adminService = {
   },
   getUsers: async (): Promise<AdminUser[]> => {
     const response = await apiClient.get<{ data: AdminUser[] }>('/admin/users');
+    return response.data.data;
+  },
+  getAuditLogs: async (): Promise<AdminAuditLogEntry[]> => {
+    const response = await apiClient.get<{ data: AdminAuditLogEntry[] }>('/admin/audit-logs?limit=50');
     return response.data.data;
   },
   getReviews: async (): Promise<Review[]> => {

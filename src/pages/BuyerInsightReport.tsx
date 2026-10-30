@@ -1,4 +1,5 @@
 import React from 'react';
+import ReportAttribution from '@/components/common/ReportAttribution';
 import * as Recharts from 'recharts';
 
 const {
@@ -1103,6 +1104,7 @@ export const BuyerInsightReport: React.FC<BuyerInsightReportProps> = ({
             Report Generated: {meta.generatedDateText} {meta.versionText ? `| Version ${meta.versionText}` : ''}
           </p>
         </footer>
+        <ReportAttribution />
 
       </div>
     </div>

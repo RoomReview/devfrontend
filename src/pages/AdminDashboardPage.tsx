@@ -4,7 +4,7 @@ import { AlertTriangle, ArrowLeft, ArrowRight, Ban, Check, CheckCircle2, FileTex
 import { useAuth } from '@/hooks/useAuth';
 import Button from '@/components/common/Button';
 import { H1, H2, Body } from '@/components/common/Typography';
-import { adminService, type AdminOverview, type AdminUser } from '@/services/admin.service';
+import { adminService, type AdminAuditLogEntry, type AdminOverview, type AdminUser } from '@/services/admin.service';
 import type { Review } from '@/types/review.types';
 
 type UserSort = 'name' | 'subscription' | 'access';
@@ -15,6 +15,7 @@ const AdminDashboardPage = () => {
   const [overview, setOverview] = useState<AdminOverview | null>(null);
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [reviews, setReviews] = useState<Review[]>([]);
+  const [auditLogs, setAuditLogs] = useState<AdminAuditLogEntry[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [updatingUser, setUpdatingUser] = useState<string | null>(null);
@@ -28,14 +29,16 @@ const AdminDashboardPage = () => {
     setRefreshing(true);
     setError(null);
     try {
-      const [nextOverview, nextUsers, nextReviews] = await Promise.all([
+      const [nextOverview, nextUsers, nextReviews, nextAuditLogs] = await Promise.all([
         adminService.getOverview(),
         adminService.getUsers(),
         adminService.getReviews(),
+        adminService.getAuditLogs(),
       ]);
       setOverview(nextOverview);
       setUsers(nextUsers);
       setReviews(nextReviews);
+      setAuditLogs(nextAuditLogs);
       setUserPage(1);
     } catch {
       setError('The administrative overview could not be loaded.');
@@ -237,6 +240,43 @@ const AdminDashboardPage = () => {
                     );
                   })}
                 </ul>
+              )}
+            </section>
+
+            <section className="mt-8 rounded-2xl border border-[#E5DCD5] bg-white p-6">
+              <H2 className="text-xl">Admin activity log</H2>
+              <Body className="mt-1">Recent administrative actions recorded by the server.</Body>
+              {auditLogs.length === 0 ? (
+                <Body className="mt-4">No administrative activity recorded yet.</Body>
+              ) : (
+                <div className="mt-4 overflow-x-auto">
+                  <table className="min-w-full text-left text-sm">
+                    <thead className="border-b border-[#E5DCD5] text-xs uppercase tracking-wide text-[#64707A]">
+                      <tr>
+                        <th className="px-3 py-3">Administrator</th>
+                        <th className="px-3 py-3">Action</th>
+                        <th className="px-3 py-3">Result</th>
+                        <th className="px-3 py-3">Time</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#E5DCD5]">
+                      {auditLogs.map((entry) => (
+                        <tr key={entry.auditLogId}>
+                          <td className="whitespace-nowrap px-3 py-3 font-semibold text-[#1A2B3C]">{entry.actorEmail}</td>
+                          <td className="px-3 py-3 text-[#1A2B3C]">
+                            <span>{entry.action}</span>
+                            {entry.resourceId && <span className="ml-1 text-[#64707A]">({entry.resourceId})</span>}
+                            {entry.details && <span className="ml-2 text-[#64707A]">{Object.entries(entry.details).map(([key, value]) => `${key}: ${value}`).join(', ')}</span>}
+                          </td>
+                          <td className="whitespace-nowrap px-3 py-3 text-[#64707A]">{entry.statusCode ?? 'In progress'}</td>
+                          <td className="whitespace-nowrap px-3 py-3 text-[#64707A]">
+                            <time dateTime={entry.createdAt}>{new Date(entry.createdAt).toLocaleString('en-GB')}</time>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               )}
             </section>
 

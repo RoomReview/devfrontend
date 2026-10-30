@@ -49,7 +49,7 @@ const SsoCallbackPage = () => {
 
         window.localStorage.setItem(TOKEN_KEY, session.accessToken);
         window.localStorage.setItem(REFRESH_TOKEN_KEY, session.refreshToken);
-        navigate('/', { replace: true });
+        navigate('/account', { replace: true });
       })
       .catch(() => setError(true));
   }, [navigate]);

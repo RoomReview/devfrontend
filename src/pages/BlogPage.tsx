@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { 
   Search, 
   ChevronLeft, 
@@ -8,7 +8,9 @@ import {
 } from 'lucide-react';
 import { blogService, type BlogPost } from '@/services/blog.service';
 import { newsletterService } from '@/services/newsletter.service';
+import { trackAnalyticsEvent } from '@/lib/cookieConsent';
 import { extractApiError } from '@/utils/apiError';
+import SeoMetadata from '@/components/common/SeoMetadata';
 
 const allowedWordPressTags = new Set([
   'p', 'h2', 'h3', 'h4', 'ul', 'ol', 'li', 'strong', 'b', 'em', 'i',
@@ -73,7 +75,10 @@ const getWordPressExcerpt = (html: string) =>
   new DOMParser().parseFromString(html, 'text/html').body.textContent?.trim() ?? '';
 
 export const BlogPlatform: React.FC = () => {
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchParams] = useSearchParams();
+  const requestedPostId = searchParams.get('post');
+  const { slug } = useParams<{ slug?: string }>();
+  const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState<string>('All');
   const [currentPage, setCurrentPage] = useState(1);
@@ -103,13 +108,19 @@ export const BlogPlatform: React.FC = () => {
     };
   }, []);
 
-  const selectedPostSummary = posts.find((post) => post.id === searchParams.get('post'));
-  const selectedPost = selectedPostDetails?.id === selectedPostSummary?.id
+  const selectedPostSummary = posts.find((post) => slug
+    ? post.slug === slug
+    : post.id === requestedPostId);
+  const selectedPost = selectedPostDetails && (
+    (slug && selectedPostDetails.slug === slug)
+    || selectedPostDetails.id === selectedPostSummary?.id
+    || selectedPostDetails.id === requestedPostId
+  )
     ? selectedPostDetails
     : selectedPostSummary;
 
   useEffect(() => {
-    if (!selectedPostSummary) {
+    if (!slug && !requestedPostId) {
       setSelectedPostDetails(null);
       setSelectedPostError(null);
       setSelectedPostLoading(false);
@@ -119,7 +130,15 @@ export const BlogPlatform: React.FC = () => {
     let isCurrent = true;
     setSelectedPostLoading(true);
     setSelectedPostError(null);
-    void blogService.getPost(selectedPostSummary.id)
+    let loadPost: Promise<BlogPost>;
+    if (slug) {
+      loadPost = blogService.getPostBySlug(slug);
+    } else if (requestedPostId) {
+      loadPost = blogService.getPost(requestedPostId);
+    } else {
+      return;
+    }
+    void loadPost
       .then((post) => {
         if (isCurrent) setSelectedPostDetails(post);
       })
@@ -136,7 +155,13 @@ export const BlogPlatform: React.FC = () => {
     return () => {
       isCurrent = false;
     };
-  }, [selectedPostSummary?.id]);
+  }, [requestedPostId, slug]);
+  useEffect(() => {
+    const post = selectedPostSummary ?? selectedPostDetails;
+    if (post && !slug) {
+      navigate(`/blog/${post.slug}`, { replace: true });
+    }
+  }, [navigate, selectedPostDetails, selectedPostSummary, slug]);
   const normalizeSearchText = (value: string) => value.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
   const normalizedQuery = normalizeSearchText(searchQuery);
   const categories = [...new Set(posts.flatMap((post) => post.categories))].sort((first, second) => first.localeCompare(second));
@@ -153,9 +178,20 @@ export const BlogPlatform: React.FC = () => {
   const selectedPostUrl = selectedPost?.link ?? `${window.location.origin}/blog`;
   const encodedPostUrl = encodeURIComponent(selectedPostUrl);
   const encodedPostTitle = encodeURIComponent(selectedPost?.title ?? 'RoomReview Blog');
+  const articleDescription = selectedPost
+    ? getWordPressExcerpt(selectedPost.excerpt).slice(0, 160)
+    : 'Read RoomReview guides on UK renting, property decisions, neighbourhoods and local housing data.';
+  const articlePath = selectedPost
+    ? `/blog/${encodeURIComponent(selectedPost.slug)}`
+    : '/blog';
 
   return (
     <div className="min-h-screen bg-white font-sans text-[#2B363B] antialiased">
+      <SeoMetadata
+        title={selectedPost ? `${selectedPost.title} | RoomReview` : 'RoomReview Blog | Renting and Neighbourhood Guides'}
+        description={articleDescription}
+        path={articlePath}
+      />
       
       {/* ---------------- DEEP ARTICLE VIEW ---------------- */}
       {selectedPost ? (
@@ -164,7 +200,7 @@ export const BlogPlatform: React.FC = () => {
           {/* Breadcrumb / Back Navigation */}
           <button 
             type="button"
-            onClick={() => setSearchParams({}, { replace: true })}
+            onClick={() => navigate('/blog', { replace: true })}
             className="inline-flex items-center gap-2 text-sm font-semibold text-gray-500 hover:text-[#8B0000] transition"
           >
             <ChevronLeft className="h-4 w-4" />
@@ -203,6 +239,10 @@ export const BlogPlatform: React.FC = () => {
             />
           ) : selectedPostLoading ? (
             <p role="status" className="text-sm text-gray-500">Loading article...</p>
+          ) : slug || requestedPostId ? (
+            <main className="mx-auto max-w-[840px] px-6 py-12" role={selectedPostError ? 'alert' : 'status'}>
+              {selectedPostError ?? 'Loading article...'}
+            </main>
           ) : (
             <p role="alert" className="text-sm text-red-700">
               {selectedPostError ?? 'This article does not have any content yet.'}{' '}
@@ -345,7 +385,7 @@ export const BlogPlatform: React.FC = () => {
               {visiblePosts.map((post) => (
                 <Link 
                   key={post.id}
-                  to={`/blog?post=${post.id}`}
+                  to={`/blog/${post.slug}`}
                   className="group cursor-pointer overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm hover:shadow-md transition flex flex-col justify-between"
                 >
                   <div>
@@ -458,6 +498,7 @@ const NewsletterBanner: React.FC = () => {
     setIsSubmitting(true);
     try {
       const response = await newsletterService.subscribe(email);
+      trackAnalyticsEvent('newsletter_signup');
       setFeedback({ kind: 'success', message: response.message });
       setEmail('');
     } catch (error) {

@@ -89,7 +89,7 @@ export const CookiesPolicyPage: React.FC = () => {
                 <h3 className="text-xs font-bold text-[#1A202C]">Analytics</h3>
               </div>
               <p className="text-[11px] text-[#718096] leading-relaxed">
-                Help us understand how visitors interact with our website.
+                Google Analytics helps us understand page visits and key actions. It is enabled only if you allow analytics cookies, and event data excludes review text, email addresses, and postcode search terms.
               </p>
             </div>
 

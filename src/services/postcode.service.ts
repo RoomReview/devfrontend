@@ -18,10 +18,19 @@ export interface PostcodeListItem {
   reviewCount: number;
 }
 
+export type PostcodeSort =
+  | 'alphabetical-asc'
+  | 'alphabetical-desc'
+  | 'crime-asc'
+  | 'crime-desc'
+  | 'price-asc'
+  | 'price-desc'
+  | 'rating-desc';
+
 export const postcodeService = {
-  getAll: async (page: number, limit: number): Promise<PaginatedResponse<PostcodeListItem>> => {
+  getAll: async (page: number, limit: number, sortBy: PostcodeSort): Promise<PaginatedResponse<PostcodeListItem>> => {
     const response = await apiClient.get<PaginatedResponse<PostcodeListItem>>(
-      `/postcodes?page=${page}&limit=${limit}`,
+      `/postcodes?page=${page}&limit=${limit}&sortBy=${sortBy}`,
     );
     return response.data;
   },

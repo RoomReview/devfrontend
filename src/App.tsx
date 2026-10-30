@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect } from 'react';
+import { lazy, Suspense, useEffect, useLayoutEffect } from 'react';
 import { Navigate, Routes, Route, useLocation } from 'react-router-dom';
 import Layout from './components/layout/Layout';
 import HomePage from './pages/HomePage';
@@ -19,6 +19,7 @@ const ReportPage = lazy(() => import('./pages/ReportPage').then((module) => ({ d
 const BuyerReportViewPage = lazy(() => import('./pages/BuyerReportViewPage').then((module) => ({ default: module.BuyerReportViewPage })));
 const InvestorReportViewPage = lazy(() => import('./pages/InvestorReportViewPage').then((module) => ({ default: module.InvestorReportViewPage })));
 const AccountPage = lazy(() => import('./pages/AccountPage'));
+const TeamInvitePage = lazy(() => import('./pages/TeamInvitePage'));
 const AccountSettingsPage = lazy(() => import('./pages/AccountSettingsPage'));
 const ReviewsPage = lazy(() => import('./pages/ReviewsPage'));
 const PricingPage = lazy(() => import('./pages/PricingPage'));
@@ -54,6 +55,36 @@ function AnalyticsTracker() {
   return null;
 }
 
+function ScrollToTop() {
+  const { pathname } = useLocation();
+
+  useLayoutEffect(() => {
+    const behavior = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+      ? 'instant'
+      : 'smooth';
+    window.scrollTo({ top: 0, left: 0, behavior });
+  }, [pathname]);
+
+  return null;
+}
+
+function PrivateRouteRobots() {
+  const { pathname } = useLocation();
+
+  useEffect(() => {
+    const isPrivateRoute = /^\/(account(?:\/|$)|admin(?:\/|$)|team-invite$|login$|register$|verify-email$|email-verified$|forgot-password$|auth(?:\/|$)|reset-password$|password-reset-|checkout\/|report\/view$|investor-report\/view$)/i.test(pathname);
+    let robots = document.head.querySelector<HTMLMetaElement>('meta[name="robots"]');
+    if (!robots) {
+      robots = document.createElement('meta');
+      robots.name = 'robots';
+      document.head.appendChild(robots);
+    }
+    robots.content = isPrivateRoute ? 'noindex,nofollow' : 'index,follow';
+  }, [pathname]);
+
+  return null;
+}
+
 function AdminRoute() {
   const { user, loading, isAuthenticated } = useAuth();
 
@@ -70,11 +101,14 @@ function AdminRoute() {
 function App() {
   return (
     <>
+      <ScrollToTop />
       <AnalyticsTracker />
+      <PrivateRouteRobots />
       <Suspense fallback={<main className="flex min-h-screen items-center justify-center bg-[#F8F4F1] px-4"><p className="font-semibold text-[#1A2B3C]">Loading RoomReview...</p></main>}>
         <Routes>
         <Route path="login" element={<LoginPage />} />
         <Route path="register" element={<RegisterPage />} />
+        <Route path="team-invite" element={<TeamInvitePage />} />
         <Route path="verify-email" element={<VerifyEmailPage />} />
         <Route path="email-verified" element={<EmailVerifiedPage />} />
         <Route path="forgot-password" element={<ForgotPasswordPage />} />
@@ -107,6 +141,7 @@ function App() {
           <Route path="reviews" element={<ReviewsPage />} />
           <Route path="pricing" element={<PricingPage />} />
           <Route path="blog" element={<BlogPage />} />
+          <Route path="blog/:slug" element={<BlogPage />} />
           <Route path="*" element={<NotFoundPage />} />
         </Route>
         </Routes>

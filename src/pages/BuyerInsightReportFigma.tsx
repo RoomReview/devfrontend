@@ -1,4 +1,6 @@
 import React from 'react';
+import ReportAttribution from '@/components/common/ReportAttribution';
+import QRCode from 'qrcode';
 import {
   Building2,
   BusFront,
@@ -14,6 +16,9 @@ import type { BuyerInsightReportData } from './BuyerInsightReport.types';
 import PoliticalLandscapeChart from '@/components/borough/PoliticalLandscapeChart';
 import type { VotingDataRecord } from '@/services/voting-data.service';
 import { scoreReportService } from '@/services/score-report.service';
+import { trackAnalyticsEvent } from '@/lib/cookieConsent';
+import roomReviewLogo from '@/assets/logo.png?inline';
+import { postcodePath } from '@/utils/helpers';
 
 const getReportStylesheets = () => Array.from(document.styleSheets)
   .flatMap((stylesheet) => {
@@ -163,7 +168,12 @@ export const BuyerInsightReportFigma: React.FC<BuyerInsightReportFigmaProps> = (
     .map(({ name, percentage }) => ({ label: name.replace('-', '–'), value: percentage }))
     .filter(({ value }) => Number.isFinite(value) && value >= 0 && value <= 100);
   const dominantAgeGroup = [...ageBars].sort((first, second) => second.value - first.value)[0];
-  const reportPostcode = reportData?.meta?.postcode ?? 'Area';
+  const reportPostcode = reportData?.meta?.postcode?.trim() || 'Area';
+  const reportPostcodeUrl = reportPostcode !== 'Area'
+    ? `https://roomreview.co.uk${postcodePath(reportPostcode)}`
+    : null;
+  const [qrCodeDataUrl, setQrCodeDataUrl] = React.useState<string | null>(null);
+  const [qrCodeError, setQrCodeError] = React.useState(false);
   const reportAreaName = reportData?.meta?.areaName ?? 'Local area';
   const reportDate = reportData?.meta?.generatedDateText ?? 'Not available';
   const resolvedPreparedForName = preparedForName?.trim() || '';
@@ -172,8 +182,9 @@ export const BuyerInsightReportFigma: React.FC<BuyerInsightReportFigmaProps> = (
   const agencyContactName = [agencyBranding?.firstName?.trim(), agencyBranding?.lastName?.trim()]
     .filter(Boolean)
     .join(' ');
-  const agencyLogoDataUrl = agencyBranding?.logoDataUrl ?? '';
-  const hasAgencyBranding = Boolean(companyName || agencyContactName || agencyLogoDataUrl);
+  const agencyPhone = agencyBranding?.phone?.trim() ?? '';
+  const reportLogo = agencyBranding?.logoDataUrl || roomReviewLogo;
+  const hasAgencyBranding = Boolean(companyName || agencyContactName || agencyPhone || agencyBranding?.logoDataUrl);
   const numericOverallScore = Number(reportData?.meta?.overallScore);
   const overallScore = Number.isFinite(numericOverallScore)
     ? Math.max(0, Math.min(100, numericOverallScore))
@@ -324,6 +335,31 @@ export const BuyerInsightReportFigma: React.FC<BuyerInsightReportFigmaProps> = (
   );
   const propertyPriceTrendPoints = propertyPriceTrendChart.points;
 
+  React.useEffect(() => {
+    let isCurrent = true;
+    setQrCodeDataUrl(null);
+    setQrCodeError(false);
+    if (!reportPostcodeUrl) return () => { isCurrent = false; };
+
+    void QRCode.toDataURL(reportPostcodeUrl, {
+      errorCorrectionLevel: 'M',
+      margin: 4,
+      width: 320,
+      color: { dark: '#0B132B', light: '#FFFFFF' },
+    })
+      .then((dataUrl) => {
+        if (isCurrent) setQrCodeDataUrl(dataUrl);
+      })
+      .catch((error: unknown) => {
+        console.error('Could not generate postcode QR code for the area report', error);
+        if (isCurrent) setQrCodeError(true);
+      });
+
+    return () => {
+      isCurrent = false;
+    };
+  }, [reportPostcodeUrl]);
+
   const handlePrintReport = () => {
     if (onPrintReport) {
       onPrintReport();
@@ -344,6 +380,7 @@ export const BuyerInsightReportFigma: React.FC<BuyerInsightReportFigmaProps> = (
         css: getReportStylesheets(),
         postcode: reportPostcode,
       });
+      trackAnalyticsEvent('report_download');
     } catch (error) {
       console.error('Buyer report PDF export failed', error);
       setPdfError('PDF could not be downloaded. Please try again or use Print.');
@@ -462,29 +499,30 @@ export const BuyerInsightReportFigma: React.FC<BuyerInsightReportFigmaProps> = (
         {/* TOP HEADER */}
         <header className="border-b-[3px] border-[#8B0000] bg-white px-5 py-5 md:px-8 md:py-6">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            {hasAgencyBranding && (
-              <div className="flex items-center gap-4">
-                {agencyLogoDataUrl && (
-                  <img
-                    src={agencyLogoDataUrl}
-                    alt={companyName ? `${companyName} logo` : 'Agency logo'}
-                    className="h-[56px] w-[56px] rounded-[6px] object-contain"
-                  />
-                )}
-                {(companyName || agencyContactName) && (
-                  <div>
-                    {companyName && (
-                      <div className="text-[14px] font-black uppercase tracking-[0.15em] text-[#111827]">
-                        {companyName}
-                      </div>
-                    )}
-                    {agencyContactName && (
-                      <div className="text-[11px] text-slate-500">{agencyContactName}</div>
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
+            <div className="flex items-center gap-4">
+              <img
+                src={reportLogo}
+                alt={agencyBranding?.logoDataUrl
+                  ? (companyName ? `${companyName} logo` : 'Agency logo')
+                  : 'RoomReview'}
+                className="h-[56px] w-auto max-w-[180px] object-contain"
+              />
+              {(companyName || agencyContactName || agencyPhone) && (
+                <div>
+                  {companyName && (
+                    <div className="text-[14px] font-black uppercase tracking-[0.15em] text-[#111827]">
+                      {companyName}
+                    </div>
+                  )}
+                  {agencyContactName && (
+                    <div className="text-[11px] text-slate-500">{agencyContactName}</div>
+                  )}
+                  {agencyPhone && (
+                    <div className="text-[11px] text-slate-500">{agencyPhone}</div>
+                  )}
+                </div>
+              )}
+            </div>
 
             <div className="flex flex-1 items-center justify-center text-center">
               <div>
@@ -540,10 +578,39 @@ export const BuyerInsightReportFigma: React.FC<BuyerInsightReportFigmaProps> = (
               <div className="absolute right-4 top-4 rounded-[10px] border border-white/20 bg-[#0B132B]/80 px-3 py-1.5 text-center backdrop-blur-md">
                 <div className="text-[9px] font-bold uppercase tracking-[0.18em] text-white">Scan to view</div>
                 <div className="text-[8px] text-slate-300">{reportPostcode} on RoomReview</div>
-                <div className="mt-1 bg-white p-1 rounded">
-                  <div className="h-10 w-10 bg-[#0B132B] flex items-center justify-center text-white text-[8px] font-mono">QR</div>
-                </div>
-                <div className="mt-1 text-[7px] text-slate-400">roomreview.co.uk/{reportPostcode.toLowerCase()}</div>
+                {reportPostcodeUrl && qrCodeDataUrl ? (
+                  <a
+                    href={reportPostcodeUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    aria-label={`Open postcode page for ${reportPostcode}`}
+                    className="mt-1 inline-block rounded bg-white p-1"
+                  >
+                    <img
+                      src={qrCodeDataUrl}
+                      alt={`QR code linking to ${reportPostcode} postcode page`}
+                      className="h-[104px] w-[104px]"
+                    />
+                  </a>
+                ) : (
+                  <div className="mt-1 flex h-[104px] w-[104px] items-center justify-center rounded bg-white p-2 text-[9px] text-slate-700">
+                    {!reportPostcodeUrl
+                      ? 'Postcode unavailable'
+                      : qrCodeError
+                        ? 'QR code unavailable'
+                        : 'Preparing QR code…'}
+                  </div>
+                )}
+                {reportPostcodeUrl && (
+                  <a
+                    href={reportPostcodeUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="mt-1 block max-w-[132px] break-all text-[7px] text-slate-200 underline"
+                  >
+                    {reportPostcodeUrl.replace(/^https:\/\//, '')}
+                  </a>
+                )}
               </div>
             </div>
           </section>
@@ -957,13 +1024,13 @@ export const BuyerInsightReportFigma: React.FC<BuyerInsightReportFigmaProps> = (
           {/* FOOTER */}
           {hasAgencyBranding && (
             <footer className="flex flex-wrap items-center gap-3 rounded-[22px] border border-[#E5DCD8] bg-white p-6 shadow-sm">
-              {agencyLogoDataUrl && (
-                <img
-                  src={agencyLogoDataUrl}
-                  alt={companyName ? `${companyName} logo` : 'Agency logo'}
-                  className="h-12 w-12 rounded-[6px] object-contain"
-                />
-              )}
+              <img
+                src={reportLogo}
+                alt={agencyBranding?.logoDataUrl
+                  ? (companyName ? `${companyName} logo` : 'Agency logo')
+                  : 'RoomReview'}
+                className="h-12 w-auto max-w-[160px] object-contain"
+              />
               <div>
                 {companyName && (
                   <div className="text-[13px] font-black uppercase tracking-[0.1em] text-[#111827]">
@@ -971,9 +1038,11 @@ export const BuyerInsightReportFigma: React.FC<BuyerInsightReportFigmaProps> = (
                   </div>
                 )}
                 {agencyContactName && <div className="text-[11px] text-slate-500">{agencyContactName}</div>}
+                {agencyPhone && <div className="text-[11px] text-slate-500">{agencyPhone}</div>}
               </div>
             </footer>
           )}
+          <ReportAttribution />
         </main>
       </div>
     </div>

@@ -12,6 +12,7 @@ import { paymentService, type BillingStatus } from '@/services/payment.service';
 import { scoreReportService } from '@/services/score-report.service';
 import type { UserScoreReport } from '@/services/score-report.service';
 import { savedSearchService, type SavedSearch } from '@/services/saved-search.service';
+import { teamService, type TeamDetails } from '@/services/team.service';
 import { postcodePath } from '@/utils/helpers';
 
 const AccountPage = () => {
@@ -34,9 +35,17 @@ const AccountPage = () => {
   const [savedSearchesLoading, setSavedSearchesLoading] = useState(false);
   const [savedSearchesError, setSavedSearchesError] = useState<string | null>(null);
   const [removingSavedSearchId, setRemovingSavedSearchId] = useState<string | null>(null);
+  const [teamManagementOpen, setTeamManagementOpen] = useState(false);
+  const [team, setTeam] = useState<TeamDetails | null>(null);
+  const [teamLoading, setTeamLoading] = useState(false);
+  const [teamError, setTeamError] = useState<string | null>(null);
+  const [teamSuccess, setTeamSuccess] = useState<string | null>(null);
+  const [invitationEmail, setInvitationEmail] = useState('');
+  const [sendingInvitation, setSendingInvitation] = useState(false);
   const earlyAccessDaysRemaining = billing?.trial.trialEndsAt
     ? Math.max(0, Math.ceil((new Date(billing.trial.trialEndsAt).getTime() - Date.now()) / (24 * 60 * 60 * 1000)))
     : 0;
+  const canManageTeam = user?.role === 'AGENCY' || user?.role === 'AGENT';
 
   useEffect(() => {
     if (!isAuthenticated) return;
@@ -61,6 +70,75 @@ const AccountPage = () => {
       .catch(() => setSavedSearchesError('We could not load your saved searches. Please try again.'))
       .finally(() => setSavedSearchesLoading(false));
   }, [isAuthenticated]);
+
+  useEffect(() => {
+    if (!isAuthenticated || !teamManagementOpen || !canManageTeam) return;
+    setTeamLoading(true);
+    setTeamError(null);
+    void teamService.getTeam()
+      .then(setTeam)
+      .catch(() => setTeamError('We could not load your team. Please try again.'))
+      .finally(() => setTeamLoading(false));
+  }, [canManageTeam, isAuthenticated, teamManagementOpen]);
+
+  const refreshTeam = async () => {
+    const updatedTeam = await teamService.getTeam();
+    setTeam(updatedTeam);
+  };
+
+  const inviteTeamMember = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setSendingInvitation(true);
+    setTeamError(null);
+    setTeamSuccess(null);
+    try {
+      await teamService.invite(invitationEmail);
+      setInvitationEmail('');
+      setTeamSuccess('Invitation sent successfully.');
+      try {
+        await refreshTeam();
+      } catch {
+        setTeamError('The invitation was sent, but we could not refresh the team list.');
+      }
+    } catch (error) {
+      setTeamError(error instanceof Error ? error.message : 'We could not send the invitation. Please try again.');
+    } finally {
+      setSendingInvitation(false);
+    }
+  };
+
+  const removeTeamMember = async (memberUserId: string) => {
+    if (!window.confirm('Remove this person from your team?')) return;
+    setTeamError(null);
+    setTeamSuccess(null);
+    try {
+      await teamService.removeMember(memberUserId);
+      setTeamSuccess('Team member removed.');
+      try {
+        await refreshTeam();
+      } catch {
+        setTeamError('The member was removed, but we could not refresh the team list.');
+      }
+    } catch (error) {
+      setTeamError(error instanceof Error ? error.message : 'We could not remove this team member.');
+    }
+  };
+
+  const revokeInvitation = async (invitationId: string) => {
+    setTeamError(null);
+    setTeamSuccess(null);
+    try {
+      await teamService.revokeInvitation(invitationId);
+      setTeamSuccess('Invitation revoked.');
+      try {
+        await refreshTeam();
+      } catch {
+        setTeamError('The invitation was revoked, but we could not refresh the team list.');
+      }
+    } catch (error) {
+      setTeamError(error instanceof Error ? error.message : 'We could not revoke this invitation.');
+    }
+  };
 
   const removeSavedSearch = async (search: SavedSearch) => {
     setRemovingSavedSearchId(search.savedSearchId);
@@ -151,7 +229,7 @@ const AccountPage = () => {
   const startSubscription = async () => {
     setSubscriptionLoading(true);
     try {
-      const checkoutUrl = await paymentService.createSubscriptionCheckout();
+      const checkoutUrl = await paymentService.createSubscriptionCheckout('individual');
       if (checkoutUrl) window.location.assign(checkoutUrl);
     } finally {
       setSubscriptionLoading(false);
@@ -245,22 +323,154 @@ const AccountPage = () => {
               <H3 className="text-[#1A2B3C] mb-3">Report plan</H3>
               <Body>
                 {billing?.subscription?.status === 'ACTIVE'
-                  ? 'Your subscription is active: 10 reports per month.'
+                  ? `Your subscription adds ${billing.monthlyReportAllowance} shared reports each month. Unused reports roll over.`
+                  : user?.role === 'AGENCY' || user?.role === 'AGENT'
+                    ? 'Early access includes three reports. Get 50% off your first paid month, then renew at the full price.'
                   : billing?.trialActive
                     ? user?.role === 'TENANT'
                       ? `Early access: ${earlyAccessDaysRemaining} ${earlyAccessDaysRemaining === 1 ? 'day' : 'days'} left. Three free branded reports are included.`
-                      : `Your free trial ends ${billing.trial.trialEndsAt ? new Date(billing.trial.trialEndsAt).toLocaleDateString() : 'soon'}.`
+                      : `Your free trial ends ${billing.trial.trialEndsAt ? new Date(billing.trial.trialEndsAt).toLocaleDateString('en-GB') : 'soon'}.`
                     : (billing?.creditsBalance ?? 0) > 0
                       ? 'You have report credits available to use.'
                     : 'Your free trial has ended. Choose the monthly report plan to continue.'}
               </Body>
-              <p className="mt-2 text-sm font-semibold text-[#1A2B3C]">Available reports: {billing?.creditsBalance ?? 0}</p>
+              <p className="mt-2 text-sm font-semibold text-[#1A2B3C]">
+                Available {canManageTeam ? 'shared ' : ''}reports: {billing?.creditsBalance ?? 0}
+                {billing?.subscription?.status === 'ACTIVE'
+                  ? ` · ${billing.monthlyReportAllowance} added monthly`
+                  : ''}
+              </p>
+              {billing?.earlyAccessDiscountEligible && (
+                <p className="mt-2 text-sm font-semibold text-[#A20B0B]">
+                  Early access offer: 50% off your first paid month, then £35/month.
+                </p>
+              )}
               {billing?.subscription?.status !== 'ACTIVE' && (
-                <Button className="mt-4" isLoading={subscriptionLoading} onClick={() => void startSubscription()}>
-                  10 reports per month - £35/month
+                <Button
+                  className="mt-4"
+                  isLoading={subscriptionLoading}
+                  onClick={() => {
+                    if (canManageTeam) {
+                      navigate('/pricing');
+                      return;
+                    }
+                    void startSubscription();
+                  }}
+                >
+                  {canManageTeam
+                    ? 'Choose an Agency and Agent plan'
+                    : billing?.earlyAccessDiscountEligible
+                    ? 'First month £17.50, then £35/month'
+                    : '20 reports per month - £35/month'}
                 </Button>
               )}
             </div>
+            {canManageTeam && (
+              <div className="rounded-[24px] border border-[#E5DCD5] bg-white p-6 shadow-sm">
+                <label className="flex cursor-pointer items-center gap-3 text-[#1A2B3C]">
+                  <input
+                    type="checkbox"
+                    checked={teamManagementOpen}
+                    onChange={(event) => {
+                      setTeamManagementOpen(event.target.checked);
+                      setTeamError(null);
+                      setTeamSuccess(null);
+                    }}
+                    className="h-4 w-4 accent-[#8B0202]"
+                  />
+                  <span className="font-semibold">Agency and Agent team</span>
+                </label>
+
+                {teamManagementOpen && (
+                  <div className="mt-5 space-y-5">
+                    <div>
+                      <H3 className="text-[#1A2B3C]">Manage {team?.agencyName ?? 'your'} team</H3>
+                      <Body className="mt-2">
+                        The founder is not counted. Invited members and pending invitations use subscription seats.
+                      </Body>
+                      {team && (
+                        <p className="mt-2 text-sm font-semibold text-[#1A2B3C]">
+                          Seats used: {team.usedSeats} / {team.seatLimit}
+                        </p>
+                      )}
+                    </div>
+
+                    {teamError && <Body className="text-[#8B0202]" role="alert">{teamError}</Body>}
+                    {teamSuccess && <Body className="text-green-700" role="status">{teamSuccess}</Body>}
+                    {teamLoading ? (
+                      <Body>Loading team...</Body>
+                    ) : (
+                      <>
+                        {team?.seatLimit === 0 && (
+                          <Body className="text-[#8B0202]">
+                            An active team subscription is required to invite people.{' '}
+                            <Link to="/pricing" className="font-semibold underline">View plans</Link>
+                          </Body>
+                        )}
+                        <form onSubmit={(event) => void inviteTeamMember(event)} className="flex flex-col gap-3 sm:flex-row">
+                          <input
+                            type="email"
+                            required
+                            maxLength={254}
+                            value={invitationEmail}
+                            onChange={(event) => setInvitationEmail(event.target.value)}
+                            placeholder="Person's email address"
+                            aria-label="Person's email address"
+                            className="min-w-0 flex-1 rounded-lg border border-[#D8CEC6] px-3 py-2 text-sm"
+                          />
+                          <Button
+                            type="submit"
+                            size="sm"
+                            disabled={sendingInvitation || !team || team.availableSeats < 1}
+                            isLoading={sendingInvitation}
+                          >
+                            Send invite
+                          </Button>
+                        </form>
+
+                        {(team?.members.length ?? 0) > 0 && (
+                          <div>
+                            <H3 className="text-[#1A2B3C]">Team members</H3>
+                            <ul className="mt-3 divide-y divide-[#E5DCD5]">
+                              {team?.members.map((member) => (
+                                <li key={member.userId} className="flex flex-wrap items-center justify-between gap-3 py-3">
+                                  <div className="text-sm">
+                                    <p className="font-semibold text-[#1A2B3C]">{member.firstName} {member.lastName}</p>
+                                    <p className="text-gray-600">{member.email}</p>
+                                  </div>
+                                  <Button size="sm" variant="secondary" onClick={() => void removeTeamMember(member.userId)}>
+                                    Remove
+                                  </Button>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+
+                        {(team?.invitations.length ?? 0) > 0 && (
+                          <div>
+                            <H3 className="text-[#1A2B3C]">Pending invitations</H3>
+                            <ul className="mt-3 divide-y divide-[#E5DCD5]">
+                              {team?.invitations.map((invitation) => (
+                                <li key={invitation.invitationId} className="flex flex-wrap items-center justify-between gap-3 py-3">
+                                  <div className="text-sm">
+                                    <p className="font-semibold text-[#1A2B3C]">{invitation.email}</p>
+                                    <p className="text-gray-600">Expires {new Date(invitation.expiresAt).toLocaleDateString('en-GB')}</p>
+                                  </div>
+                                  <Button size="sm" variant="secondary" onClick={() => void revokeInvitation(invitation.invitationId)}>
+                                    Revoke
+                                  </Button>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
             <div className="rounded-[24px] border border-[#E5DCD5] bg-white p-6 shadow-sm">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <H3 className="text-[#1A2B3C] mb-3">My reports</H3>

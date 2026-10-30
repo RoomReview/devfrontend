@@ -52,7 +52,7 @@ const ScoreReportPanel = ({ boroughId, postcodeId, boroughName, postcodeCode }: 
       setReportId(created.scoreReportId);
 
       const billing = await paymentService.getBilling();
-      if (billing.subscription?.status === 'ACTIVE' && billing.creditsBalance > 0) {
+      if (billing.creditsBalance > 0) {
         const generated = await scoreReportService.generate(created.scoreReportId);
         setOverallScore(generated.overallScore ?? null);
         setStatus(generated.status as ReportStatus);

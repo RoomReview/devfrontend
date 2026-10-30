@@ -15,8 +15,12 @@ export interface BillingStatus {
   trial: { trialStartedAt: string | null; trialEndsAt: string | null };
   trialActive: boolean;
   creditsBalance: number;
+  monthlyReportAllowance: number;
+  earlyAccessDiscountEligible: boolean;
   subscription: {
     status: 'INCOMPLETE' | 'ACTIVE' | 'PAST_DUE' | 'CANCELED' | 'UNPAID';
+    planId?: string | null;
+    seatLimit: number;
     currentPeriodEnd: string | null;
     cancelAtPeriodEnd: boolean;
   } | null;

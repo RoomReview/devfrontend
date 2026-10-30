@@ -257,7 +257,55 @@ function LineChartSvg({ data, kind, ariaLabel, boroughName = 'Borough', comparis
 
   return (
     <div className="relative overflow-hidden rounded-md bg-[#f8f6f4]">
-      <svg className="h-[270px] w-full" viewBox={`0 0 ${width} ${height}`} role="img" aria-label={ariaLabel}>
+      {kind === 'growth' ? (
+        <style>{`
+          @keyframes borough-growth-line-draw {
+            from { stroke-dashoffset: 1; }
+            to { stroke-dashoffset: 0; }
+          }
+
+          @keyframes borough-growth-point-appear {
+            from { opacity: 0; scale: 0.65; }
+            to { opacity: 1; scale: 1; }
+          }
+
+          @keyframes borough-growth-comparison-appear {
+            from { opacity: 0; }
+            to { opacity: 0.9; }
+          }
+
+          .borough-growth-line {
+            animation: borough-growth-line-draw 650ms cubic-bezier(0.22, 1, 0.36, 1) both;
+          }
+
+          .borough-growth-comparison {
+            animation: borough-growth-comparison-appear 450ms ease-out 120ms both;
+          }
+
+          .borough-growth-point {
+            transform-box: fill-box;
+            transform-origin: center;
+            animation: borough-growth-point-appear 300ms ease-out both;
+          }
+
+          @media (prefers-reduced-motion: reduce) {
+            .borough-growth-line,
+            .borough-growth-comparison,
+            .borough-growth-point {
+              animation: none;
+            }
+          }
+        `}</style>
+      ) : null}
+      <svg
+        key={kind === 'growth'
+          ? comparisonData.map((row) => `${row.label}:${row.value}`).join('|')
+          : undefined}
+        className="h-[270px] w-full"
+        viewBox={`0 0 ${width} ${height}`}
+        role="img"
+        aria-label={ariaLabel}
+      >
         <rect x="0" y="0" width={width} height={height} fill="#f8f6f4" />
         {yTicks.map((value, index) => {
           const y = margin.top + (index / (yTicks.length - 1)) * plotHeight;
@@ -270,9 +318,45 @@ function LineChartSvg({ data, kind, ariaLabel, boroughName = 'Borough', comparis
         })}
         <line x1={margin.left} y1={height - margin.bottom} x2={width - margin.right} y2={height - margin.bottom} stroke="#d2cec9" strokeWidth="1.1" />
         <line x1={margin.left} y1={margin.top} x2={margin.left} y2={height - margin.bottom} stroke="#d2cec9" strokeWidth="1.1" />
-        <polyline points={primary.map((row) => `${row.x},${row.y}`).join(' ')} fill="none" stroke="#8b1a1a" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" />
-        {secondary.length > 1 ? <polyline points={secondary.map((row) => `${row.x},${row.y}`).join(' ')} fill="none" stroke="#2f6bb3" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" opacity="0.95" /> : null}
-        {comparison.length > 1 ? <polyline points={comparison.map((row) => `${row.x},${row.y}`).join(' ')} fill="none" stroke="#7d9ec2" strokeWidth="2" strokeDasharray="4 4" opacity="0.9" /> : null}
+        <polyline
+          className={kind === 'growth' ? 'borough-growth-line' : undefined}
+          pathLength={kind === 'growth' ? 1 : undefined}
+          strokeDasharray={kind === 'growth' ? '1' : undefined}
+          strokeDashoffset={kind === 'growth' ? '1' : undefined}
+          points={primary.map((row) => `${row.x},${row.y}`).join(' ')}
+          fill="none"
+          stroke="#8b1a1a"
+          strokeWidth="2.8"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+        {secondary.length > 1 ? (
+          <polyline
+            className={kind === 'growth' ? 'borough-growth-line' : undefined}
+            pathLength={kind === 'growth' ? 1 : undefined}
+            strokeDasharray={kind === 'growth' ? '1' : undefined}
+            strokeDashoffset={kind === 'growth' ? '1' : undefined}
+            points={secondary.map((row) => `${row.x},${row.y}`).join(' ')}
+            fill="none"
+            stroke="#2f6bb3"
+            strokeWidth="2.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            opacity="0.95"
+            style={kind === 'growth' ? { animationDelay: '100ms' } : undefined}
+          />
+        ) : null}
+        {comparison.length > 1 ? (
+          <polyline
+            className={kind === 'growth' ? 'borough-growth-comparison' : undefined}
+            points={comparison.map((row) => `${row.x},${row.y}`).join(' ')}
+            fill="none"
+            stroke="#7d9ec2"
+            strokeWidth="2"
+            strokeDasharray="4 4"
+            opacity="0.9"
+          />
+        ) : null}
         {primary.map((row, index) => (
           <g key={`${row.label}-${index}`}>
             <line
@@ -290,6 +374,7 @@ function LineChartSvg({ data, kind, ariaLabel, boroughName = 'Borough', comparis
               style={{ cursor: 'pointer' }}
             />
             <circle
+              className={kind === 'growth' ? 'borough-growth-point' : undefined}
               cx={row.x}
               cy={row.y}
               r={index === activeIndex ? 5.6 : 4.3}
@@ -301,7 +386,11 @@ function LineChartSvg({ data, kind, ariaLabel, boroughName = 'Borough', comparis
               onFocus={() => setHoveredIndex(index)}
               onBlur={() => setHoveredIndex(null)}
               tabIndex={0}
-              style={{ cursor: 'pointer', transition: 'all 0.15s ease' }}
+              style={{
+                cursor: 'pointer',
+                transition: 'all 0.15s ease',
+                ...(kind === 'growth' ? { animationDelay: `${Math.min(index * 24, 360)}ms` } : {}),
+              }}
             >
               <title>{`${row.label}: ${format(row.value)}`}</title>
             </circle>
@@ -327,13 +416,18 @@ function LineChartSvg({ data, kind, ariaLabel, boroughName = 'Borough', comparis
                 style={{ cursor: 'pointer' }}
               />
               <circle
+                className={kind === 'growth' ? 'borough-growth-point' : undefined}
                 cx={row.x}
                 cy={row.y}
                 r={index === activeIndex ? 5.2 : 4}
                 fill={index === activeIndex ? '#2c71c4' : '#2f6bb3'}
                 stroke={index === activeIndex ? '#ffffff' : '#eef4fb'}
                 strokeWidth={index === activeIndex ? 1.7 : 1}
-                style={{ cursor: 'pointer', transition: 'all 0.15s ease' }}
+                style={{
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease',
+                  ...(kind === 'growth' ? { animationDelay: `${Math.min(index * 24, 360)}ms` } : {}),
+                }}
               >
                 <title>{`${row.label}: ${format(row.value)}`}</title>
               </circle>
@@ -401,6 +495,30 @@ function PriceScatter({ data, selectedBorough, comparisonBorough }: Extract<Char
 
   return (
     <div className="relative rounded-md bg-[#f8f6f4]">
+      <style>{`
+        .borough-price-scatter-point {
+          transform-box: fill-box;
+          transform-origin: center;
+          transition:
+            cx 420ms cubic-bezier(0.22, 1, 0.36, 1),
+            cy 420ms cubic-bezier(0.22, 1, 0.36, 1),
+            r 240ms ease,
+            fill 240ms ease,
+            fill-opacity 240ms ease,
+            transform 240ms ease;
+        }
+
+        .borough-price-scatter-point:hover,
+        .borough-price-scatter-point:focus-visible {
+          transform: scale(1.2);
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          .borough-price-scatter-point {
+            transition: none;
+          }
+        }
+      `}</style>
       <svg className="h-[270px] w-full" viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Average property price against annual growth for London boroughs">
         <rect x="0" y="0" width={width} height={height} fill="#f8f6f4" />
 
@@ -438,6 +556,7 @@ function PriceScatter({ data, selectedBorough, comparisonBorough }: Extract<Char
           return (
             <g key={row.boroughName}>
               <circle
+                className="borough-price-scatter-point"
                 cx={x(row.yoyGrowthPct)}
                 cy={y(row.averagePrice)}
                 r={selected ? 6.5 : comparison ? 5.5 : 5}
@@ -496,6 +615,26 @@ function AffordableTrend({ data }: { data: AffordableTrendPoint[] }) {
 
   return (
     <div className="relative">
+      <style>{`
+        @keyframes affordable-bar-enter {
+          from { opacity: 0.65; transform: scaleY(0.82); }
+          to { opacity: 1; transform: scaleY(1); }
+        }
+
+        .affordable-bar-enter {
+          transform-box: fill-box;
+          transform-origin: center bottom;
+          animation: affordable-bar-enter 480ms cubic-bezier(0.22, 1, 0.36, 1) both;
+          transition: fill 240ms ease, opacity 240ms ease;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          .affordable-bar-enter {
+            animation: none;
+            transition: none;
+          }
+        }
+      `}</style>
       <svg
         className="block w-full"
         viewBox={`0 0 ${width} ${height}`}
@@ -524,6 +663,7 @@ function AffordableTrend({ data }: { data: AffordableTrendPoint[] }) {
           return (
             <g key={row.period}>
               <rect
+                className="affordable-bar-enter"
                 x={groupX - barWidth - 4}
                 y={startsY}
                 width={barWidth}
@@ -536,11 +676,12 @@ function AffordableTrend({ data }: { data: AffordableTrendPoint[] }) {
                 onFocus={() => { setActiveIndex(index); setActiveSeries('starts'); }}
                 onBlur={() => { setActiveIndex(null); setActiveSeries(null); }}
                 tabIndex={0}
-                style={{ cursor: 'pointer', transition: 'all 0.15s ease' }}
+                style={{ cursor: 'pointer', animationDelay: `${index * 65}ms` }}
               >
                 <title>{`${row.period} starts: ${row.starts}`}</title>
               </rect>
               <rect
+                className="affordable-bar-enter"
                 x={groupX + 4}
                 y={completionsY}
                 width={barWidth}
@@ -553,7 +694,7 @@ function AffordableTrend({ data }: { data: AffordableTrendPoint[] }) {
                 onFocus={() => { setActiveIndex(index); setActiveSeries('completions'); }}
                 onBlur={() => { setActiveIndex(null); setActiveSeries(null); }}
                 tabIndex={0}
-                style={{ cursor: 'pointer', transition: 'all 0.15s ease' }}
+                style={{ cursor: 'pointer', animationDelay: `${index * 65 + 45}ms` }}
               >
                 <title>{`${row.period} completions: ${row.completions}`}</title>
               </rect>
@@ -597,7 +738,57 @@ function EducationTrend({ data, londonData, comparisonData = [], measureLabel }:
   const points = (series: EducationTrendPoint[]) => series.map((point, index) => `${x(index)},${y(point.value)}`).join(' ');
 
   return (
-    <svg className="block h-[285px] w-full" viewBox={`0 0 ${width} ${height}`} role="img" aria-label={`${measureLabel} five-year trend for London boroughs`}>
+    <>
+      <style>{`
+        @keyframes education-trend-line-enter {
+          from { stroke-dashoffset: 1; }
+          to { stroke-dashoffset: 0; }
+        }
+
+        @keyframes education-trend-point-enter {
+          from { opacity: 0.35; scale: 0.8; }
+          to { opacity: 1; scale: 1; }
+        }
+
+        @keyframes education-trend-london-enter {
+          from { opacity: 0.35; }
+          to { opacity: 1; }
+        }
+
+        .education-trend-primary-line {
+          animation: education-trend-line-enter 560ms cubic-bezier(0.22, 1, 0.36, 1) both;
+        }
+
+        .education-trend-comparison-line {
+          animation: education-trend-line-enter 560ms cubic-bezier(0.22, 1, 0.36, 1) 80ms both;
+        }
+
+        .education-trend-london-line {
+          animation: education-trend-london-enter 420ms ease-out both;
+        }
+
+        .education-trend-point {
+          transform-box: fill-box;
+          transform-origin: center;
+          animation: education-trend-point-enter 280ms ease-out both;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          .education-trend-primary-line,
+          .education-trend-comparison-line,
+          .education-trend-london-line,
+          .education-trend-point {
+            animation: none;
+          }
+        }
+      `}</style>
+      <svg
+        key={`${measureLabel}:${data.map((point) => `${point.label}-${point.value}`).join(',')}:${londonData.map((point) => `${point.label}-${point.value}`).join(',')}:${comparisonData.map((point) => `${point.label}-${point.value}`).join(',')}`}
+        className="block h-[285px] w-full"
+        viewBox={`0 0 ${width} ${height}`}
+        role="img"
+        aria-label={`${measureLabel} five-year trend for London boroughs`}
+      >
       <rect width={width} height={height} fill="#ffffff" />
       {ticks.map((tick) => (
         <g key={tick}>
@@ -606,19 +797,84 @@ function EducationTrend({ data, londonData, comparisonData = [], measureLabel }:
         </g>
       ))}
       <line x1={margin.left} y1={height - margin.bottom} x2={width - margin.right} y2={height - margin.bottom} stroke="#d8d5d0" />
-      <polyline points={points(londonData)} fill="none" stroke="#626b70" strokeWidth="1.8" strokeDasharray="5 5" />
-      {comparisonData.length > 0 ? <polyline points={points(comparisonData)} fill="none" stroke="#2875b8" strokeWidth="2" /> : null}
-      <polyline points={points(data)} fill="none" stroke="#8b1a1a" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" />
-      {londonData.map((point, index) => <circle key={`london-${point.label}`} cx={x(index)} cy={y(point.value)} r="3" fill="#fff" stroke="#626b70" strokeWidth="1.5"><title>{`London average, ${point.label}: ${point.value.toFixed(1)}`}</title></circle>)}
-      {comparisonData.map((point, index) => <circle key={`comparison-${point.label}`} cx={x(index)} cy={y(point.value)} r="3.5" fill="#2875b8"><title>{`Comparison borough, ${point.label}: ${point.value.toFixed(1)}`}</title></circle>)}
+      <polyline
+        className="education-trend-london-line"
+        points={points(londonData)}
+        fill="none"
+        stroke="#626b70"
+        strokeWidth="1.8"
+        strokeDasharray="5 5"
+      />
+      {comparisonData.length > 0 ? (
+        <polyline
+          className="education-trend-comparison-line"
+          pathLength="1"
+          strokeDasharray="1"
+          strokeDashoffset="1"
+          points={points(comparisonData)}
+          fill="none"
+          stroke="#2875b8"
+          strokeWidth="2"
+        />
+      ) : null}
+      <polyline
+        className="education-trend-primary-line"
+        pathLength="1"
+        strokeDasharray="1"
+        strokeDashoffset="1"
+        points={points(data)}
+        fill="none"
+        stroke="#8b1a1a"
+        strokeWidth="2.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      {londonData.map((point, index) => (
+        <circle
+          className="education-trend-point"
+          key={`london-${point.label}`}
+          cx={x(index)}
+          cy={y(point.value)}
+          r="3"
+          fill="#fff"
+          stroke="#626b70"
+          strokeWidth="1.5"
+          style={{ animationDelay: `${Math.min(index * 45, 180)}ms` }}
+        >
+          <title>{`London average, ${point.label}: ${point.value.toFixed(1)}`}</title>
+        </circle>
+      ))}
+      {comparisonData.map((point, index) => (
+        <circle
+          className="education-trend-point"
+          key={`comparison-${point.label}`}
+          cx={x(index)}
+          cy={y(point.value)}
+          r="3.5"
+          fill="#2875b8"
+          style={{ animationDelay: `${Math.min(index * 45 + 80, 260)}ms` }}
+        >
+          <title>{`Comparison borough, ${point.label}: ${point.value.toFixed(1)}`}</title>
+        </circle>
+      ))}
       {data.map((point, index) => (
         <g key={`borough-${point.label}`}>
-          <circle cx={x(index)} cy={y(point.value)} r="5" fill="#8b1a1a"><title>{`${point.label}: ${point.value.toFixed(1)}`}</title></circle>
+          <circle
+            className="education-trend-point"
+            cx={x(index)}
+            cy={y(point.value)}
+            r="5"
+            fill="#8b1a1a"
+            style={{ animationDelay: `${Math.min(index * 45 + 140, 320)}ms` }}
+          >
+            <title>{`${point.label}: ${point.value.toFixed(1)}`}</title>
+          </circle>
           <text x={x(index)} y={height - 12} textAnchor="middle" fill="#6b7280" fontSize="11">{point.label}</text>
         </g>
       ))}
       <text x="16" y={height / 2} textAnchor="middle" fill="#5f6b76" fontSize="11" transform={`rotate(-90 16 ${height / 2})`}>{measureLabel} score</text>
-    </svg>
+      </svg>
+    </>
   );
 }
 

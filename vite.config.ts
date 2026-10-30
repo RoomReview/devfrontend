@@ -11,16 +11,20 @@ const createSecurityPolicy = (apiUrl: string, isDevelopment: boolean) => {
   const connectSources = [
     "'self'",
     ...(apiOrigin ? [apiOrigin] : []),
+    'https://www.google-analytics.com',
+    'https://analytics.google.com',
+    'https://region1.google-analytics.com',
+    'https://www.googletagmanager.com',
     'https://nominatim.openstreetmap.org',
     ...(isDevelopment ? ['ws://localhost:3000'] : []),
   ];
 
   return [
     "default-src 'self'",
-    "script-src 'self'",
+    "script-src 'self' https://www.googletagmanager.com",
     "script-src-attr 'none'",
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-    "img-src 'self' data: blob: https://roomreview.co.uk https://www.roomreview.co.uk https://roomreview-lsoa-maps.lon1.digitaloceanspaces.com https://images.unsplash.com https://*.tile.openstreetmap.org",
+    "img-src 'self' data: blob: https://www.google-analytics.com https://roomreview.co.uk https://www.roomreview.co.uk https://roomreview-lsoa-maps.lon1.digitaloceanspaces.com https://images.unsplash.com https://*.tile.openstreetmap.org",
     "font-src 'self' data: https://fonts.gstatic.com",
     `connect-src ${[...new Set(connectSources)].join(' ')}`,
     "frame-src https://www.openstreetmap.org",

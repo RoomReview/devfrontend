@@ -19,7 +19,13 @@ const VerifyEmailPage = () => {
   const hasValidVerificationLink = Boolean(email) && /^\d{6}$/.test(linkedCode);
   const userType = searchParams.get("type") || "user";
   const subscriptionPlan = searchParams.get("subscriptionPlan");
+  const teamInviteToken = searchParams.get("teamInviteToken");
   const returnTo = getSafePostcodeReturnTo(searchParams.get("returnTo"));
+  const postVerificationDestination = teamInviteToken
+    ? `/team-invite?token=${encodeURIComponent(teamInviteToken)}`
+    : subscriptionPlan
+      ? `/pricing?checkoutPlan=${encodeURIComponent(subscriptionPlan)}`
+      : returnTo ?? '/account';
 
   const [code, setCode] = useState("");
   const [error, setError] = useState("");
@@ -34,11 +40,7 @@ const VerifyEmailPage = () => {
     verifyEmail(
       { email, code: linkedCode },
       {
-        onSuccess: () => navigate(
-          subscriptionPlan
-            ? `/pricing?checkoutPlan=${encodeURIComponent(subscriptionPlan)}`
-            : returnTo ?? (userType === 'agency' ? '/complete-profile' : '/account'),
-        ),
+        onSuccess: () => navigate(postVerificationDestination),
       },
     );
   }, [
@@ -46,7 +48,7 @@ const VerifyEmailPage = () => {
     hasValidVerificationLink,
     linkedCode,
     navigate,
-    returnTo,
+    postVerificationDestination,
     subscriptionPlan,
     userType,
     verifyEmail,
@@ -68,11 +70,7 @@ const VerifyEmailPage = () => {
     verifyEmail(
       { email, code },
       {
-        onSuccess: () => navigate(
-          subscriptionPlan
-            ? `/pricing?checkoutPlan=${encodeURIComponent(subscriptionPlan)}`
-            : returnTo ?? (userType === 'agency' ? '/complete-profile' : '/account'),
-        ),
+        onSuccess: () => navigate(postVerificationDestination),
       },
     );
   };

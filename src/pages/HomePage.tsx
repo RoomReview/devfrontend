@@ -9,6 +9,7 @@ import { BarChart3, Bus, Home, Search, Shield, Star, ThumbsDown, ThumbsUp, TreeP
 import { boroughService } from '@/services/borough.service';
 import type { BoroughApiResponse } from '@/types/borough.types';
 import type { PostcodeReviewAction } from '@/utils/helpers';
+import SeoMetadata from '@/components/common/SeoMetadata';
 
 export const LandingPage: FC = () => {
   const navigate = useNavigate();
@@ -138,34 +139,34 @@ export const LandingPage: FC = () => {
 
   const reviews = [
     {
-      location: 'SW9 – Brixton',
-      rating: 4,
-      text: 'Lorem ipsum dolor sit amet consectetur. In hac velit tellus lorem non nisl arcu sed aliquam. Justo nisi ut auctor faucibus velit. Pharetra ultrices volutpat cras sed turpis urna etiam iaculis a. Et morbi consequat tincidunt ultrices quis.',
-      pros: 'Lorem ipsum dolor sit amet consectetur. In hac velit tellus lorem non nisl arcu sed aliquam.',
-      cons: 'Lorem ipsum dolor sit amet consectetur. In hac velit tellus lorem non nisl arcu sed aliquam.',
+      location: 'BR1 1AA – Bromley',
+      rating: 5,
+      text: 'A lively neighbourhood with plenty to discover. I enjoy the local character and the choice of places to eat, shop and unwind.',
+      pros: 'A welcoming feel, lots of local character and plenty to explore.',
+      cons: 'Some spots can feel lively at busy times, but there is always somewhere quieter nearby.',
       author: 'James Moris',
-      time: '2 days ago',
+      time: '2 month ago',
       avatar: null,
     },
     {
-      location: 'NW2 4FM – Camden',
-      rating: 4,
-      text: 'Lorem ipsum dolor sit amet consectetur. In hac velit tellus lorem non nisl arcu sed aliquam.',
-      pros: 'Lorem ipsum dolor sit amet consectetur. In hac velit tellus lorem non nisl arcu sed aliquam.',
-      cons: 'Lorem ipsum dolor sit amet consectetur. In hac velit tellus lorem non nisl arcu sed aliquam.',
+      location: 'CR2 8SZ – Croydon',
+      rating: 5,
+      text: 'A great base for everyday life, with a friendly atmosphere and a nice balance between local convenience and places to explore.',
+      pros: 'Everyday essentials close by and a pleasant neighbourhood feel.',
+      cons: 'Popular areas can get busy, especially during the day.',
       author: 'Anonymous',
-      time: '2 months ago',
+      time: '1 week ago',
       avatar: null,
     },
     {
-      location: 'SE22 0RS – Southwark',
-      rating: 3,
-      text: 'Lorem ipsum dolor sit amet consectetur. In hac velit tellus lorem non nisl arcu sed aliquam.',
-      pros: 'Lorem ipsum dolor sit amet consectetur. In hac velit tellus lorem non nisl arcu sed aliquam.',
-      cons: 'Lorem ipsum dolor sit amet consectetur.',
+      location: 'HA7 4TJ – Harrow',
+      rating: 5,
+      text: 'A lovely area to come home to, with a strong sense of local character and plenty of little places that make daily life enjoyable.',
+      pros: 'Distinctive local character, welcoming atmosphere and enjoyable places to visit.',
+      cons: 'It can be lively at peak times, which adds to the buzz but may not suit everyone.',
       author: 'Anastasia Kosheva',
-      time: '14 February 2025',
-      avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80',
+      time: '2 month ago',
+      avatar: null,
     },
   ];
 
@@ -195,6 +196,11 @@ export const LandingPage: FC = () => {
 
   return (
     <div className="min-h-screen bg-white font-sans text-[#2B363B] antialiased">
+      <SeoMetadata
+        title="RoomReview | UK postcode, borough and property insight"
+        description="Explore UK postcodes and London boroughs with local reviews, housing data and neighbourhood insights from RoomReview."
+        path="/"
+      />
       
       {/* 1. HERO SECTION */}
       <section className="mx-auto max-w-[1100px] px-6 py-16">
@@ -243,6 +249,8 @@ export const LandingPage: FC = () => {
               src={heroImage}
               alt="Property"
               className="h-[360px] w-full object-cover"
+              fetchPriority="high"
+              decoding="async"
             />
             
             {/* Floating Card: RoomReview Score */}
@@ -364,10 +372,6 @@ export const LandingPage: FC = () => {
                   ))}
                 </div>
                 <p className="text-[11px] text-[#4A5568] leading-relaxed">{rev.text}</p>
-                {i === 0 && (
-                  <button className="text-[11px] font-semibold text-blue-600 hover:underline">Read more</button>
-                )}
-
                 {/* Pros & Cons */}
                 <div className="space-y-2 pt-2 border-t border-gray-50 text-[11px]">
                   <div className="space-y-1">
@@ -414,6 +418,8 @@ export const LandingPage: FC = () => {
                 src={experienceImage}
                 alt="London House"
                 className="h-full w-full object-cover"
+                loading="lazy"
+                decoding="async"
               />
             </div>
 
@@ -546,7 +552,7 @@ export const LandingPage: FC = () => {
                 </div>
 
                 <div className="rounded-xl bg-blue-50/60 p-3 space-y-1 border border-blue-100">
-                  <Bus className="h-4 w-4 text-blue-600" />
+                  <Home className="h-4 w-4 text-blue-600" />
                   <span className="block text-xs font-bold text-[#1A202C]">{formatMonthlyRent(averageRent)}</span>
                   <span className="block text-[9px] text-gray-500 leading-tight">Average monthly rent</span>
                 </div>
@@ -677,6 +683,8 @@ export const LandingPage: FC = () => {
                     src={blog.image}
                     alt={blog.title}
                     className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
+                    loading="lazy"
+                    decoding="async"
                   />
                 </div>
                 <div className="p-5 space-y-3">

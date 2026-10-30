@@ -19,6 +19,7 @@ const LoginPage = () => {
   const [searchParams] = useSearchParams();
   const { mutate: login, isPending } = useLogin();
   const subscriptionPlan = searchParams.get('subscriptionPlan');
+  const teamInviteToken = searchParams.get('teamInviteToken');
   const returnTo = getSafePostcodeReturnTo(searchParams.get('returnTo'));
 
   const startSsoLogin = (provider: 'google' | 'facebook') => {
@@ -38,9 +39,11 @@ const LoginPage = () => {
       { email, password },
       {
         onSuccess: () => navigate(
-          subscriptionPlan
+          teamInviteToken
+            ? `/team-invite?token=${encodeURIComponent(teamInviteToken)}`
+            : subscriptionPlan
             ? `/pricing?checkoutPlan=${encodeURIComponent(subscriptionPlan)}`
-            : returnTo ?? '/',
+            : returnTo ?? '/account',
         ),
       },
     );
@@ -56,7 +59,9 @@ const LoginPage = () => {
       <Body className="mb-6 sm:mb-8 text-sm sm:text-base">
         Don't have an account?{' '}
         <Link
-          to={subscriptionPlan
+          to={teamInviteToken
+            ? `/register?inviteToken=${encodeURIComponent(teamInviteToken)}&email=${encodeURIComponent(searchParams.get('teamInviteEmail') ?? '')}`
+            : subscriptionPlan
             ? `/register?subscriptionPlan=${encodeURIComponent(subscriptionPlan)}${returnTo ? `&returnTo=${encodeURIComponent(returnTo)}` : ''}`
             : returnTo ? `/register?returnTo=${encodeURIComponent(returnTo)}` : '/register'}
           className="text-primary font-semibold hover:underline"

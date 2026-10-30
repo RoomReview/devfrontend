@@ -34,4 +34,9 @@ export const blogService = {
     const response = await apiClient.get<{ data: BlogPost }>(`/blog/posts/${encodeURIComponent(id)}`);
     return response.data.data;
   },
+
+  getPostBySlug: async (slug: string): Promise<BlogPost> => {
+    const response = await apiClient.get<{ data: BlogPost }>(`/blog/posts/slug/${encodeURIComponent(slug)}`);
+    return response.data.data;
+  },
 };

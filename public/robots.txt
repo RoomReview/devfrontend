@@ -1,0 +1,33 @@
+User-agent: *
+Allow: /
+Disallow: /account
+Disallow: /admin
+Disallow: /login
+Disallow: /register
+Disallow: /verify-email
+Disallow: /email-verified
+Disallow: /forgot-password
+Disallow: /auth/
+Disallow: /reset-password
+Disallow: /password-reset-
+Disallow: /checkout/
+Disallow: /report/view
+Disallow: /investor-report/view
+
+User-agent: OAI-SearchBot
+Allow: /
+Disallow: /account
+Disallow: /admin
+Disallow: /login
+Disallow: /register
+Disallow: /verify-email
+Disallow: /email-verified
+Disallow: /forgot-password
+Disallow: /auth/
+Disallow: /reset-password
+Disallow: /password-reset-
+Disallow: /checkout/
+Disallow: /report/view
+Disallow: /investor-report/view
+
+Sitemap: https://roomreview.co.uk/sitemap.xml

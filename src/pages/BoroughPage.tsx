@@ -9,8 +9,9 @@ import { boroughService, type BoroughListItem } from '@/services/borough.service
 import { votingDataService, type VotingDataRecord } from '@/services/voting-data.service';
 import type { BoroughApiResponse } from '@/types/borough.types';
 import boroughImages from '@/config/boroughImages';
-import boroughFallbackImage from '@img/city.jpg';
+import boroughFallbackImage from '@img/city.webp';
 import { getBoroughRentTrend } from '@/utils/boroughRentTrend';
+import SeoMetadata from '@/components/common/SeoMetadata';
 
 export default function BoroughPage() {
   const { id } = useParams<{ id?: string }>();
@@ -554,8 +555,51 @@ export default function BoroughPage() {
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] text-slate-900 pb-20 font-sans">
+      <style>{`
+        @keyframes borough-rent-enter {
+          from { opacity: 0; transform: translateY(12px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+
+        .borough-rent-enter {
+          animation: borough-rent-enter 420ms ease-out both;
+        }
+
+        @keyframes borough-rent-line-draw {
+          from { stroke-dashoffset: 1; }
+          to { stroke-dashoffset: 0; }
+        }
+
+        @keyframes borough-rent-point-appear {
+          from { opacity: 0; scale: 0.6; }
+          to { opacity: 1; scale: 1; }
+        }
+
+        .borough-rent-line-draw {
+          animation: borough-rent-line-draw 700ms cubic-bezier(0.22, 1, 0.36, 1) both;
+        }
+
+        .borough-rent-point-appear {
+          transform-box: fill-box;
+          transform-origin: center;
+          animation: borough-rent-point-appear 320ms ease-out both;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          .borough-rent-enter,
+          .borough-rent-line-draw,
+          .borough-rent-point-appear {
+            animation: none;
+          }
+        }
+      `}</style>
+      <SeoMetadata
+        title={`${heroTitle} Borough Guide: Housing, Safety and Local Data | RoomReview`}
+        description={`Explore ${heroTitle} housing, safety, education and neighbourhood data, with local area insights from RoomReview.`}
+        path={`/borough/${boroughApi.slug}`}
+      />
       <div className="relative h-64 md:h-80 w-full overflow-hidden bg-slate-200">
-        <img src={heroImage} alt={`${heroTitle} borough`} className="absolute inset-0 h-full w-full object-cover" onError={() => setHeroImage(boroughFallbackImage)} />
+        <img src={heroImage} alt={`${heroTitle} borough`} className="absolute inset-0 h-full w-full object-cover" fetchPriority="high" decoding="async" onError={() => setHeroImage(boroughFallbackImage)} />
         <div className="absolute inset-0 bg-black/40" />
         <div className="relative max-w-7xl mx-auto h-full flex flex-col justify-end p-6 md:p-12 text-white">
           <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight">{heroTitle}</h1>
@@ -590,7 +634,7 @@ export default function BoroughPage() {
           <div className="lg:col-span-5" aria-hidden="true" />
         </div>
 
-        {rentDataFiltered.length > 0 ? <section className="space-y-6 rounded-[12px] bg-white p-7 shadow-[0_1px_6px_rgba(0,0,0,0.07)]">
+        {rentDataFiltered.length > 0 ? <section className="borough-rent-enter space-y-6 rounded-[12px] bg-white p-7 shadow-[0_1px_6px_rgba(0,0,0,0.07)]">
           <div>
             <h2 className="text-[clamp(1.9rem,2vw,2.8rem)] font-black tracking-[-0.04em] text-[#1a1a1a]">Housing: Average Rent Price Trend</h2>
           </div>
@@ -661,7 +705,7 @@ export default function BoroughPage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <div key={selectedPropertyType} className="borough-rent-enter grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <div className="rounded-[12px] border border-slate-200 bg-[#f6f3ee] p-4 shadow-[inset_0_0_0_1px_rgba(146,123,92,0.04)]">
               <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">5-year price increase</div>
               <div className="mt-2 text-[clamp(2rem,2vw,3rem)] font-black tracking-[-0.05em] text-[#8B0000]">
@@ -686,7 +730,7 @@ export default function BoroughPage() {
           </div>
 
           <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,2.1fr)_minmax(280px,1fr)]">
-            <div className="rounded-[12px] border border-slate-200 bg-white p-4 shadow-sm">
+            <div key={`${selectedPropertyType}-${selectedComparisonIds.join(',')}`} className="borough-rent-enter rounded-[12px] border border-slate-200 bg-white p-4 shadow-sm">
               <div className="mb-3 text-[12px] font-bold text-[#555]">Average monthly rent (£)</div>
               <div className="h-[220px] w-full overflow-hidden">
                 {(() => {
@@ -741,11 +785,23 @@ export default function BoroughPage() {
                         const color = colorPalette[index % colorPalette.length];
 
                         return (
-                          <g key={`${series.name}-${index}`}>
-                            <path d={path} fill="none" stroke={color} strokeWidth="3" strokeLinejoin="round" strokeLinecap="round" />
-                            {points.map((point) => (
+                          <g key={`${series.name}-${index}-${selectedPropertyType}-${selectedComparisonIds.join(',')}`}>
+                            <path
+                              className="borough-rent-line-draw"
+                              pathLength="1"
+                              strokeDasharray="1"
+                              strokeDashoffset="1"
+                              d={path}
+                              fill="none"
+                              stroke={color}
+                              strokeWidth="3"
+                              strokeLinejoin="round"
+                              strokeLinecap="round"
+                            />
+                            {points.map((point, pointIndex) => (
                               <g key={`${series.name}-${point.year}`}>
                                 <circle
+                                  className="borough-rent-point-appear"
                                   cx={point.x}
                                   cy={point.y}
                                   r={hoveredDataPoint?.seriesName === series.name && hoveredDataPoint.year === point.year ? 7 : 5}
@@ -754,7 +810,7 @@ export default function BoroughPage() {
                                   strokeWidth={hoveredDataPoint?.seriesName === series.name && hoveredDataPoint.year === point.year ? 4 : 3}
                                   onMouseEnter={() => setHoveredDataPoint({ seriesName: series.name, year: point.year, value: point.value, x: point.x, y: point.y })}
                                   onMouseLeave={() => setHoveredDataPoint(null)}
-                                  style={{ cursor: 'pointer' }}
+                                  style={{ cursor: 'pointer', animationDelay: `${Math.min(pointIndex * 55, 275)}ms` }}
                                 />
                               </g>
                             ))}
@@ -813,11 +869,6 @@ export default function BoroughPage() {
               <div className="flex-1 text-[14px] leading-[1.5] text-[#1a1a1a]">
                 <div className="font-bold">Data &amp; Reports</div>
                 <div className="text-[#555]">Full data access available in the property industry. Full Bromley data report available.</div>
-              </div>
-              <div className="ml-auto">
-                <button type="button" className="rounded-[8px] bg-[#8B0000] px-4 py-2 text-[11px] font-bold uppercase tracking-[0.08em] text-white shadow-sm transition hover:bg-[#6f0000]">
-                  VIEW FULL BROMLEY REPORT
-                </button>
               </div>
             </div>
           </section>

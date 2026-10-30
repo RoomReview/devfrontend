@@ -25,15 +25,18 @@ const RegisterPage = () => {
   const [searchParams] = useSearchParams();
   const { mutate: register, isPending, error, reset } = useRegister();
   const subscriptionPlan = searchParams.get('subscriptionPlan');
+  const inviteToken = searchParams.get('inviteToken');
+  const isTeamInvite = Boolean(inviteToken);
   const returnTo = getSafePostcodeReturnTo(searchParams.get('returnTo'));
 
-  const [userType, setUserType] = useState<UserType>('user');
+  const [userType, setUserType] = useState<UserType>(isTeamInvite ? 'agent' : 'user');
   const [emailError, setEmailError] = useState('');
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
     companyName: '',
-    email: '',
+    agencyPhone: '',
+    email: searchParams.get('email') ?? '',
     password: '',
     confirmPassword: '',
   });
@@ -69,8 +72,10 @@ const RegisterPage = () => {
         email: formData.email,
         password: formData.password,
         role: ROLE_MAP[userType],
-        ...(userType === 'agency' && {
+        ...(inviteToken && { inviteToken }),
+        ...(!isTeamInvite && (userType === 'agency' || userType === 'agent') && {
           agencyName: formData.companyName,
+          agencyPhone: formData.agencyPhone,
         }),
       },
       {
@@ -79,6 +84,7 @@ const RegisterPage = () => {
             email: formData.email,
             type: userType,
           });
+          if (inviteToken) verificationParams.set('teamInviteToken', inviteToken);
           if (subscriptionPlan) verificationParams.set('subscriptionPlan', subscriptionPlan);
           if (returnTo) verificationParams.set('returnTo', returnTo);
           navigate(`/verify-email?${verificationParams.toString()}`);
@@ -106,40 +112,69 @@ const RegisterPage = () => {
         <Link
           to={subscriptionPlan
             ? `/login?subscriptionPlan=${encodeURIComponent(subscriptionPlan)}${returnTo ? `&returnTo=${encodeURIComponent(returnTo)}` : ''}`
-            : returnTo ? `/login?returnTo=${encodeURIComponent(returnTo)}` : '/login'}
+            : isTeamInvite
+              ? `/login?teamInviteToken=${encodeURIComponent(inviteToken ?? '')}&teamInviteEmail=${encodeURIComponent(formData.email)}`
+              : returnTo ? `/login?returnTo=${encodeURIComponent(returnTo)}` : '/login'}
           className="text-primary font-bold hover:underline"
         >
           Sign In
         </Link>
       </Body>
+      {isTeamInvite && (
+        <p className="mb-5 rounded-lg bg-[#FFF9F0] p-3 text-sm text-[#1A2B3C]">
+          You have been invited to join a team. Register with the invited email address to accept.
+        </p>
+      )}
       <Small className="mb-6 text-gray-dark/70">{descriptions[userType]}</Small>
+      {(userType === 'user' || userType === 'landlord') && (
+        <p className="mb-5 text-sm font-semibold text-[#1A2B3C]">
+          Register to receive one free trial report.
+        </p>
+      )}
 
-      <div className="flex mb-6 border-b border-gray-light">
-        {(['user', 'agency', 'agent', 'landlord'] as UserType[]).map((type) => (
-          <button
-            key={type}
-            type="button"
-            onClick={() => setUserType(type)}
-            className={`flex-1 pb-2 text-sm sm:text-base font-bold capitalize transition-all border-b-2 -mb-[1px] ${
-              userType === type
-                ? 'text-black border-primary'
-                : 'text-gray-dark/40 border-transparent hover:text-gray-dark'
-            }`}
-          >
-            {type}
-          </button>
-        ))}
-      </div>
+      {!isTeamInvite && (
+        <div className="flex mb-6 border-b border-gray-light">
+          {(['user', 'agency', 'agent', 'landlord'] as UserType[]).map((type) => (
+            <button
+              key={type}
+              type="button"
+              onClick={() => setUserType(type)}
+              className={`flex-1 pb-2 text-sm sm:text-base font-bold capitalize transition-all border-b-2 -mb-[1px] ${
+                userType === type
+                  ? 'text-black border-primary'
+                  : 'text-gray-dark/40 border-transparent hover:text-gray-dark'
+              }`}
+            >
+              {type}
+            </button>
+          ))}
+        </div>
+      )}
 
       <form onSubmit={handleSubmit} className="space-y-4">
-        {(userType === 'agency' || userType === 'agent') && (
-          <Input
-            label="Agency / Company name"
-            name="companyName"
-            placeholder="Agency / Company Name"
-            value={formData.companyName}
-            onChange={handleChange}
-          />
+        {!isTeamInvite && (userType === 'agency' || userType === 'agent') && (
+          <>
+            <Input
+              label="Agency / Company name"
+              name="companyName"
+              placeholder="Agency / Company Name"
+              value={formData.companyName}
+              onChange={handleChange}
+              maxLength={150}
+              required
+            />
+            <Input
+              label="Phone number"
+              type="tel"
+              name="agencyPhone"
+              autoComplete="tel"
+              placeholder="+44 20 1234 5678"
+              value={formData.agencyPhone}
+              onChange={handleChange}
+              maxLength={50}
+              required
+            />
+          </>
         )}
 
         <div className="flex flex-col sm:flex-row gap-4">
@@ -167,6 +202,7 @@ const RegisterPage = () => {
             placeholder="Email@domain.com"
             value={formData.email}
             onChange={handleChange}
+            readOnly={isTeamInvite}
           />
           {emailError ? (
             <Small className="mt-1.5 text-red-600">{emailError}</Small>

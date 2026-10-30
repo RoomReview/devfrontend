@@ -311,6 +311,22 @@ export default function BoroughInsightsPanel({ borough }: { borough: BoroughApiR
 
   return (
     <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm" aria-label={`${borough.name} borough data summary`}>
+      <style>{`
+        @keyframes borough-insight-content-enter {
+          from { opacity: 0.7; }
+          to { opacity: 1; }
+        }
+
+        .borough-insight-content-enter {
+          animation: borough-insight-content-enter 220ms ease-out both;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          .borough-insight-content-enter {
+            animation: none;
+          }
+        }
+      `}</style>
       <header className="border-b border-slate-200 px-5 pt-5 sm:px-6">
         <h2 className="text-xl font-extrabold text-slate-950">Local plan summary</h2>
         <p className="mt-1 pb-4 text-sm text-slate-500">Housing, infrastructure, education and policing for {borough.name}.</p>
@@ -332,7 +348,12 @@ export default function BoroughInsightsPanel({ borough }: { borough: BoroughApiR
         </nav>
       </header>
 
-      <div className="space-y-5 p-5 sm:p-6" id="borough-insight-panel" role="tabpanel">
+      <div
+        key={`${activeTab}:${activeTab === 'housing' ? housingView : activeTab === 'education' ? educationView : activeTab === 'policing' ? policingView : ''}`}
+        className="borough-insight-content-enter space-y-5 p-5 sm:p-6"
+        id="borough-insight-panel"
+        role="tabpanel"
+      >
         {activeTab === 'housing' ? (
           <div className="space-y-5">
             <header className="flex flex-wrap items-end justify-between gap-3">

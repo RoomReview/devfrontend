@@ -12,6 +12,8 @@ import { scoreReportService } from '@/services/score-report.service';
 import { savedSearchService, type SavedSearch } from '@/services/saved-search.service';
 import { queryKeys } from '@/lib/queryKeys';
 import { extractApiError } from '@/utils/apiError';
+import { trackAnalyticsEvent } from '@/lib/cookieConsent';
+import SeoMetadata from '@/components/common/SeoMetadata';
 
 const reviewRatingCategories = [
   { key: 'safety_rating', label: 'Safety' },
@@ -348,6 +350,7 @@ const PostcodePage = () => {
         postcode_id: postcodeData.postcodeId,
         borough_id: postcodeData.boroughId,
       });
+      trackAnalyticsEvent('review_submission');
       await queryClient.invalidateQueries({
         queryKey: queryKeys.postcodeReviews(postcodeData.postcodeId),
       });
@@ -483,6 +486,11 @@ const PostcodePage = () => {
 
   return (
     <div className="min-h-screen bg-white">
+      <SeoMetadata
+        title={`${postcodeData?.code ?? normalized} Area Guide and Reviews | RoomReview`}
+        description={`Explore reviews, safety data, rent and neighbourhood insights for ${postcodeData?.code ?? normalized}${data?.borough?.name ? ` in ${data.borough.name}` : ''}.`}
+        path={postcodePath(normalized)}
+      />
       <section className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
         <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
           <div>

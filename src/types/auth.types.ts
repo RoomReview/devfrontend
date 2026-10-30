@@ -19,6 +19,7 @@ export interface RegisterRequest {
   email: string;
   password: string;
   role: UserRole;
+  inviteToken?: string;
   /** Required when role is AGENCY */
   agencyName?: string;
   agencyDescription?: string;
@@ -94,15 +95,18 @@ export interface EarlyAccessRegisterRequest {
   lastName: string;
   email: string;
   password: string;
+  role: Extract<UserRole, 'AGENCY' | 'AGENT'>;
+  agencyName: string;
+  agencyPhone: string;
 }
 
 export interface EarlyAccessRegisterResponse {
   data: {
     user: AuthUser & {
-      trialStartedAt: string;
-      trialEndsAt: string;
+      trialStartedAt: string | null;
+      trialEndsAt: string | null;
     };
-    trialEndsAt: string;
+    trialEndsAt: string | null;
     emailSent: boolean;
   };
 }

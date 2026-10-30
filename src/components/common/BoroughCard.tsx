@@ -19,7 +19,7 @@ const BoroughCard = ({
   const content = (
     <article className="w-full max-w-xl rounded-[24px] overflow-hidden border border-[#E5DCD5] bg-white shadow-sm hover:shadow-lg transition-shadow focus-within:ring-2 focus-within:ring-[#8B0202]">
       <div className="relative aspect-[16/9] w-full overflow-hidden">
-        <img src={imageSrc} alt={name} className="block h-full w-full object-cover" />
+        <img src={imageSrc} alt={name} className="block h-full w-full object-cover" loading="lazy" decoding="async" />
       </div>
       <div className="p-6">
         <p className="text-sm text-[#8B0202] font-semibold uppercase tracking-[0.2em] mb-2">{zones}</p>

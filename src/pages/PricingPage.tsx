@@ -3,7 +3,7 @@ import { Building2, Check, Star, UserRound, UsersRound } from 'lucide-react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/components/common/Toast';
-import { paymentService } from '@/services/payment.service';
+import { paymentService, type BillingStatus } from '@/services/payment.service';
 import { extractApiError } from '@/utils/apiError';
 
 type PricingPlanId = 'individual' | 'small-team' | 'branch';
@@ -13,6 +13,7 @@ const plans = [
     id: 'individual' as const,
     people: 1,
     total: 35,
+    monthlyReports: 20,
     name: 'Individual Agent',
     description: 'For independent agents and negotiators.',
     Icon: UserRound,
@@ -21,6 +22,7 @@ const plans = [
     id: 'small-team' as const,
     people: 5,
     total: 149,
+    monthlyReports: 60,
     name: 'Small Team',
     description: 'For growing agencies and small teams.',
     Icon: UsersRound,
@@ -30,6 +32,7 @@ const plans = [
     id: 'branch' as const,
     people: 10,
     total: 249,
+    monthlyReports: 110,
     name: 'Branch',
     description: 'For established agencies and multiple branches.',
     Icon: Building2,
@@ -46,7 +49,7 @@ const formatPrice = (amount: number) =>
   new Intl.NumberFormat('en-GB', {
     style: 'currency',
     currency: 'GBP',
-    maximumFractionDigits: 0,
+    maximumFractionDigits: 2,
   }).format(amount);
 
 const isPricingPlanId = (value: string | null): value is PricingPlanId =>
@@ -58,7 +61,23 @@ const PricingPage = () => {
   const { isAuthenticated, loading: authLoading } = useAuth();
   const { showToast } = useToast();
   const [processingPlan, setProcessingPlan] = useState<PricingPlanId | null>(null);
+  const [earlyAccessDiscountEligible, setEarlyAccessDiscountEligible] = useState(false);
   const handledCheckoutPlan = useRef<PricingPlanId | null>(null);
+
+  useEffect(() => {
+    if (authLoading || !isAuthenticated) return;
+    let cancelled = false;
+    void paymentService.getBilling()
+      .then((billing: BillingStatus) => {
+        if (!cancelled) setEarlyAccessDiscountEligible(billing.earlyAccessDiscountEligible);
+      })
+      .catch((error) => {
+        if (!cancelled) showToast(extractApiError(error), 'error');
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [authLoading, isAuthenticated, showToast]);
 
   const startCheckout = useCallback(async (planId: PricingPlanId) => {
     setProcessingPlan(planId);
@@ -100,17 +119,23 @@ const PricingPage = () => {
   return (
   <main className="min-h-screen bg-[#F8F4F1] px-4 py-12 sm:px-6 sm:py-16 lg:px-8">
     <div className="mx-auto max-w-6xl">
-      <header className="mx-auto max-w-2xl text-center">
-        <h1 className="text-3xl font-black tracking-tight text-[#1A2B3C] sm:text-4xl">
-          Property intelligence for every agent
+      <section aria-labelledby="agent-sign-up-heading" className="mx-auto max-w-3xl text-center">
+        <h1 id="agent-sign-up-heading" className="text-3xl font-black tracking-tight text-[#1A2B3C] sm:text-4xl">
+          Property intelligence for every agent Join 50+ agency
         </h1>
         <p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-slate-600 sm:text-base">
           Generate professional area reports and give clients the local insights they need to make confident property decisions.
         </p>
-      </header>
+        <a
+          href="#pricing-plans"
+          className="mt-6 inline-flex min-h-11 items-center justify-center rounded-lg bg-[#A20B0B] px-6 py-3 text-sm font-bold text-white transition-colors hover:bg-[#810707] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#A20B0B]"
+        >
+          Choose your plan
+        </a>
+      </section>
 
-      <div className="mt-10 grid items-stretch gap-5 md:grid-cols-3 md:gap-4">
-        {plans.map(({ id, people, total, name, description, Icon, popular }) => (
+      <div id="pricing-plans" className="mt-10 grid scroll-mt-8 items-stretch gap-5 md:grid-cols-3 md:gap-4">
+        {plans.map(({ id, people, total, monthlyReports, name, description, Icon, popular }) => (
           <section
             key={people}
             aria-labelledby={`plan-${people}-title`}
@@ -140,14 +165,34 @@ const PricingPage = () => {
             </div>
 
             <p className="mt-5 border-b border-[#ECE7E3] pb-3 text-3xl font-black text-[#A20B0B]">
-              {formatPrice(total)}
-              <span className="ml-2 text-sm font-medium text-slate-500">/ month</span>
+              {earlyAccessDiscountEligible ? (
+                <>
+                  <span className="mr-2 text-lg font-semibold text-slate-400 line-through">{formatPrice(total)}</span>
+                  {formatPrice(total / 2)}
+                </>
+              ) : formatPrice(total)}
+              <span className="ml-2 text-sm font-medium text-slate-500">
+                {earlyAccessDiscountEligible ? '/ first month' : '/ month'}
+              </span>
             </p>
+            <p className="mt-3 text-sm font-bold text-[#1A2B3C]">
+              Reports included per month: {monthlyReports}
+            </p>
+            <p className="mt-1 text-xs leading-5 text-slate-500">
+              Shared across the account owner and team; unused reports roll over.
+            </p>
+            {earlyAccessDiscountEligible && (
+              <p className="mt-2 text-xs font-semibold text-[#A20B0B]">
+                50% off your first month, then {formatPrice(total)} per month.
+              </p>
+            )}
 
             <ul className="mt-3 space-y-2 text-xs leading-4 text-slate-600 sm:text-sm">
               <li className="flex items-center gap-2">
                 <Check className="h-4 w-4 shrink-0 text-[#B23A3A]" aria-hidden="true" />
-                {people === 1 ? '1 user (agent)' : `Up to ${people} users (agents)`}
+                {people === 1
+                  ? '1 invited team member, plus the account owner'
+                  : `Up to ${people} invited team members, plus the account owner`}
               </li>
               <li className="flex items-center gap-2">
                 <Check className="h-4 w-4 shrink-0 text-[#B23A3A]" aria-hidden="true" />
@@ -179,7 +224,7 @@ const PricingPage = () => {
       <aside className="mt-6 flex flex-col items-center justify-center gap-2 border-t border-[#E5DCD5] pt-4 text-center text-xs leading-5 text-slate-600 sm:flex-row sm:gap-3">
         <UsersRound className="h-5 w-5 shrink-0 text-[#B23A3A]" aria-hidden="true" />
         <p>
-          Each plan includes access for the number of users shown. Need more than 10 users?{' '}
+          Each plan includes the shown number of invited team members; the account owner does not use a seat. Need more than 10 team members?{' '}
           <Link to="/contact" className="font-semibold text-[#A20B0B] underline underline-offset-2">
             Contact us for agency pricing
           </Link>

@@ -7,24 +7,24 @@ import { extractApiError } from '@/utils/apiError';
 import { H1, H2, H3, Body } from '../components/common/Typography';
 import Button from '../components/common/Button';
 
-import heroImage from '@img/3943474de3cacbeadcd921662ef36656d7b2740e.jpg';
-import communityImage from '@img/b3f887ea2c439857b8501264d689869cf54fd421.png';
-import neighbourhoodImage from '@img/af432de379ac10cea142202121cefffd5457157e.png';
-import localImage from '@img/fa0f8a56b19d70afad2601dab96005bee78e6451.png';
-import sceneImage1 from '@img/5f5064b20e73e98611517a7211ef41b6b55ef53e.png';
+import heroImage from '@img/3943474de3cacbeadcd921662ef36656d7b2740e.webp';
+import communityImage from '@img/b3f887ea2c439857b8501264d689869cf54fd421.webp';
+import neighbourhoodImage from '@img/af432de379ac10cea142202121cefffd5457157e.webp';
+import localImage from '@img/fa0f8a56b19d70afad2601dab96005bee78e6451.webp';
+import sceneImage1 from '@img/5f5064b20e73e98611517a7211ef41b6b55ef53e.webp';
 import AccessibleIcon from '@img/Accessible.png';
 import StructuredIcon from '@img/Structured.png';
 import ActionableIcon from '@img/Actionable.png';
-import FedericoImage from '@img/CEO.png';
+import FedericoImage from '@img/CEO.webp';
 import YuliiaImage from '@img/COO.png';
-import MichaelImage from '@img/Designer.png';
-import IrinaImage from '@img/UX UI Designer.png';
-import TereseImage from '@img/UI Disigner.png';
-import AlamkheerImage from '@img/Software engineer (2).png';
-import MubtasinImage from '@img/Data Engineer (2).png';
-import FrederickImage from '@img/Data engineer.png';
+import MichaelImage from '@img/Designer.webp';
+import IrinaImage from '@img/UX UI Designer.webp';
+import TereseImage from '@img/UI Disigner.webp';
+import AlamkheerImage from '@img/Software engineer (2).webp';
+import MubtasinImage from '@img/Data Engineer (2).webp';
+import FrederickImage from '@img/Data engineer.webp';
 import FullstackImage from '@img/Fullstack Tech Lead.png';
-import JoyImage from '@img/Project Manger.png';
+import JoyImage from '@img/Project Manger.webp';
 import LinkedInImage from '@img/LinkIN.png';
 
 const FAQ_ITEMS = [
@@ -135,6 +135,8 @@ const ContributorCard = ({ person, founder = false }: { person: Contributor; fou
         src={person.image}
         alt={person.name}
         className={`h-full w-full max-h-full max-w-full bg-white object-center ${founder ? 'object-cover' : 'object-contain'}`}
+        loading="lazy"
+        decoding="async"
       />
     </div>
     <div className="pt-3">
@@ -168,7 +170,9 @@ const AboutPage = () => {
   const [earlyAccessOpen, setEarlyAccessOpen] = useState(false);
   const [earlyAccessPending, setEarlyAccessPending] = useState(false);
   const [earlyAccessError, setEarlyAccessError] = useState<string | null>(null);
-  const { isAuthenticated } = useAuth();
+  const [earlyAccessRole, setEarlyAccessRole] = useState<'AGENCY' | 'AGENT'>('AGENCY');
+  const { user, loading: authLoading } = useAuth();
+  const isAgencyOrAgent = user?.role === 'AGENCY' || user?.role === 'AGENT';
   const navigate = useNavigate();
 
   const handleEarlyAccessSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -184,9 +188,12 @@ const AboutPage = () => {
         lastName: String(formData.get('lastName') ?? '').trim(),
         email,
         password: String(formData.get('password') ?? ''),
+        role: earlyAccessRole,
+        agencyName: String(formData.get('agencyName') ?? '').trim(),
+        agencyPhone: String(formData.get('agencyPhone') ?? '').trim(),
       });
       setEarlyAccessOpen(false);
-      navigate(`/verify-email?email=${encodeURIComponent(email)}&type=user`);
+      navigate(`/verify-email?email=${encodeURIComponent(email)}&type=${earlyAccessRole === 'AGENT' ? 'agent' : 'agency'}`);
     } catch (error) {
       setEarlyAccessError(extractApiError(error));
     } finally {
@@ -215,18 +222,23 @@ const AboutPage = () => {
                   Explore RoomReview
                 </Button>
               </Link>
-              {isAuthenticated ? (
-                <Button variant="secondary" size="lg" disabled>
-                  Join Early Access
-                </Button>
-              ) : (
+              {!authLoading && !user ? (
                 <Button variant="secondary" size="lg" type="button" onClick={() => setEarlyAccessOpen(true)}>
-                  Join Early Access
+                  Agency &amp; Agent Early Access
                 </Button>
-              )}
+              ) : !authLoading && isAgencyOrAgent ? (
+                <Button variant="secondary" size="lg" disabled>
+                  Early Access Active
+                </Button>
+              ) : null}
             </div>
-            {isAuthenticated ? (
-              <p className="text-sm font-semibold text-[#B02020]">You are already participating.</p>
+            {!authLoading && !user ? (
+              <p className="max-w-xl text-sm text-slate-600">
+                Register for early access and receive three reports. Get 50% off your first paid month; renewals are at the full price.
+              </p>
+            ) : null}
+            {isAgencyOrAgent ? (
+              <p className="text-sm font-semibold text-[#B02020]">Your agency or agent account is already registered.</p>
             ) : null}
           </div>
           <div className="rounded-[36px] overflow-hidden shadow-[0_40px_80px_rgba(20,22,33,0.08)] border border-[#EFE9E3]">
@@ -234,6 +246,8 @@ const AboutPage = () => {
               src={heroImage}
               alt="Street view"
               className="w-full h-[400px] object-cover"
+              fetchPriority="high"
+              decoding="async"
             />
           </div>
         </div>
@@ -261,9 +275,23 @@ const AboutPage = () => {
             >
               <X aria-hidden="true" className="h-5 w-5" />
             </button>
-            <h2 id="early-access-title" className="pr-10 text-2xl font-bold text-[#1A2B3C]">Join early access</h2>
-            <p className="mt-2 text-sm text-slate-600">Create your account and get 30 days of early access. We’ll email you a verification code before you can sign in.</p>
+            <h2 id="early-access-title" className="pr-10 text-2xl font-bold text-[#1A2B3C]">Agency &amp; agent early access</h2>
+            <p className="mt-2 text-sm text-slate-600">
+              For agencies and property agents. Register to receive three reports, plus 50% off your first paid month. Your monthly subscription renews at the full price after that. We’ll email you a verification code before you can sign in.
+            </p>
             <form onSubmit={handleEarlyAccessSubmit} className="mt-6 space-y-4">
+              <label className="block text-sm font-semibold text-slate-700">
+                Account type
+                <select
+                  name="role"
+                  value={earlyAccessRole}
+                  onChange={(event) => setEarlyAccessRole(event.target.value === 'AGENT' ? 'AGENT' : 'AGENCY')}
+                  className="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2.5 font-normal focus:border-[#B02020] focus:outline-none focus:ring-2 focus:ring-[#B02020]/20"
+                >
+                  <option value="AGENCY">Agency</option>
+                  <option value="AGENT">Property agent</option>
+                </select>
+              </label>
               <label className="block text-sm font-semibold text-slate-700">
                 First name
                 <input name="firstName" autoComplete="given-name" required maxLength={100} className="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2.5 font-normal focus:border-[#B02020] focus:outline-none focus:ring-2 focus:ring-[#B02020]/20" />
@@ -275,6 +303,14 @@ const AboutPage = () => {
               <label className="block text-sm font-semibold text-slate-700">
                 Email
                 <input name="email" type="email" autoComplete="email" required maxLength={254} className="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2.5 font-normal focus:border-[#B02020] focus:outline-none focus:ring-2 focus:ring-[#B02020]/20" />
+              </label>
+              <label className="block text-sm font-semibold text-slate-700">
+                Company name
+                <input name="agencyName" autoComplete="organization" required maxLength={150} className="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2.5 font-normal focus:border-[#B02020] focus:outline-none focus:ring-2 focus:ring-[#B02020]/20" />
+              </label>
+              <label className="block text-sm font-semibold text-slate-700">
+                Phone number
+                <input name="agencyPhone" type="tel" autoComplete="tel" required maxLength={50} className="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2.5 font-normal focus:border-[#B02020] focus:outline-none focus:ring-2 focus:ring-[#B02020]/20" />
               </label>
               <label className="block text-sm font-semibold text-slate-700">
                 Password
@@ -312,6 +348,7 @@ const AboutPage = () => {
                 alt="Scene outside home"
                 className="w-full h-[360px] object-cover"
                 loading="lazy"
+                decoding="async"
               />
             </div>
           </div>
@@ -322,6 +359,8 @@ const AboutPage = () => {
                 src={localImage}
                 alt="Neighbourhood overview"
                 className="w-full h-[360px] object-cover"
+                loading="lazy"
+                decoding="async"
               />
             </div>
             <div className="space-y-6">
@@ -358,6 +397,8 @@ const AboutPage = () => {
                 src={communityImage}
                 alt="People connected across neighbourhoods"
                 className="w-full h-[360px] object-cover"
+                loading="lazy"
+                decoding="async"
               />
             </div>
             <div className="space-y-6">
@@ -399,7 +440,7 @@ const AboutPage = () => {
                 className="rounded-[32px] bg-white p-10 shadow-[0_16px_32px_rgba(15,23,42,0.06)] min-h-[440px] flex flex-col items-center text-center"
               >
                 <div className="flex items-center justify-center rounded-[20px] bg-white h-24 w-24 mb-6">
-                  <img src={item.icon} alt={`${item.title} icon`} className="h-12 w-12 object-contain" />
+                  <img src={item.icon} alt={`${item.title} icon`} className="h-12 w-12 object-contain" loading="lazy" decoding="async" />
                 </div>
                 <p className="text-lg font-semibold text-[#1A2B3C] mb-4">{item.title}</p>
                 <Body className="text-[#4A4A4A] leading-7">{item.copy}</Body>

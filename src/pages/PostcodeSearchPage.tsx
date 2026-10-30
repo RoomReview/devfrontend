@@ -3,9 +3,11 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowDownUp, ChevronDown, ChevronLeft, ChevronRight, Home, Plus, Shield, Star, TrendingUp } from 'lucide-react';
 import { H1, Body, Small } from '../components/common/Typography';
 import Button from '../components/common/Button';
-import heroImage from '@img/city.jpg';
+import heroImage from '@img/city.webp';
 import { postcodeAreaReportPath, postcodePath, postcodeReviewPath, type PostcodeReviewAction } from '@/utils/helpers';
-import { postcodeService, type PostcodeListItem } from '@/services/postcode.service';
+import { postcodeService, type PostcodeListItem, type PostcodeSort } from '@/services/postcode.service';
+import { trackAnalyticsEvent } from '@/lib/cookieConsent';
+import SeoMetadata from '@/components/common/SeoMetadata';
 
 const formatCurrency = (value: number) => new Intl.NumberFormat('en-GB', {
   style: 'currency',
@@ -13,7 +15,6 @@ const formatCurrency = (value: number) => new Intl.NumberFormat('en-GB', {
   maximumFractionDigits: 0,
 }).format(value);
 
-type PostcodeSort = 'alphabetical-asc' | 'alphabetical-desc' | 'crime-asc' | 'crime-desc' | 'price-asc' | 'price-desc' | 'rating-desc';
 type CrimeFilter = 'all' | 'below-london' | 'above-london';
 type PropertyValueFilter = 'all' | 'under-500k' | '500k-1m' | 'over-1m';
 type RatingFilter = 'all' | '4-plus' | '3-plus' | 'unrated';
@@ -41,8 +42,7 @@ const PostcodeSearchPage = () => {
   const isAreaReportJourney = searchParams.get('journey') === 'area-report';
   const pageSize = 100;
 
-  const visiblePostcodes = postcodes
-    .filter((item) => {
+  const visiblePostcodes = postcodes.filter((item) => {
       if (crimeFilter === 'below-london' && (item.crimeRatePer1000 === null || item.londonAverageCrimeRatePer1000 === null || item.crimeRatePer1000 > item.londonAverageCrimeRatePer1000)) return false;
       if (crimeFilter === 'above-london' && (item.crimeRatePer1000 === null || item.londonAverageCrimeRatePer1000 === null || item.crimeRatePer1000 <= item.londonAverageCrimeRatePer1000)) return false;
       if (propertyValueFilter === 'under-500k' && (item.averagePrice === null || item.averagePrice >= 500_000)) return false;
@@ -52,26 +52,6 @@ const PostcodeSearchPage = () => {
       if (ratingFilter === '4-plus' && (item.averageRating === null || item.averageRating < 4)) return false;
       if (ratingFilter === '3-plus' && (item.averageRating === null || item.averageRating < 3)) return false;
       return true;
-    })
-    .sort((left, right) => {
-      const compareNullable = (a: number | null, b: number | null, direction: number) =>
-        a === null ? (b === null ? 0 : 1) : b === null ? -1 : (a - b) * direction;
-      switch (sortBy) {
-        case 'alphabetical-desc':
-          return right.code.localeCompare(left.code);
-        case 'crime-asc':
-          return compareNullable(left.crimeRatePer1000, right.crimeRatePer1000, 1) || left.code.localeCompare(right.code);
-        case 'crime-desc':
-          return compareNullable(left.crimeRatePer1000, right.crimeRatePer1000, -1) || left.code.localeCompare(right.code);
-        case 'price-asc':
-          return compareNullable(left.averagePrice, right.averagePrice, 1) || left.code.localeCompare(right.code);
-        case 'price-desc':
-          return compareNullable(left.averagePrice, right.averagePrice, -1) || left.code.localeCompare(right.code);
-        case 'rating-desc':
-          return compareNullable(left.averageRating, right.averageRating, -1) || left.code.localeCompare(right.code);
-        default:
-          return left.code.localeCompare(right.code);
-      }
     });
 
   const dropdownClassName = 'w-full appearance-none bg-transparent py-3 pl-11 pr-8 text-base text-[#151515] outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#8B0202]';
@@ -82,7 +62,7 @@ const PostcodeSearchPage = () => {
     setLoadError(null);
     setPostcodes([]);
 
-    void postcodeService.getAll(currentPage, pageSize)
+    void postcodeService.getAll(currentPage, pageSize, sortBy)
       .then((response) => {
         if (!isCurrent) return;
         setPostcodes(response.data);
@@ -101,7 +81,7 @@ const PostcodeSearchPage = () => {
     return () => {
       isCurrent = false;
     };
-  }, [currentPage, reloadKey]);
+  }, [currentPage, reloadKey, sortBy]);
 
   const handleSearch = (event: React.FormEvent) => {
     event.preventDefault();
@@ -113,6 +93,7 @@ const PostcodeSearchPage = () => {
     }
 
     setError('');
+    trackAnalyticsEvent('postcode_search');
     navigate(isAreaReportJourney
       ? postcodeAreaReportPath(trimmed)
       : reviewAction ? postcodeReviewPath(trimmed, reviewAction) : postcodePath(trimmed));
@@ -120,6 +101,11 @@ const PostcodeSearchPage = () => {
 
   return (
     <div className="min-h-screen bg-[#F7F7F7]">
+      <SeoMetadata
+        title="London Postcode Guide | RoomReview"
+        description="Search London postcodes for local reviews, crime comparisons, property prices and area insights from RoomReview."
+        path="/postcode-search"
+      />
       <section className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
         <div className="grid gap-12 lg:grid-cols-[0.95fr_1.05fr] items-center">
           <div>
@@ -157,7 +143,7 @@ const PostcodeSearchPage = () => {
           </div>
 
           <div className="rounded-[36px] overflow-hidden shadow-[0_24px_60px_rgba(20,22,33,0.08)] border border-[#E5DCD5]">
-            <img src={heroImage} alt="London street" className="w-full h-[420px] object-cover" />
+            <img src={heroImage} alt="London street" className="w-full h-[420px] object-cover" fetchPriority="high" decoding="async" />
           </div>
         </div>
 
@@ -184,7 +170,10 @@ const PostcodeSearchPage = () => {
             <label className="relative flex items-center rounded-lg border border-[#E5E5E5]">
               <Shield className="pointer-events-none absolute left-3 h-5 w-5 fill-[#111] text-[#111]" aria-hidden="true" />
               <span className="sr-only">Filter by crime rating</span>
-              <select className={dropdownClassName} value={crimeFilter} onChange={(event) => setCrimeFilter(event.target.value as CrimeFilter)}>
+              <select className={dropdownClassName} value={crimeFilter} onChange={(event) => {
+                setCrimeFilter(event.target.value as CrimeFilter);
+                setCurrentPage(1);
+              }}>
                 <option value="all">Crime Rating</option>
                 <option value="below-london">Below London average</option>
                 <option value="above-london">Above London average</option>
@@ -195,7 +184,10 @@ const PostcodeSearchPage = () => {
             <label className="relative flex items-center rounded-lg border border-[#E5E5E5]">
               <Home className="pointer-events-none absolute left-3 h-5 w-5 fill-[#111] text-[#111]" aria-hidden="true" />
               <span className="sr-only">Filter by property value</span>
-              <select className={dropdownClassName} value={propertyValueFilter} onChange={(event) => setPropertyValueFilter(event.target.value as PropertyValueFilter)}>
+              <select className={dropdownClassName} value={propertyValueFilter} onChange={(event) => {
+                setPropertyValueFilter(event.target.value as PropertyValueFilter);
+                setCurrentPage(1);
+              }}>
                 <option value="all">Property Value</option>
                 <option value="under-500k">Under £500,000</option>
                 <option value="500k-1m">£500,000–£999,999</option>
@@ -207,7 +199,10 @@ const PostcodeSearchPage = () => {
             <label className="relative flex items-center rounded-lg border border-[#E5E5E5]">
               <Star className="pointer-events-none absolute left-3 h-5 w-5 fill-[#111] text-[#111]" aria-hidden="true" />
               <span className="sr-only">Filter by review rating</span>
-              <select className={dropdownClassName} value={ratingFilter} onChange={(event) => setRatingFilter(event.target.value as RatingFilter)}>
+              <select className={dropdownClassName} value={ratingFilter} onChange={(event) => {
+                setRatingFilter(event.target.value as RatingFilter);
+                setCurrentPage(1);
+              }}>
                 <option value="all">Rating</option>
                 <option value="4-plus">4 stars and above</option>
                 <option value="3-plus">3 stars and above</option>
@@ -219,7 +214,10 @@ const PostcodeSearchPage = () => {
             <label className="relative flex items-center rounded-lg border border-[#E5E5E5]">
               <ArrowDownUp className="pointer-events-none absolute left-3 h-6 w-6 text-[#111]" aria-hidden="true" />
               <span className="sr-only">Sort postcode results</span>
-              <select className={`${dropdownClassName} pl-12`} value={sortBy} onChange={(event) => setSortBy(event.target.value as PostcodeSort)}>
+              <select className={`${dropdownClassName} pl-12`} value={sortBy} onChange={(event) => {
+                setSortBy(event.target.value as PostcodeSort);
+                setCurrentPage(1);
+              }}>
                 <option value="alphabetical-asc">Sort by: Alphabetical (A → Z)</option>
                 <option value="alphabetical-desc">Sort by: Alphabetical (Z → A)</option>
                 <option value="crime-asc">Sort by: Crime rating (low to high)</option>
@@ -230,7 +228,7 @@ const PostcodeSearchPage = () => {
               </select>
               <ChevronDown className="pointer-events-none absolute right-3 h-4 w-4 text-[#111]" aria-hidden="true" />
             </label>
-            <p className="text-xs text-[#6B7280] md:col-span-2 xl:col-span-4">Filters and sorting apply to the postcodes on the current page.</p>
+            <p className="text-xs text-[#6B7280] md:col-span-2 xl:col-span-4">Sorting applies across all postcodes before pagination. Filters apply to the current page.</p>
           </div>
 
           {loadError && (
@@ -342,6 +340,29 @@ const PostcodeSearchPage = () => {
                   </article>
                 ))}
               </div>
+
+              {!loading && visiblePostcodes.length === 0 && (
+                <div className="mt-8 rounded-xl border border-[#E5DCD5] bg-white p-6 text-center">
+                  <p className="text-sm font-semibold text-[#1A2B3C]">
+                    No postcodes on this page match these filters.
+                  </p>
+                  <p className="mt-2 text-sm text-[#6B7280]">
+                    Filters apply to the current page only. Try another page or clear the filters.
+                  </p>
+                  <button
+                    type="button"
+                    className="mt-4 rounded-lg bg-[#8B0202] px-4 py-2 text-sm font-semibold text-white hover:bg-[#700000]"
+                    onClick={() => {
+                      setCrimeFilter('all');
+                      setPropertyValueFilter('all');
+                      setRatingFilter('all');
+                      setCurrentPage(1);
+                    }}
+                  >
+                    Clear filters
+                  </button>
+                </div>
+              )}
 
               {totalPages > 1 && (
                 <nav className="mt-8 flex items-center justify-center gap-6" aria-label="Postcode pages">

@@ -154,6 +154,7 @@ export interface BuyerInsightReportData {
     companyName?: string;
     firstName?: string;
     lastName?: string;
+    phone?: string;
   };
   areaSnapshot: Array<{ metric: string; value: string }>;
   availableScoreCategories: Array<{ category: string; score: number }>;

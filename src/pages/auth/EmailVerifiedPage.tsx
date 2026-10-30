@@ -1,31 +1,13 @@
-import { useSearchParams, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import Logo from '../../components/common/Logo';
 import Button from '../../components/common/Button';
 import { H2, Body } from '../../components/common/Typography';
 import backgroundImage from '../../assets/bgimage.jpg';
 
 const EmailVerifiedPage = () => {
-  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const userType = searchParams.get('type') || 'user';
-
-  const messages = {
-    user: {
-      description: 'Your user account is now active. Start exploring areas and sharing your experiences with the community.',
-      buttonText: 'Get Started',
-      destination: '/',
-    },
-    agency: {
-      description: "Your agency account is now active. Let's complete your public profile to start receiving reviews and building trust with users.",
-      buttonText: 'Complete',
-      destination: '/complete-profile',
-    },
-  };
-
-  const config = messages[userType as keyof typeof messages] || messages.user;
-
   const handleContinue = () => {
-    navigate(config.destination);
+    navigate('/account');
   };
 
   return (
@@ -47,12 +29,12 @@ const EmailVerifiedPage = () => {
             Welcome to <strong>RoomReview LTD</strong>
           </Body>
           <Body className="text-sm text-gray-dark/80">
-            {config.description}
+            Your account is active. Open your dashboard to manage your RoomReview activity.
           </Body>
         </div>
 
         <Button onClick={handleContinue} className="w-full">
-          {config.buttonText}
+          Open dashboard
         </Button>
       </div>
     </div>

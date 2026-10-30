@@ -7,7 +7,7 @@ import { extractApiError } from '@/utils/apiError';
 import { H1, H2, H3, Body } from '../components/common/Typography';
 import Button from '../components/common/Button';
 
-import heroImage from '@img/3943474de3cacbeadcd921662ef36656d7b2740e.png';
+import heroImage from '@img/3943474de3cacbeadcd921662ef36656d7b2740e.jpg';
 import communityImage from '@img/b3f887ea2c439857b8501264d689869cf54fd421.png';
 import neighbourhoodImage from '@img/af432de379ac10cea142202121cefffd5457157e.png';
 import localImage from '@img/fa0f8a56b19d70afad2601dab96005bee78e6451.png';

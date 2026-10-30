@@ -9,7 +9,7 @@ import { boroughService, type BoroughListItem } from '@/services/borough.service
 import { votingDataService, type VotingDataRecord } from '@/services/voting-data.service';
 import type { BoroughApiResponse } from '@/types/borough.types';
 import boroughImages from '@/config/boroughImages';
-import boroughFallbackImage from '@img/city.webp';
+import boroughFallbackImage from '@img/city.jpg';
 import { getBoroughRentTrend } from '@/utils/boroughRentTrend';
 import SeoMetadata from '@/components/common/SeoMetadata';
 

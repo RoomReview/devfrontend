@@ -44,29 +44,15 @@ const REPORT_TRIAL_CREDITS_KEY = 'roomreview-report-trial-credits';
 export const getStoredGuestReportCredits = (): number => {
   if (typeof window === 'undefined') return 0;
   const rawValue = window.localStorage.getItem(REPORT_TRIAL_CREDITS_KEY);
-  if (rawValue == null) {
-    window.localStorage.setItem(REPORT_TRIAL_CREDITS_KEY, '2');
-    return 2;
-  }
+  if (rawValue == null) return 0;
 
   const value = Number(rawValue);
-  if (!Number.isFinite(value) || value < 0) {
-    window.localStorage.setItem(REPORT_TRIAL_CREDITS_KEY, '2');
-    return 2;
-  }
-
-  return value;
+  return Number.isSafeInteger(value) && value > 0 ? value : 0;
 };
 
 export const consumeGuestReportCredit = (): number => {
   if (typeof window === 'undefined') return 0;
-  const currentBalance = getStoredGuestReportCredits();
-  if (currentBalance <= 0) {
-    window.localStorage.setItem(REPORT_TRIAL_CREDITS_KEY, '0');
-    return 0;
-  }
-
-  const nextBalance = currentBalance - 1;
+  const nextBalance = Math.max(0, getStoredGuestReportCredits() - 1);
   window.localStorage.setItem(REPORT_TRIAL_CREDITS_KEY, String(nextBalance));
   return nextBalance;
 };

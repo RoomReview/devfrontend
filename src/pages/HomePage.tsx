@@ -197,8 +197,8 @@ export const LandingPage: FC = () => {
   return (
     <div className="min-h-screen bg-white font-sans text-[#2B363B] antialiased">
       <SeoMetadata
-        title="RoomReview | UK postcode, borough and property insight"
-        description="Explore UK postcodes and London boroughs with local reviews, housing data and neighbourhood insights from RoomReview."
+        title="RoomReview | Area Insights, Postcode Reviews & Reports"
+        description="Explore area insights, postcode reviews and data-led reports on safety, transport, housing and local amenities with RoomReview."
         path="/"
       />
       
@@ -425,10 +425,15 @@ export const LandingPage: FC = () => {
 
             <div className="space-y-3">
               <h3 className="text-base font-bold leading-tight text-[#1A202C] sm:text-lg">
-                Share your experience.<br />Help others, stay anonymous.
+                What’s it really like to live here?
               </h3>
               <p className="max-w-[430px] text-[11px] leading-[1.35] text-[#5F6D7A]">
-                Have you had a great (or terrible) renting experience in London? Share your story with RoomReview. We'll turn it into an anonymous social media Reel to spread awareness and protect other tenants from scams, hidden fees, and bad landlords.
+                <span className="mb-1 block font-semibold text-[#1A202C]">
+                  Help others find their next neighbourhood.
+                </span>
+                Share your experience of safety, transport, local amenities and
+                everyday life in your area. Your review helps buyers and renters
+                understand a neighbourhood beyond the property listing.
               </p>
               <div className="flex flex-wrap items-center gap-3 pt-1">
                 <button

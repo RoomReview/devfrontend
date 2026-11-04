@@ -126,15 +126,9 @@ const RegisterPage = () => {
         </p>
       )}
       <Small className="mb-6 text-gray-dark/70">{descriptions[userType]}</Small>
-      {(userType === 'user' || userType === 'landlord') && (
-        <p className="mb-5 text-sm font-semibold text-[#1A2B3C]">
-          Register to receive one free trial report.
-        </p>
-      )}
-
       {!isTeamInvite && (
         <div className="flex mb-6 border-b border-gray-light">
-          {(['user', 'agency', 'agent', 'landlord'] as UserType[]).map((type) => (
+          {(['user', 'agency', 'landlord'] as UserType[]).map((type) => (
             <button
               key={type}
               type="button"
@@ -152,7 +146,7 @@ const RegisterPage = () => {
       )}
 
       <form onSubmit={handleSubmit} className="space-y-4">
-        {!isTeamInvite && (userType === 'agency' || userType === 'agent') && (
+        {!isTeamInvite && userType === 'agency' && (
           <>
             <Input
               label="Agency / Company name"

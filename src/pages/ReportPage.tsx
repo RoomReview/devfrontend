@@ -311,7 +311,7 @@ export const RoomReviewPage: React.FC<RoomReviewPageProps> = ({
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const selectedPostcode = normalizePostcode(searchParams.get('postcode') ?? '');
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated } = useAuth();
   const [formData, setFormData] = useState<Record<string, unknown>>(() =>
     selectedPostcode ? { propertyAddress: selectedPostcode } : {},
   );
@@ -321,6 +321,10 @@ export const RoomReviewPage: React.FC<RoomReviewPageProps> = ({
     lastName: '',
     phone: '',
     logoDataUrl: '',
+  });
+  const [clientDetails, setClientDetails] = useState({
+    firstName: '',
+    lastName: '',
   });
   const [logoError, setLogoError] = useState<string | null>(null);
   const [openFaqId, setOpenFaqId] = useState<string | null>(null);
@@ -387,10 +391,18 @@ export const RoomReviewPage: React.FC<RoomReviewPageProps> = ({
       const creditCheck = await paymentService.ensureReportCreditsAvailable(isAuthenticated);
 
       if (!creditCheck.allowed) {
-        throw new Error('Not enough report credits.');
+        throw new Error(
+          isAuthenticated
+            ? 'An active subscription with available report credits is required to generate reports.'
+            : 'Sign in and subscribe to generate reports.',
+        );
       }
 
       const reportData = await generateBuyerReport(formData);
+      reportData.clientDetails = {
+        firstName: clientDetails.firstName.trim(),
+        lastName: clientDetails.lastName.trim(),
+      };
       const trimmedBranding = {
         companyName: agencyBranding.companyName.trim(),
         firstName: agencyBranding.firstName.trim(),
@@ -737,6 +749,39 @@ export const RoomReviewPage: React.FC<RoomReviewPageProps> = ({
               </div>
 
               <fieldset className="mt-6 rounded-xl border border-[#E5DCD8] p-4">
+                <legend className="px-2 text-sm font-semibold text-[#1F2D3D]">Client details (optional)</legend>
+                <p className="mb-4 text-xs leading-5 text-[#516078]">
+                  The client name appears in the “Prepared for” section of the report.
+                </p>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <label htmlFor="client-first-name" className="mb-1 block text-[12px] font-semibold text-[#2A3542]">
+                      Client first name
+                    </label>
+                    <input
+                      id="client-first-name"
+                      autoComplete="given-name"
+                      value={clientDetails.firstName}
+                      onChange={(event) => setClientDetails((previous) => ({ ...previous, firstName: event.target.value }))}
+                      className="w-full rounded-[6px] border border-[#D9D5D1] bg-white px-3 py-2.5 text-[12px] text-[#1F2D3D] outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="client-last-name" className="mb-1 block text-[12px] font-semibold text-[#2A3542]">
+                      Client last name
+                    </label>
+                    <input
+                      id="client-last-name"
+                      autoComplete="family-name"
+                      value={clientDetails.lastName}
+                      onChange={(event) => setClientDetails((previous) => ({ ...previous, lastName: event.target.value }))}
+                      className="w-full rounded-[6px] border border-[#D9D5D1] bg-white px-3 py-2.5 text-[12px] text-[#1F2D3D] outline-none"
+                    />
+                  </div>
+                </div>
+              </fieldset>
+
+              <fieldset className="mt-6 rounded-xl border border-[#E5DCD8] p-4">
                 <legend className="px-2 text-sm font-semibold text-[#1F2D3D]">Optional agency branding</legend>
                 <p className="mb-4 text-xs leading-5 text-[#516078]">
                   Add the details you want displayed. RoomReview branding is used if no agency logo is uploaded; a blank phone number is omitted.
@@ -769,7 +814,7 @@ export const RoomReviewPage: React.FC<RoomReviewPageProps> = ({
                   </div>
                   <div>
                     <label htmlFor="agency-first-name" className="mb-1 block text-[12px] font-semibold text-[#2A3542]">
-                      First name
+                      Agent first name
                     </label>
                     <input
                       id="agency-first-name"
@@ -780,7 +825,7 @@ export const RoomReviewPage: React.FC<RoomReviewPageProps> = ({
                   </div>
                   <div>
                     <label htmlFor="agency-last-name" className="mb-1 block text-[12px] font-semibold text-[#2A3542]">
-                      Last name
+                      Agent last name
                     </label>
                     <input
                       id="agency-last-name"
@@ -844,4 +889,3 @@ export const RoomReviewPage: React.FC<RoomReviewPageProps> = ({
 };
 
 export default RoomReviewPage;
-

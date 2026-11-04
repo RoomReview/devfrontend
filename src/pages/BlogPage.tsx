@@ -4,16 +4,27 @@ import {
   Search, 
   ChevronLeft, 
   ChevronRight, 
-  Share2
+  Share2,
+  Plus,
+  Upload,
+  Trash2,
+  X,
 } from 'lucide-react';
 import { blogService, type BlogPost } from '@/services/blog.service';
 import { newsletterService } from '@/services/newsletter.service';
 import { trackAnalyticsEvent } from '@/lib/cookieConsent';
 import { extractApiError } from '@/utils/apiError';
 import SeoMetadata from '@/components/common/SeoMetadata';
+import { useAuth } from '@/hooks/useAuth';
+import { canCreateBlogPost, canManageBlogPosts } from '@/lib/adminAccess';
+import {
+  extractBlogDocumentContent,
+  MAX_BLOG_CONTENT_LENGTH,
+  MAX_BLOG_DOCUMENT_SIZE,
+} from '@/utils/blogDocumentImport';
 
 const allowedWordPressTags = new Set([
-  'p', 'h2', 'h3', 'h4', 'ul', 'ol', 'li', 'strong', 'b', 'em', 'i',
+  'p', 'h1', 'h2', 'h3', 'h4', 'ul', 'ol', 'li', 'strong', 'b', 'em', 'i',
   'a', 'blockquote', 'br', 'figure', 'img', 'figcaption', 'hr', 'table',
   'thead', 'tbody', 'tr', 'th', 'td',
 ]);
@@ -54,7 +65,9 @@ const sanitizeWordPressContent = (html: string) => {
       }
     } else if (tag === 'img') {
       const src = node.getAttribute('src');
-      if (src) {
+      if (src && /^data:image\/(?:png|jpeg|gif|webp);base64,[A-Za-z0-9+/]+={0,2}$/.test(src)) {
+        attributes = ' src="' + src + '" alt="' + escapeHtml(node.getAttribute('alt') ?? '') + '" loading="lazy" decoding="async" style="display:block;max-width:100%;height:auto;margin-inline:auto"';
+      } else if (src) {
         try {
           const url = new URL(src, 'https://roomreview.co.uk');
           if (url.protocol === 'https:' && allowedWordPressImageHosts.has(url.hostname)) attributes = ' src="' + escapeHtml(url.href) + '" alt="' + escapeHtml(node.getAttribute('alt') ?? '') + '" loading="lazy"';
@@ -74,11 +87,15 @@ const sanitizeWordPressContent = (html: string) => {
 const getWordPressExcerpt = (html: string) =>
   new DOMParser().parseFromString(html, 'text/html').body.textContent?.trim() ?? '';
 
+const isDatabaseBlogPost = (post: BlogPost) =>
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(post.id);
+
 export const BlogPlatform: React.FC = () => {
   const [searchParams] = useSearchParams();
   const requestedPostId = searchParams.get('post');
   const { slug } = useParams<{ slug?: string }>();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState<string>('All');
   const [currentPage, setCurrentPage] = useState(1);
@@ -89,6 +106,9 @@ export const BlogPlatform: React.FC = () => {
   const [selectedPostDetails, setSelectedPostDetails] = useState<BlogPost | null>(null);
   const [selectedPostLoading, setSelectedPostLoading] = useState(false);
   const [selectedPostError, setSelectedPostError] = useState<string | null>(null);
+  const [isUploadEditorOpen, setIsUploadEditorOpen] = useState(false);
+  const [deletingPostId, setDeletingPostId] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   useEffect(() => {
     let isCurrent = true;
@@ -157,11 +177,12 @@ export const BlogPlatform: React.FC = () => {
     };
   }, [requestedPostId, slug]);
   useEffect(() => {
+    if (!requestedPostId || slug) return;
     const post = selectedPostSummary ?? selectedPostDetails;
-    if (post && !slug) {
+    if (post) {
       navigate(`/blog/${post.slug}`, { replace: true });
     }
-  }, [navigate, selectedPostDetails, selectedPostSummary, slug]);
+  }, [navigate, requestedPostId, selectedPostDetails, selectedPostSummary, slug]);
   const normalizeSearchText = (value: string) => value.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
   const normalizedQuery = normalizeSearchText(searchQuery);
   const categories = [...new Set(posts.flatMap((post) => post.categories))].sort((first, second) => first.localeCompare(second));
@@ -184,6 +205,28 @@ export const BlogPlatform: React.FC = () => {
   const articlePath = selectedPost
     ? `/blog/${encodeURIComponent(selectedPost.slug)}`
     : '/blog';
+  const handleDeletePost = async (post: BlogPost) => {
+    if (!window.confirm(`Permanently delete "${post.title}"? This cannot be undone.`)) {
+      return;
+    }
+
+    setDeletingPostId(post.id);
+    setDeleteError(null);
+    try {
+      await blogService.deletePost(post.id);
+      setPosts((current) => current.filter((existing) => existing.id !== post.id));
+      const remainingFilteredPosts = filteredPosts.filter(
+        (existing) => existing.id !== post.id,
+      );
+      setCurrentPage((page) =>
+        Math.min(page, Math.max(1, Math.ceil(remainingFilteredPosts.length / pageSize))),
+      );
+    } catch (error) {
+      setDeleteError(extractApiError(error));
+    } finally {
+      setDeletingPostId(null);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-white font-sans text-[#2B363B] antialiased">
@@ -198,14 +241,14 @@ export const BlogPlatform: React.FC = () => {
         <article className="mx-auto max-w-[840px] px-6 py-12 space-y-10">
           
           {/* Breadcrumb / Back Navigation */}
-          <button 
-            type="button"
-            onClick={() => navigate('/blog', { replace: true })}
-            className="inline-flex items-center gap-2 text-sm font-semibold text-gray-500 hover:text-[#8B0000] transition"
+          <Link
+            to="/blog"
+            replace
+            className="inline-flex cursor-pointer items-center gap-2 text-sm font-semibold text-gray-500 transition hover:text-[#8B0000]"
           >
             <ChevronLeft className="h-4 w-4" />
             <span>Back to Blog</span>
-          </button>
+          </Link>
 
           {/* Header Section */}
           <header className="space-y-4">
@@ -234,7 +277,7 @@ export const BlogPlatform: React.FC = () => {
           {/* Article Body Content */}
           {selectedPost.content ? (
             <div
-              className="wordpress-content space-y-5 text-base leading-relaxed text-[#4A5568]"
+              className="wordpress-content whitespace-pre-wrap space-y-5 text-base leading-relaxed text-[#4A5568]"
               dangerouslySetInnerHTML={{ __html: sanitizeWordPressContent(selectedPost.content) }}
             />
           ) : selectedPostLoading ? (
@@ -323,6 +366,16 @@ export const BlogPlatform: React.FC = () => {
               <h2 className="text-3xl font-extrabold text-[#1A202C]">
                 Explore blog
               </h2>
+              {canCreateBlogPost(user) && (
+                <button
+                  type="button"
+                  onClick={() => setIsUploadEditorOpen(true)}
+                  className="inline-flex items-center gap-2 rounded-xl bg-[#8B0000] px-5 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-[#700000]"
+                >
+                  <Plus aria-hidden="true" className="h-4 w-4" />
+                  Upload blog
+                </button>
+              )}
               
               {/* Search Box */}
               <div className="mx-auto max-w-[500px]">
@@ -381,24 +434,31 @@ export const BlogPlatform: React.FC = () => {
             </div>
 
             {/* Blog Post Grid */}
+            {deleteError && (
+              <p className="rounded-lg bg-red-50 p-3 text-sm font-semibold text-red-800" role="alert">
+                {deleteError}
+              </p>
+            )}
             <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
               {visiblePosts.map((post) => (
-                <Link 
+                <article
                   key={post.id}
-                  to={`/blog/${post.slug}`}
-                  className="group cursor-pointer overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm hover:shadow-md transition flex flex-col justify-between"
+                  className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm transition hover:shadow-md"
                 >
-                  <div>
+                  <Link
+                    to={`/blog/${post.slug}`}
+                    className="group flex cursor-pointer flex-col justify-between"
+                  >
                     {post.image && (
                       <div className="h-44 w-full overflow-hidden">
-                        <img 
-                          src={post.image} 
-                          alt={post.title} 
+                        <img
+                          src={post.image}
+                          alt={post.title}
                           className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
                         />
                       </div>
                     )}
-                    
+
                     <div className="p-5 space-y-3">
                       <div className="flex flex-wrap items-center gap-2 text-xs">
                         <time dateTime={post.date} className="text-gray-400 font-medium">
@@ -411,7 +471,7 @@ export const BlogPlatform: React.FC = () => {
                         ))}
                       </div>
 
-                      <h3 className="text-base font-bold text-[#1A202C] leading-snug group-hover:text-[#8B0000] transition">
+                      <h3 className="text-base font-bold text-[#1A202C] leading-snug transition group-hover:text-[#8B0000]">
                         {post.title}
                       </h3>
 
@@ -419,8 +479,21 @@ export const BlogPlatform: React.FC = () => {
                         {getWordPressExcerpt(post.excerpt)}
                       </p>
                     </div>
-                  </div>
-                </Link>
+                  </Link>
+                  {canManageBlogPosts(user) && isDatabaseBlogPost(post) && (
+                    <div className="px-5 pb-5">
+                      <button
+                        type="button"
+                        disabled={deletingPostId === post.id}
+                        onClick={() => void handleDeletePost(post)}
+                        className="inline-flex items-center gap-2 rounded-lg border border-red-200 px-3 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        <Trash2 aria-hidden="true" className="h-4 w-4" />
+                        {deletingPostId === post.id ? 'Deleting…' : 'Delete blog'}
+                      </button>
+                    </div>
+                  )}
+                </article>
               ))}
             </div>
 
@@ -481,6 +554,233 @@ export const BlogPlatform: React.FC = () => {
         </main>
       )}
 
+      {isUploadEditorOpen && (
+        <BlogPostEditor
+          onClose={() => setIsUploadEditorOpen(false)}
+          onPublished={(post) => {
+            setPosts((current) => [
+              post,
+              ...current.filter((existing) => existing.id !== post.id),
+            ]);
+            setIsUploadEditorOpen(false);
+          }}
+        />
+      )}
+    </div>
+  );
+};
+
+const BlogPostEditor: React.FC<{
+  onClose: () => void;
+  onPublished: (post: BlogPost) => void;
+}> = ({ onClose, onPublished }) => {
+  const [title, setTitle] = useState('');
+  const [excerpt, setExcerpt] = useState('');
+  const [content, setContent] = useState('');
+  const [isImporting, setIsImporting] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [savedDraft, setSavedDraft] = useState<BlogPost | null>(null);
+  const [feedback, setFeedback] = useState<{ kind: 'success' | 'error'; message: string } | null>(null);
+
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setFeedback(null);
+    setIsSubmitting(true);
+    try {
+      const post = await blogService.createPost({ title, excerpt, content });
+      setSavedDraft(post);
+      setFeedback({
+        kind: 'success',
+        message: 'Draft saved in the RoomReview database.',
+      });
+      setTitle('');
+      setExcerpt('');
+      setContent('');
+    } catch (error) {
+      setFeedback({ kind: 'error', message: extractApiError(error) });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handlePublish = async () => {
+    if (!savedDraft) return;
+    setFeedback(null);
+    setIsSubmitting(true);
+    try {
+      const publishedPost = await blogService.publishPost(savedDraft.id);
+      onPublished(publishedPost);
+    } catch (error) {
+      setFeedback({ kind: 'error', message: extractApiError(error) });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDocumentImport = async (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+
+    setFeedback(null);
+    setIsImporting(true);
+    try {
+      const importedContent = await extractBlogDocumentContent(file);
+
+      setTitle(file.name.replace(/\.(docx|pdf)$/i, '').trim());
+      setExcerpt('');
+      setContent(importedContent);
+      setFeedback({
+        kind: 'success',
+        message: 'Document content and images imported. Review it before saving the draft.',
+      });
+    } catch (error) {
+      setFeedback({ kind: 'error', message: extractApiError(error) });
+    } finally {
+      setIsImporting(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/50 p-4">
+      <section
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="blog-editor-title"
+        className="my-auto w-full max-w-2xl rounded-2xl bg-white p-6 shadow-xl"
+      >
+        <div className="mb-5 flex items-start justify-between gap-4">
+          <div>
+            <h2 id="blog-editor-title" className="text-2xl font-extrabold text-[#1A202C]">
+              Create blog draft
+            </h2>
+            <p className="mt-1 text-sm text-[#5F6D7A]">
+              The article will be saved as a draft in RoomReview.
+            </p>
+          </div>
+          <button
+            type="button"
+            aria-label="Close blog editor"
+            onClick={onClose}
+            className="rounded-lg p-2 text-gray-500 transition hover:bg-gray-100 hover:text-gray-900"
+          >
+            <X aria-hidden="true" className="h-5 w-5" />
+          </button>
+        </div>
+
+        <form className="space-y-4" onSubmit={handleSubmit}>
+          <div>
+            <label htmlFor="blog-draft-file" className="mb-1 block text-sm font-semibold text-[#1A202C]">
+              <span className="inline-flex items-center gap-2">
+                <Upload aria-hidden="true" className="h-4 w-4" />
+                Import a document
+              </span>
+            </label>
+            <input
+              id="blog-draft-file"
+              type="file"
+              accept=".docx,.pdf,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+              onChange={handleDocumentImport}
+              disabled={isImporting || isSubmitting}
+              className="block w-full rounded-xl border border-gray-300 px-4 py-3 text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-gray-100 file:px-3 file:py-2 file:font-semibold file:text-gray-700"
+            />
+            <p className="mt-1 text-xs text-[#5F6D7A]">
+              DOCX text and images, or PDF pages as images, up to {MAX_BLOG_DOCUMENT_SIZE / 1024 / 1024} MB.
+            </p>
+            {isImporting && (
+              <p className="mt-2 text-sm text-gray-600" role="status">
+                Importing document content and images...
+              </p>
+            )}
+          </div>
+
+          <div>
+            <label htmlFor="blog-draft-title" className="mb-1 block text-sm font-semibold text-[#1A202C]">
+              Title
+            </label>
+            <input
+              id="blog-draft-title"
+              type="text"
+              required
+              maxLength={200}
+              value={title}
+              onChange={(event) => setTitle(event.target.value)}
+              disabled={isSubmitting || isImporting}
+              className="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm focus:border-[#8B0000] focus:outline-none focus:ring-1 focus:ring-[#8B0000]"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="blog-draft-excerpt" className="mb-1 block text-sm font-semibold text-[#1A202C]">
+              Excerpt
+            </label>
+            <textarea
+              id="blog-draft-excerpt"
+              rows={3}
+              maxLength={5000}
+              value={excerpt}
+              onChange={(event) => setExcerpt(event.target.value)}
+              disabled={isSubmitting || isImporting}
+              className="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm focus:border-[#8B0000] focus:outline-none focus:ring-1 focus:ring-[#8B0000]"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="blog-draft-content" className="mb-1 block text-sm font-semibold text-[#1A202C]">
+              Article content
+            </label>
+            <textarea
+              id="blog-draft-content"
+              rows={10}
+              required
+              maxLength={MAX_BLOG_CONTENT_LENGTH}
+              value={content}
+              onChange={(event) => setContent(event.target.value)}
+              disabled={isSubmitting || isImporting}
+              className="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm focus:border-[#8B0000] focus:outline-none focus:ring-1 focus:ring-[#8B0000]"
+            />
+          </div>
+
+          {feedback && (
+            <p
+              role={feedback.kind === 'error' ? 'alert' : 'status'}
+              className={`text-sm ${feedback.kind === 'error' ? 'text-red-700' : 'text-green-800'}`}
+            >
+              {feedback.message}
+            </p>
+          )}
+
+          <div className="flex justify-end gap-3 pt-2">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={isSubmitting || isImporting}
+              className="rounded-xl border border-gray-300 px-5 py-3 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:opacity-60"
+            >
+              Close
+            </button>
+            <button
+              type="submit"
+              disabled={isSubmitting || isImporting || Boolean(savedDraft)}
+              className="rounded-xl bg-[#8B0000] px-5 py-3 text-sm font-bold text-white transition hover:bg-[#700000] disabled:cursor-wait disabled:opacity-60"
+            >
+              {isImporting ? 'Importing...' : isSubmitting ? 'Saving...' : 'Save draft'}
+            </button>
+            {savedDraft && (
+              <button
+                type="button"
+                onClick={() => void handlePublish()}
+                disabled={isSubmitting || isImporting}
+                className="rounded-xl bg-[#1A2B3C] px-5 py-3 text-sm font-bold text-white transition hover:bg-[#263E55] disabled:cursor-wait disabled:opacity-60"
+              >
+                {isSubmitting ? 'Publishing...' : 'Publish'}
+              </button>
+            )}
+          </div>
+        </form>
+      </section>
     </div>
   );
 };

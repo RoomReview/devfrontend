@@ -7,24 +7,24 @@ import { extractApiError } from '@/utils/apiError';
 import { H1, H2, H3, Body } from '../components/common/Typography';
 import Button from '../components/common/Button';
 
-import heroImage from '@img/3943474de3cacbeadcd921662ef36656d7b2740e.jpg';
-import communityImage from '@img/b3f887ea2c439857b8501264d689869cf54fd421.png';
-import neighbourhoodImage from '@img/af432de379ac10cea142202121cefffd5457157e.png';
-import localImage from '@img/fa0f8a56b19d70afad2601dab96005bee78e6451.png';
-import sceneImage1 from '@img/5f5064b20e73e98611517a7211ef41b6b55ef53e.png';
+import heroImage from '@img/3943474de3cacbeadcd921662ef36656d7b2740e.webp';
+import communityImage from '@img/b3f887ea2c439857b8501264d689869cf54fd421.webp';
+import neighbourhoodImage from '@img/af432de379ac10cea142202121cefffd5457157e.webp';
+import localImage from '@img/fa0f8a56b19d70afad2601dab96005bee78e6451.webp';
+import sceneImage1 from '@img/5f5064b20e73e98611517a7211ef41b6b55ef53e.webp';
 import AccessibleIcon from '@img/Accessible.png';
 import StructuredIcon from '@img/Structured.png';
 import ActionableIcon from '@img/Actionable.png';
-import FedericoImage from '@img/CEO.png';
+import FedericoImage from '@img/CEO.webp';
 import YuliiaImage from '@img/COO.png';
-import MichaelImage from '@img/Designer.png';
-import IrinaImage from '@img/UX UI Designer.png';
-import TereseImage from '@img/UI Disigner.png';
-import AlamkheerImage from '@img/Software engineer (2).png';
-import MubtasinImage from '@img/Data Engineer (2).png';
-import FrederickImage from '@img/Data engineer.png';
+import MichaelImage from '@img/Designer.webp';
+import IrinaImage from '@img/UX UI Designer.webp';
+import TereseImage from '@img/UI Disigner.webp';
+import AlamkheerImage from '@img/Software engineer (2).webp';
+import MubtasinImage from '@img/Data Engineer (2).webp';
+import FrederickImage from '@img/Data engineer.webp';
 import FullstackImage from '@img/Fullstack Tech Lead.png';
-import JoyImage from '@img/Project Manger.png';
+import JoyImage from '@img/Project Manger.webp';
 import LinkedInImage from '@img/LinkIN.png';
 
 const FAQ_ITEMS = [
@@ -170,7 +170,6 @@ const AboutPage = () => {
   const [earlyAccessOpen, setEarlyAccessOpen] = useState(false);
   const [earlyAccessPending, setEarlyAccessPending] = useState(false);
   const [earlyAccessError, setEarlyAccessError] = useState<string | null>(null);
-  const [earlyAccessRole, setEarlyAccessRole] = useState<'AGENCY' | 'AGENT'>('AGENCY');
   const { user, loading: authLoading } = useAuth();
   const isAgencyOrAgent = user?.role === 'AGENCY' || user?.role === 'AGENT';
   const navigate = useNavigate();
@@ -188,12 +187,12 @@ const AboutPage = () => {
         lastName: String(formData.get('lastName') ?? '').trim(),
         email,
         password: String(formData.get('password') ?? ''),
-        role: earlyAccessRole,
+        role: 'AGENCY',
         agencyName: String(formData.get('agencyName') ?? '').trim(),
         agencyPhone: String(formData.get('agencyPhone') ?? '').trim(),
       });
       setEarlyAccessOpen(false);
-      navigate(`/verify-email?email=${encodeURIComponent(email)}&type=${earlyAccessRole === 'AGENT' ? 'agent' : 'agency'}`);
+      navigate(`/verify-email?email=${encodeURIComponent(email)}&type=agency`);
     } catch (error) {
       setEarlyAccessError(extractApiError(error));
     } finally {
@@ -234,7 +233,7 @@ const AboutPage = () => {
             </div>
             {!authLoading && !user ? (
               <p className="max-w-xl text-sm text-slate-600">
-                Register for early access and receive three reports. Get 50% off your first paid month; renewals are at the full price.
+                Register for early access and get 50% off your first subscription month when you add a payment card. Renewals are at the full price.
               </p>
             ) : null}
             {isAgencyOrAgent ? (
@@ -275,23 +274,11 @@ const AboutPage = () => {
             >
               <X aria-hidden="true" className="h-5 w-5" />
             </button>
-            <h2 id="early-access-title" className="pr-10 text-2xl font-bold text-[#1A2B3C]">Agency &amp; agent early access</h2>
+            <h2 id="early-access-title" className="pr-10 text-2xl font-bold text-[#1A2B3C]">Agency early access</h2>
             <p className="mt-2 text-sm text-slate-600">
-              For agencies and property agents. Register to receive three reports, plus 50% off your first paid month. Your monthly subscription renews at the full price after that. We’ll email you a verification code before you can sign in.
+              For agencies. Register for early access and get 50% off your first subscription month when you add a payment card. Your monthly subscription renews at the full price after that. We’ll email you a verification code before you can sign in.
             </p>
             <form onSubmit={handleEarlyAccessSubmit} className="mt-6 space-y-4">
-              <label className="block text-sm font-semibold text-slate-700">
-                Account type
-                <select
-                  name="role"
-                  value={earlyAccessRole}
-                  onChange={(event) => setEarlyAccessRole(event.target.value === 'AGENT' ? 'AGENT' : 'AGENCY')}
-                  className="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2.5 font-normal focus:border-[#B02020] focus:outline-none focus:ring-2 focus:ring-[#B02020]/20"
-                >
-                  <option value="AGENCY">Agency</option>
-                  <option value="AGENT">Property agent</option>
-                </select>
-              </label>
               <label className="block text-sm font-semibold text-slate-700">
                 First name
                 <input name="firstName" autoComplete="given-name" required maxLength={100} className="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2.5 font-normal focus:border-[#B02020] focus:outline-none focus:ring-2 focus:ring-[#B02020]/20" />

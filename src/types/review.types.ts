@@ -17,11 +17,14 @@ export interface Review {
   status: ReviewStatus;
   rejection_reason: string | null;
   author_id: string;
+  author_first_name: string;
+  author_last_name: string;
   postcode_id: string | null;
   borough_id: string | null;
   created_at: string;
   updated_at: string;
   published_at: string | null;
+  incentivized?: boolean;
   users?: { firstName?: string } | null;
   postcodes?: { code: string } | null;
   propertyId?: string;
@@ -43,4 +46,3 @@ export interface CreateReviewRequest {
 }
 
 export type UpdateReviewRequest = Partial<Omit<CreateReviewRequest, 'postcode_id'>>;
-

@@ -9,6 +9,7 @@ import { DataSourcesPage } from './pages/DataSourcePage';
 import CookieConsentBanner from './components/common/CookieConsentBanner';
 import { COOKIE_PREFERENCES_CHANGED_EVENT, trackPageView } from './lib/cookieConsent';
 import { useAuth } from './hooks/useAuth';
+import { canAccessAdminDashboard } from './lib/adminAccess';
 
 const AboutPage = lazy(() => import('./pages/AboutPage'));
 const AreaSearchPage = lazy(() => import('./pages/AreaSearchPage'));
@@ -93,7 +94,7 @@ function AdminRoute() {
   }
 
   if (!isAuthenticated) return <Navigate to="/login" replace />;
-  if (user?.role !== 'ADMIN') return <Navigate to="/" replace />;
+  if (!canAccessAdminDashboard(user)) return <Navigate to="/" replace />;
 
   return <AdminDashboardPage />;
 }

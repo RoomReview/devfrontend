@@ -14,6 +14,12 @@ export interface BlogPost {
   tags: string[];
 }
 
+export interface CreateBlogPostInput {
+  title: string;
+  excerpt: string;
+  content: string;
+}
+
 interface BlogPostsResponse {
   data: BlogPost[];
   pagination: {
@@ -38,5 +44,21 @@ export const blogService = {
   getPostBySlug: async (slug: string): Promise<BlogPost> => {
     const response = await apiClient.get<{ data: BlogPost }>(`/blog/posts/slug/${encodeURIComponent(slug)}`);
     return response.data.data;
+  },
+
+  createPost: async (post: CreateBlogPostInput): Promise<BlogPost> => {
+    const response = await apiClient.post<{ data: BlogPost }>('/blog/posts', post);
+    return response.data.data;
+  },
+
+  publishPost: async (id: string): Promise<BlogPost> => {
+    const response = await apiClient.patch<{ data: BlogPost }>(
+      `/blog/posts/${encodeURIComponent(id)}/publish`,
+    );
+    return response.data.data;
+  },
+
+  deletePost: async (id: string): Promise<void> => {
+    await apiClient.delete(`/blog/posts/${encodeURIComponent(id)}`);
   },
 };

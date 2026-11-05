@@ -1,36 +1,8 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Cookie, BarChart2, Settings, Share2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import {
-  getCookiePreferences,
-  saveCookiePreferences,
-  type CookiePreferences,
-} from '@/lib/cookieConsent';
 
 export const CookiesPolicyPage: React.FC = () => {
-  const [preferences, setPreferences] = useState<CookiePreferences>(getCookiePreferences);
-
-  const togglePreference = (key: keyof typeof preferences) => {
-    if (key === 'necessary') return; // Always enabled
-    setPreferences((prev) => ({ ...prev, [key]: !prev[key] }));
-  };
-
-  const handleAcceptAll = () => {
-    const allPreferences: CookiePreferences = {
-      necessary: true,
-      analytics: true,
-      functional: true,
-      marketing: true,
-    };
-
-    setPreferences(allPreferences);
-    saveCookiePreferences(allPreferences);
-  };
-
-  const handleSavePreferences = () => {
-    saveCookiePreferences(preferences);
-  };
-
   return (
     <div className="min-h-screen bg-white font-sans text-[#2B363B] antialiased">
       {/* Top Bar Navigation */}
@@ -127,106 +99,14 @@ export const CookiesPolicyPage: React.FC = () => {
           <h2 className="text-base font-bold text-[#1A202C]">Cookie control panel</h2>
           <div className="rounded-xl bg-[#EBF3FA] p-6 space-y-6">
             <p className="text-[11px] text-[#5F6D7A]">
-              Manage your cookie preferences below. Changes will take effect immediately.
+              Cookie preferences are managed securely by CookieYes. You can change or withdraw your consent at any time.
             </p>
-
-            <div className="space-y-5">
-              {/* Necessary Toggle */}
-              <div className="flex items-center justify-between border-b border-[#DCE7F2] pb-4">
-                <div className="space-y-0.5">
-                  <h3 className="text-xs font-bold text-[#1A202C]">Necessary</h3>
-                  <p className="text-[11px] text-[#718096]">Essential for the website to function properly. Cannot be disabled.</p>
-                </div>
-                <button
-                  type="button"
-                  disabled
-                  className="relative inline-flex h-5 w-9 shrink-0 cursor-not-allowed rounded-full border-2 border-transparent bg-[#C27B7B] transition-colors duration-200 ease-in-out focus:outline-none"
-                >
-                  <span className="translate-x-4 pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out" />
-                </button>
-              </div>
-
-              {/* Analytics Toggle */}
-              <div className="flex items-center justify-between border-b border-[#DCE7F2] pb-4">
-                <div className="space-y-0.5">
-                  <h3 className="text-xs font-bold text-[#1A202C]">Analytics</h3>
-                  <p className="text-[11px] text-[#718096]">Help us understand how visitors interact with our website.</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => togglePreference('analytics')}
-                  className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                    preferences.analytics ? 'bg-[#8B0000]' : 'bg-[#CBD5E0]'
-                  }`}
-                >
-                  <span
-                    className={`${
-                      preferences.analytics ? 'translate-x-4' : 'translate-x-0'
-                    } pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out`}
-                  />
-                </button>
-              </div>
-
-              {/* Functional Toggle */}
-              <div className="flex items-center justify-between border-b border-[#DCE7F2] pb-4">
-                <div className="space-y-0.5">
-                  <h3 className="text-xs font-bold text-[#1A202C]">Functional</h3>
-                  <p className="text-[11px] text-[#718096]">Enable enhanced functionality and personalization.</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => togglePreference('functional')}
-                  className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                    preferences.functional ? 'bg-[#8B0000]' : 'bg-[#CBD5E0]'
-                  }`}
-                >
-                  <span
-                    className={`${
-                      preferences.functional ? 'translate-x-4' : 'translate-x-0'
-                    } pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out`}
-                  />
-                </button>
-              </div>
-
-              {/* Marketing Toggle */}
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <h3 className="text-xs font-bold text-[#1A202C]">Marketing</h3>
-                  <p className="text-[11px] text-[#718096]">Track visitors across websites to display relevant ads.</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => togglePreference('marketing')}
-                  className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                    preferences.marketing ? 'bg-[#8B0000]' : 'bg-[#CBD5E0]'
-                  }`}
-                >
-                  <span
-                    className={`${
-                      preferences.marketing ? 'translate-x-4' : 'translate-x-0'
-                    } pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out`}
-                  />
-                </button>
-              </div>
-            </div>
-
-            {/* Action Buttons */}
-            <div className="flex items-center gap-3 pt-2">
-              <button
-                type="button"
-                onClick={handleSavePreferences}
-                className="rounded-lg bg-[#8B0000] px-4 py-2 text-xs font-medium text-white transition-colors hover:bg-[#700000]"
-              >
-                Save Preferences
-              </button>
-              <button
-                type="button"
-                onClick={handleAcceptAll}
-                className="rounded-lg bg-[#E2E8F0] px-4 py-2 text-xs font-medium text-[#2D3748] transition-colors hover:bg-[#CBD5E0]"
-              >
-                Accept All
-              </button>
-            </div>
+            <button
+              type="button"
+              className="cky-banner-element rounded-lg bg-[#8B0000] px-4 py-2 text-xs font-medium text-white transition-colors hover:bg-[#700000]"
+            >
+              Manage cookie preferences
+            </button>
           </div>
         </section>
 

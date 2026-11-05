@@ -6,8 +6,7 @@ import NotFoundPage from './pages/NotFoundPage';
 import PolicyPage from '@/pages/PolicyPage';
 import { CookiesPolicyPage } from './pages/CooliePage';
 import { DataSourcesPage } from './pages/DataSourcePage';
-import CookieConsentBanner from './components/common/CookieConsentBanner';
-import { COOKIE_PREFERENCES_CHANGED_EVENT, trackPageView } from './lib/cookieConsent';
+import { trackPageView } from './lib/cookieConsent';
 import { useAuth } from './hooks/useAuth';
 import { canAccessAdminDashboard } from './lib/adminAccess';
 
@@ -48,9 +47,9 @@ function AnalyticsTracker() {
     };
 
     recordPageView();
-    window.addEventListener(COOKIE_PREFERENCES_CHANGED_EVENT, recordPageView);
+    window.addEventListener('cookieyes_consent_update', recordPageView);
 
-    return () => window.removeEventListener(COOKIE_PREFERENCES_CHANGED_EVENT, recordPageView);
+    return () => window.removeEventListener('cookieyes_consent_update', recordPageView);
   }, [location.pathname, location.search]);
 
   return null;
@@ -147,7 +146,6 @@ function App() {
         </Route>
         </Routes>
       </Suspense>
-      <CookieConsentBanner />
     </>
   );
 }

@@ -5,9 +5,14 @@ interface ImportMetaEnv {
     readonly VITE_ENABLE_GOOGLE_SSO?: string
     readonly VITE_ENABLE_FACEBOOK_SSO?: string
     readonly VITE_SITE_URL?: string
+    readonly VITE_GTM_CONTAINER_ID?: string
     // more env variables
 }
 
 interface ImportMeta {
     readonly env: ImportMetaEnv
+}
+
+interface Window {
+    dataLayer?: Record<string, unknown>[]
 }

@@ -15,19 +15,20 @@ const createSecurityPolicy = (apiUrl: string, isDevelopment: boolean) => {
     'https://analytics.google.com',
     'https://region1.google-analytics.com',
     'https://www.googletagmanager.com',
+    'https://log.cookieyes.com',
     'https://nominatim.openstreetmap.org',
     ...(isDevelopment ? ['ws://localhost:3000'] : []),
   ];
 
   return [
     "default-src 'self'",
-    "script-src 'self' https://www.googletagmanager.com",
+    "script-src 'self' https://www.googletagmanager.com https://cdn-cookieyes.com",
     "script-src-attr 'none'",
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-    "img-src 'self' data: blob: https://www.google-analytics.com https://roomreview.co.uk https://www.roomreview.co.uk https://roomreview-lsoa-maps.lon1.digitaloceanspaces.com https://images.unsplash.com https://*.tile.openstreetmap.org",
+    "img-src 'self' data: blob: https://www.google-analytics.com https://www.googletagmanager.com https://cdn-cookieyes.com https://roomreview.co.uk https://www.roomreview.co.uk https://roomreview-lsoa-maps.lon1.digitaloceanspaces.com https://images.unsplash.com https://*.tile.openstreetmap.org",
     "font-src 'self' data: https://fonts.gstatic.com",
     `connect-src ${[...new Set(connectSources)].join(' ')}`,
-    "frame-src https://www.openstreetmap.org",
+    "frame-src https://www.openstreetmap.org https://www.googletagmanager.com",
     "form-action 'self'",
     "base-uri 'self'",
     "object-src 'none'",
@@ -35,11 +36,12 @@ const createSecurityPolicy = (apiUrl: string, isDevelopment: boolean) => {
   ].join('; ');
 };
 
-const securityPolicyPlugin = (policy: string, isProduction: boolean): Plugin => ({
+const securityPolicyPlugin = (policy: string, isProduction: boolean, gtmContainerId: string): Plugin => ({
   name: 'roomreview-security-policy',
   transformIndexHtml(html) {
-    if (!isProduction) return html;
-    return html.replace(
+    const withGtmId = html.replaceAll('__VITE_GTM_CONTAINER_ID__', gtmContainerId);
+    if (!isProduction) return withGtmId;
+    return withGtmId.replace(
       '</head>',
       `  <meta http-equiv="Content-Security-Policy" content="${policy}" />\n  </head>`,
     );
@@ -64,10 +66,11 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), 'VITE_');
   const isDevelopment = mode !== 'production';
   const isProduction = mode === 'production';
+  const gtmContainerId = env.VITE_GTM_CONTAINER_ID ?? 'GTM-W6KFQZFS';
   const policy = createSecurityPolicy(env.VITE_API_URL ?? '/api', isDevelopment);
 
   return {
-    plugins: [react(), tailwindcss(), securityPolicyPlugin(policy, isProduction)],
+    plugins: [react(), tailwindcss(), securityPolicyPlugin(policy, isProduction, gtmContainerId)],
     resolve: {
       alias: {
         '@': path.resolve(import.meta.dirname, './src'),

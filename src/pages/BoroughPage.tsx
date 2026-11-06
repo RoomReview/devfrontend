@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ChevronDown, Info, ExternalLink } from 'lucide-react';
+import { ChevronDown, Info, ExternalLink, Star } from 'lucide-react';
 import BoroughInsightsPanel from '@/components/borough/BoroughInsightsPanel';
 import ThemedAreaMap from '@/components/common/ThemedAreaMap';
 import PoliticalLandscapeChart from '@/components/borough/PoliticalLandscapeChart';
@@ -9,9 +9,12 @@ import { boroughService, type BoroughListItem } from '@/services/borough.service
 import { votingDataService, type VotingDataRecord } from '@/services/voting-data.service';
 import type { BoroughApiResponse } from '@/types/borough.types';
 import boroughImages from '@/config/boroughImages';
-import boroughFallbackImage from '@img/city.jpg';
+import boroughFallbackImage from '@img/city.webp';
 import { getBoroughRentTrend } from '@/utils/boroughRentTrend';
 import SeoMetadata from '@/components/common/SeoMetadata';
+import { reviewService } from '@/services/review.service';
+import type { Review } from '@/types/review.types';
+import { Body } from '@/components/common/Typography';
 
 export default function BoroughPage() {
   const { id } = useParams<{ id?: string }>();
@@ -29,6 +32,9 @@ export default function BoroughPage() {
   const [hasLoadError, setHasLoadError] = useState(false);
   const [heroImage, setHeroImage] = useState(boroughFallbackImage);
   const [votingRecords, setVotingRecords] = useState<VotingDataRecord[]>([]);
+  const [boroughReviews, setBoroughReviews] = useState<Review[]>([]);
+  const [reviewsLoading, setReviewsLoading] = useState(true);
+  const [reviewsError, setReviewsError] = useState(false);
   const [hoveredDataPoint, setHoveredDataPoint] = useState<{ seriesName: string; year: string; value: number; x: number; y: number } | null>(null);
 
   useEffect(() => {
@@ -117,6 +123,37 @@ export default function BoroughPage() {
   }, [selectedComparisonIds]);
 
   const primaryBoroughId = boroughApi?.boroughId ?? '';
+
+  useEffect(() => {
+    let active = true;
+    if (!primaryBoroughId) {
+      setBoroughReviews([]);
+      setReviewsLoading(false);
+      return () => {
+        active = false;
+      };
+    }
+
+    setReviewsLoading(true);
+    setReviewsError(false);
+    void reviewService.getByBorough(primaryBoroughId)
+      .then((reviews) => {
+        if (active) setBoroughReviews(reviews);
+      })
+      .catch(() => {
+        if (active) {
+          setBoroughReviews([]);
+          setReviewsError(true);
+        }
+      })
+      .finally(() => {
+        if (active) setReviewsLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [primaryBoroughId]);
 
   const toggleComparisonBorough = (boroughId: string) => {
     if (boroughId === primaryBoroughId) return;
@@ -897,7 +934,51 @@ export default function BoroughPage() {
         <section className="space-y-6 pt-6">
           <h2 className="text-2xl font-extrabold text-slate-900">Reviews about {heroTitle}</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="md:col-span-3 bg-white border border-slate-200 rounded-2xl p-6 text-sm text-slate-500">No reviews are available for this borough yet.</div>
+            {reviewsLoading ? (
+              <div className="md:col-span-3 bg-white border border-slate-200 rounded-2xl p-6 text-sm text-slate-500">
+                Loading borough reviews...
+              </div>
+            ) : reviewsError ? (
+              <div role="alert" className="md:col-span-3 bg-white border border-slate-200 rounded-2xl p-6 text-sm text-red-700">
+                Borough reviews could not be loaded. Please try again later.
+              </div>
+            ) : boroughReviews.length === 0 ? (
+              <div className="md:col-span-3 bg-white border border-slate-200 rounded-2xl p-6 text-sm text-slate-500">
+                No reviews are available for this borough yet.
+              </div>
+            ) : boroughReviews.map((review) => (
+              <article
+                key={review.review_id}
+                className="rounded-2xl border border-slate-200 bg-white p-5"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <h3 className="font-bold text-slate-900">{review.title}</h3>
+                    <p className="mt-1 text-sm text-slate-500">
+                      {review.anonymous
+                        ? 'Anonymous'
+                        : [review.author_first_name, review.author_last_name].filter(Boolean).join(' ')
+                          || review.users?.firstName
+                          || 'Local reviewer'}
+                      {' · '}
+                      {new Date(review.created_at).toLocaleDateString('en-GB')}
+                    </p>
+                    {review.postcodes?.code && (
+                      <p className="mt-1 text-xs font-semibold text-slate-500">
+                        {review.postcodes.code}
+                      </p>
+                    )}
+                  </div>
+                  <span className="inline-flex shrink-0 items-center gap-1 text-sm font-semibold text-amber-600">
+                    <Star className="h-4 w-4 fill-current" aria-hidden="true" />
+                    {Number(review.overall_rating).toFixed(1)} / 5
+                  </span>
+                </div>
+                <Body className="mt-4 whitespace-pre-wrap text-sm text-slate-600">
+                  {review.content}
+                </Body>
+              </article>
+            ))}
           </div>
 
         </section>

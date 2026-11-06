@@ -7,6 +7,7 @@ import Logo from '../../components/common/Logo';
 import { H2, Body, Small } from '../../components/common/Typography';
 import { GoogleIcon, FacebookIcon } from '../../components/common/Icons';
 import backgroundImage from '../../assets/bgimage.jpg';
+import { useToast } from '@/components/common/Toast';
 import { useRegister } from '@/hooks/auth/useRegister';
 import type { UserRole } from '@/types/user.types';
 import { getSafePostcodeReturnTo } from '@/utils/helpers';
@@ -20,9 +21,22 @@ const ROLE_MAP: Record<string, UserRole> = {
 
 type UserType = 'user' | 'agency' | 'agent' | 'landlord';
 
+const personNamePattern = /^[\p{L}\p{M}]+(?:[ '\u2019.-][\p{L}\p{M}]+)*$/u;
+
+const validatePersonName = (value: string, label: string) => {
+  const trimmed = value.trim();
+  if (!trimmed) return `${label} is required.`;
+  if (trimmed.length > 100) return `${label} must be 100 characters or fewer.`;
+  if (!personNamePattern.test(trimmed)) {
+    return `${label} must use letters; spaces, apostrophes, hyphens and full stops are allowed.`;
+  }
+  return '';
+};
+
 const RegisterPage = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const { showToast } = useToast();
   const { mutate: register, isPending, error, reset } = useRegister();
   const subscriptionPlan = searchParams.get('subscriptionPlan');
   const inviteToken = searchParams.get('inviteToken');
@@ -31,6 +45,8 @@ const RegisterPage = () => {
 
   const [userType, setUserType] = useState<UserType>(isTeamInvite ? 'agent' : 'user');
   const [emailError, setEmailError] = useState('');
+  const [firstNameError, setFirstNameError] = useState('');
+  const [lastNameError, setLastNameError] = useState('');
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -56,10 +72,22 @@ const RegisterPage = () => {
       setEmailError('');
       reset();
     }
+    if (e.target.name === 'firstName') setFirstNameError('');
+    if (e.target.name === 'lastName') setLastNameError('');
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+
+    const nextFirstNameError = validatePersonName(formData.firstName, 'First name');
+    const nextLastNameError = validatePersonName(formData.lastName, 'Last name');
+    setFirstNameError(nextFirstNameError);
+    setLastNameError(nextLastNameError);
+
+    if (nextFirstNameError || nextLastNameError) {
+      showToast([nextFirstNameError, nextLastNameError].filter(Boolean).join(' '), 'error');
+      return;
+    }
 
     if (formData.password !== formData.confirmPassword) {
       return;
@@ -67,8 +95,8 @@ const RegisterPage = () => {
 
     register(
       {
-        firstName: formData.firstName,
-        lastName: formData.lastName,
+        firstName: formData.firstName.trim(),
+        lastName: formData.lastName.trim(),
         email: formData.email,
         password: formData.password,
         role: ROLE_MAP[userType],
@@ -178,6 +206,10 @@ const RegisterPage = () => {
             placeholder="John"
             value={formData.firstName}
             onChange={handleChange}
+            autoComplete="given-name"
+            maxLength={100}
+            required
+            error={firstNameError}
           />
           <Input
             label="Last name"
@@ -185,6 +217,10 @@ const RegisterPage = () => {
             placeholder="Lewis"
             value={formData.lastName}
             onChange={handleChange}
+            autoComplete="family-name"
+            maxLength={100}
+            required
+            error={lastNameError}
           />
         </div>
 
@@ -197,6 +233,7 @@ const RegisterPage = () => {
             value={formData.email}
             onChange={handleChange}
             readOnly={isTeamInvite}
+            required
           />
           {emailError ? (
             <Small className="mt-1.5 text-red-600">{emailError}</Small>
@@ -211,6 +248,7 @@ const RegisterPage = () => {
             placeholder="Enter your password"
             value={formData.password}
             onChange={handleChange}
+            required
           />
           <Small className="mt-1.5 text-gray-dark/60">
             Min. 8 characters, 1 uppercase letter, 1 number
@@ -224,6 +262,7 @@ const RegisterPage = () => {
           placeholder="Enter your password"
           value={formData.confirmPassword}
           onChange={handleChange}
+          required
           error={
             formData.confirmPassword && formData.password !== formData.confirmPassword
               ? 'Passwords do not match'

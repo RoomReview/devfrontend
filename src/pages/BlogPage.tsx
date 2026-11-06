@@ -17,6 +17,7 @@ import { extractApiError } from '@/utils/apiError';
 import SeoMetadata from '@/components/common/SeoMetadata';
 import { useAuth } from '@/hooks/useAuth';
 import { canCreateBlogPost, canManageBlogPosts } from '@/lib/adminAccess';
+import BlogContentEditor from '@/components/blog/BlogContentEditor';
 import {
   extractBlogDocumentContent,
   MAX_BLOG_CONTENT_LENGTH,
@@ -25,7 +26,7 @@ import {
 
 const allowedWordPressTags = new Set([
   'p', 'h1', 'h2', 'h3', 'h4', 'ul', 'ol', 'li', 'strong', 'b', 'em', 'i',
-  'a', 'blockquote', 'br', 'figure', 'img', 'figcaption', 'hr', 'table',
+  'a', 'blockquote', 'br', 'figure', 'img', 'figcaption', 'hr', 'span', 'table',
   'thead', 'tbody', 'tr', 'th', 'td',
 ]);
 const allowedWordPressImageHosts = new Set([
@@ -63,14 +64,45 @@ const sanitizeWordPressContent = (html: string) => {
           attributes = '';
         }
       }
+    } else if (tag === 'span') {
+      const fontSize =
+        node instanceof HTMLElement ? node.style.fontSize : '';
+      if (/^(?:[8-9]|[1-8]\d|9[0-6])px$/.test(fontSize)) {
+        attributes = ` style="font-size:${fontSize}"`;
+      }
     } else if (tag === 'img') {
       const src = node.getAttribute('src');
+      const widthValue = node.getAttribute('data-width');
+      const parsedWidth = Number.parseFloat(widthValue ?? '');
+      const width =
+        widthValue &&
+        /^\d+(?:\.\d+)?(?:px|%)$/.test(widthValue) &&
+        Number.isFinite(parsedWidth) &&
+        parsedWidth > 0
+          ? widthValue
+          : '100%';
+      const heightValue = node.getAttribute('data-height');
+      const parsedHeight = Number.parseFloat(heightValue ?? '');
+      const height =
+        heightValue &&
+        /^\d+(?:\.\d+)?px$/.test(heightValue) &&
+        Number.isFinite(parsedHeight) &&
+        parsedHeight > 0
+          ? heightValue
+          : null;
+      const alignValue = node.getAttribute('data-align');
+      const align = ['left', 'center', 'right'].includes(alignValue ?? '')
+        ? alignValue
+        : 'center';
+      const margin =
+        align === 'left' ? '0 auto 0 0' : align === 'right' ? '0 0 0 auto' : '0 auto';
+      const imageAttributes = ` alt="${escapeHtml(node.getAttribute('alt') ?? '')}" data-width="${width}"${height ? ` data-height="${height}"` : ''} data-align="${align}" loading="lazy" decoding="async" style="display:block;width:${width};max-width:none;height:${height ?? 'auto'};margin:${margin}"`;
       if (src && /^data:image\/(?:png|jpeg|gif|webp);base64,[A-Za-z0-9+/]+={0,2}$/.test(src)) {
-        attributes = ' src="' + src + '" alt="' + escapeHtml(node.getAttribute('alt') ?? '') + '" loading="lazy" decoding="async" style="display:block;max-width:100%;height:auto;margin-inline:auto"';
+        attributes = ` src="${src}"${imageAttributes}`;
       } else if (src) {
         try {
           const url = new URL(src, 'https://roomreview.co.uk');
-          if (url.protocol === 'https:' && allowedWordPressImageHosts.has(url.hostname)) attributes = ' src="' + escapeHtml(url.href) + '" alt="' + escapeHtml(node.getAttribute('alt') ?? '') + '" loading="lazy"';
+          if (url.protocol === 'https:' && allowedWordPressImageHosts.has(url.hostname)) attributes = ` src="${escapeHtml(url.href)}"${imageAttributes}`;
         } catch {
           attributes = '';
         }
@@ -585,6 +617,17 @@ const BlogPostEditor: React.FC<{
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setFeedback(null);
+    const hasText = new DOMParser()
+      .parseFromString(content, 'text/html')
+      .body.textContent?.trim();
+    if (!hasText && !/<img\b/i.test(content)) {
+      setFeedback({ kind: 'error', message: 'Add some article text or an image before saving.' });
+      return;
+    }
+    if (content.length > MAX_BLOG_CONTENT_LENGTH) {
+      setFeedback({ kind: 'error', message: 'Article content exceeds the 6 MB limit.' });
+      return;
+    }
     setIsSubmitting(true);
     try {
       const post = await blogService.createPost({ title, excerpt, content });
@@ -649,7 +692,7 @@ const BlogPostEditor: React.FC<{
         role="dialog"
         aria-modal="true"
         aria-labelledby="blog-editor-title"
-        className="my-auto w-full max-w-2xl rounded-2xl bg-white p-6 shadow-xl"
+        className="my-auto max-h-[calc(100vh-2rem)] w-full max-w-6xl overflow-y-auto rounded-2xl bg-white p-4 shadow-xl sm:p-6"
       >
         <div className="mb-5 flex items-start justify-between gap-4">
           <div>
@@ -671,76 +714,77 @@ const BlogPostEditor: React.FC<{
         </div>
 
         <form className="space-y-4" onSubmit={handleSubmit}>
-          <div>
-            <label htmlFor="blog-draft-file" className="mb-1 block text-sm font-semibold text-[#1A202C]">
-              <span className="inline-flex items-center gap-2">
-                <Upload aria-hidden="true" className="h-4 w-4" />
-                Import a document
-              </span>
-            </label>
-            <input
-              id="blog-draft-file"
-              type="file"
-              accept=".docx,.pdf,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-              onChange={handleDocumentImport}
-              disabled={isImporting || isSubmitting}
-              className="block w-full rounded-xl border border-gray-300 px-4 py-3 text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-gray-100 file:px-3 file:py-2 file:font-semibold file:text-gray-700"
-            />
-            <p className="mt-1 text-xs text-[#5F6D7A]">
-              DOCX text and images, or PDF pages as images, up to {MAX_BLOG_DOCUMENT_SIZE / 1024 / 1024} MB.
-            </p>
-            {isImporting && (
-              <p className="mt-2 text-sm text-gray-600" role="status">
-                Importing document content and images...
+          <div className="grid gap-4 lg:grid-cols-2">
+            <div>
+              <label htmlFor="blog-draft-file" className="mb-1 block text-sm font-semibold text-[#1A202C]">
+                <span className="inline-flex items-center gap-2">
+                  <Upload aria-hidden="true" className="h-4 w-4" />
+                  Import a document
+                </span>
+              </label>
+              <input
+                id="blog-draft-file"
+                type="file"
+                accept=".docx,.pdf,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                onChange={handleDocumentImport}
+                disabled={isImporting || isSubmitting}
+                className="block w-full rounded-xl border border-gray-300 px-4 py-3 text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-gray-100 file:px-3 file:py-2 file:font-semibold file:text-gray-700"
+              />
+              <p className="mt-1 text-xs text-[#5F6D7A]">
+                DOCX text and images, or PDF pages as images, up to {MAX_BLOG_DOCUMENT_SIZE / 1024 / 1024} MB.
               </p>
-            )}
+              {isImporting && (
+                <p className="mt-2 text-sm text-gray-600" role="status">
+                  Importing document content and images...
+                </p>
+              )}
+            </div>
+
+            <div>
+              <label htmlFor="blog-draft-title" className="mb-1 block text-sm font-semibold text-[#1A202C]">
+                Title
+              </label>
+              <input
+                id="blog-draft-title"
+                type="text"
+                required
+                maxLength={200}
+                value={title}
+                onChange={(event) => setTitle(event.target.value)}
+                disabled={isSubmitting || isImporting}
+                className="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm focus:border-[#8B0000] focus:outline-none focus:ring-1 focus:ring-[#8B0000]"
+              />
+            </div>
+
+            <div>
+              <label htmlFor="blog-draft-excerpt" className="mb-1 block text-sm font-semibold text-[#1A202C]">
+                Excerpt
+              </label>
+              <textarea
+                id="blog-draft-excerpt"
+                rows={3}
+                maxLength={5000}
+                value={excerpt}
+                onChange={(event) => setExcerpt(event.target.value)}
+                disabled={isSubmitting || isImporting}
+                className="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm focus:border-[#8B0000] focus:outline-none focus:ring-1 focus:ring-[#8B0000]"
+              />
+            </div>
           </div>
 
           <div>
-            <label htmlFor="blog-draft-title" className="mb-1 block text-sm font-semibold text-[#1A202C]">
-              Title
-            </label>
-            <input
-              id="blog-draft-title"
-              type="text"
-              required
-              maxLength={200}
-              value={title}
-              onChange={(event) => setTitle(event.target.value)}
-              disabled={isSubmitting || isImporting}
-              className="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm focus:border-[#8B0000] focus:outline-none focus:ring-1 focus:ring-[#8B0000]"
-            />
-          </div>
-
-          <div>
-            <label htmlFor="blog-draft-excerpt" className="mb-1 block text-sm font-semibold text-[#1A202C]">
-              Excerpt
-            </label>
-            <textarea
-              id="blog-draft-excerpt"
-              rows={3}
-              maxLength={5000}
-              value={excerpt}
-              onChange={(event) => setExcerpt(event.target.value)}
-              disabled={isSubmitting || isImporting}
-              className="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm focus:border-[#8B0000] focus:outline-none focus:ring-1 focus:ring-[#8B0000]"
-            />
-          </div>
-
-          <div>
-            <label htmlFor="blog-draft-content" className="mb-1 block text-sm font-semibold text-[#1A202C]">
+            <label className="mb-1 block text-sm font-semibold text-[#1A202C]">
               Article content
             </label>
-            <textarea
-              id="blog-draft-content"
-              rows={10}
-              required
-              maxLength={MAX_BLOG_CONTENT_LENGTH}
+            <BlogContentEditor
               value={content}
-              onChange={(event) => setContent(event.target.value)}
+              onChange={setContent}
               disabled={isSubmitting || isImporting}
-              className="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm focus:border-[#8B0000] focus:outline-none focus:ring-1 focus:ring-[#8B0000]"
+              onError={(message) => setFeedback({ kind: 'error', message })}
             />
+            <p className="mt-1 text-right text-xs text-[#5F6D7A]">
+              {content.length.toLocaleString()} / {MAX_BLOG_CONTENT_LENGTH.toLocaleString()} characters
+            </p>
           </div>
 
           {feedback && (

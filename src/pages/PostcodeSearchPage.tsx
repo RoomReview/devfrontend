@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { ArrowDownUp, ChevronDown, ChevronLeft, ChevronRight, Home, Plus, Shield, Star, TrendingUp } from 'lucide-react';
 import { H1, Body, Small } from '../components/common/Typography';
 import Button from '../components/common/Button';
-import heroImage from '@img/city.jpg';
+import heroImage from '@img/city.webp';
 import { postcodeAreaReportPath, postcodePath, postcodeReviewPath, type PostcodeReviewAction } from '@/utils/helpers';
 import { postcodeService, type PostcodeListItem, type PostcodeSort } from '@/services/postcode.service';
 import { trackAnalyticsEvent } from '@/lib/cookieConsent';
@@ -15,13 +15,19 @@ const formatCurrency = (value: number) => new Intl.NumberFormat('en-GB', {
   maximumFractionDigits: 0,
 }).format(value);
 
+const getOutcodePrefix = (value: string) => {
+  const compact = value.trim().toUpperCase().replace(/\s+/g, '');
+  const outcodeMatch = compact.match(/^([A-Z]{1,2}\d[A-Z\d]?)/);
+  return (outcodeMatch?.[1] ?? compact).slice(0, 4);
+};
+
 type CrimeFilter = 'all' | 'below-london' | 'above-london';
 type PropertyValueFilter = 'all' | 'under-500k' | '500k-1m' | 'over-1m';
 type RatingFilter = 'all' | '4-plus' | '3-plus' | 'unrated';
 
 const PostcodeSearchPage = () => {
   const [postcode, setPostcode] = useState('');
-  const [error, setError] = useState('');
+  const [outcodePrefix, setOutcodePrefix] = useState('');
   const [postcodes, setPostcodes] = useState<PostcodeListItem[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [reloadKey, setReloadKey] = useState(0);
@@ -33,7 +39,6 @@ const PostcodeSearchPage = () => {
   const [propertyValueFilter, setPropertyValueFilter] = useState<PropertyValueFilter>('all');
   const [ratingFilter, setRatingFilter] = useState<RatingFilter>('all');
   const [sortBy, setSortBy] = useState<PostcodeSort>('alphabetical-asc');
-  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const requestedAction = searchParams.get('reviewAction');
   const reviewAction: PostcodeReviewAction | null = requestedAction === 'read' || requestedAction === 'write'
@@ -62,7 +67,7 @@ const PostcodeSearchPage = () => {
     setLoadError(null);
     setPostcodes([]);
 
-    void postcodeService.getAll(currentPage, pageSize, sortBy)
+    void postcodeService.getAll(currentPage, pageSize, sortBy, outcodePrefix)
       .then((response) => {
         if (!isCurrent) return;
         setPostcodes(response.data);
@@ -81,22 +86,14 @@ const PostcodeSearchPage = () => {
     return () => {
       isCurrent = false;
     };
-  }, [currentPage, reloadKey, sortBy]);
+  }, [currentPage, outcodePrefix, reloadKey, sortBy]);
 
   const handleSearch = (event: React.FormEvent) => {
     event.preventDefault();
     const trimmed = postcode.trim();
-
-    if (!trimmed) {
-      setError('Enter a valid UK postcode');
-      return;
-    }
-
-    setError('');
-    trackAnalyticsEvent('postcode_search');
-    navigate(isAreaReportJourney
-      ? postcodeAreaReportPath(trimmed)
-      : reviewAction ? postcodeReviewPath(trimmed, reviewAction) : postcodePath(trimmed));
+    setOutcodePrefix(getOutcodePrefix(trimmed));
+    setCurrentPage(1);
+    if (trimmed) trackAnalyticsEvent('postcode_search');
   };
 
   return (
@@ -131,15 +128,14 @@ const PostcodeSearchPage = () => {
                 type="text"
                 value={postcode}
                 onChange={(event) => setPostcode(event.target.value)}
-                placeholder="Search for a postcode (AB1 C23)"
+                placeholder="Filter by postcode or area (e.g. SW1A)"
                 className="w-full rounded-[18px] border border-[#D9D5D0] bg-white px-5 py-4 text-base text-[#1A2B3C] placeholder:text-gray-400 focus:outline-none shadow-sm"
               />
               <Button type="submit" className="w-full sm:w-auto" variant="primary">
-                Search
+                Filter list
               </Button>
             </form>
 
-            {error && <p className="mt-4 text-sm text-primary">{error}</p>}
           </div>
 
           <div className="rounded-[36px] overflow-hidden shadow-[0_24px_60px_rgba(20,22,33,0.08)] border border-[#E5DCD5]">
@@ -158,7 +154,9 @@ const PostcodeSearchPage = () => {
                     ? 'Postcode data is unavailable. Use “Try again” below.'
                   : totalPostcodes > 0
                     ? `Showing page ${currentPage} of ${totalPages}.`
-                    : 'No postcodes are available yet.'}
+                    : outcodePrefix
+                      ? 'No postcodes match this search.'
+                      : 'No postcodes are available yet.'}
               </Body>
             </div>
             <div className="flex items-center gap-3 text-sm text-[#6B7280]" aria-live="polite">
@@ -228,7 +226,7 @@ const PostcodeSearchPage = () => {
               </select>
               <ChevronDown className="pointer-events-none absolute right-3 h-4 w-4 text-[#111]" aria-hidden="true" />
             </label>
-            <p className="text-xs text-[#6B7280] md:col-span-2 xl:col-span-4">Sorting applies across all postcodes before pagination. Filters apply to the current page.</p>
+            <p className="text-xs text-[#6B7280] md:col-span-2 xl:col-span-4">Postcode search applies across all pages. Sorting applies before pagination; other filters apply to the current page.</p>
           </div>
 
           {loadError && (
@@ -344,22 +342,24 @@ const PostcodeSearchPage = () => {
               {!loading && visiblePostcodes.length === 0 && (
                 <div className="mt-8 rounded-xl border border-[#E5DCD5] bg-white p-6 text-center">
                   <p className="text-sm font-semibold text-[#1A2B3C]">
-                    No postcodes on this page match these filters.
+                    No postcodes on this page match your search and filters.
                   </p>
                   <p className="mt-2 text-sm text-[#6B7280]">
-                    Filters apply to the current page only. Try another page or clear the filters.
+                    Try another postcode prefix or clear the search and filters.
                   </p>
                   <button
                     type="button"
                     className="mt-4 rounded-lg bg-[#8B0202] px-4 py-2 text-sm font-semibold text-white hover:bg-[#700000]"
                     onClick={() => {
+                      setPostcode('');
+                      setOutcodePrefix('');
                       setCrimeFilter('all');
                       setPropertyValueFilter('all');
                       setRatingFilter('all');
                       setCurrentPage(1);
                     }}
                   >
-                    Clear filters
+                    Clear search and filters
                   </button>
                 </div>
               )}

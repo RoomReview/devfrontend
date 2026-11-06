@@ -23,6 +23,7 @@ import {
 } from "@/services/affiliate-reward.service";
 import { postcodePath } from "@/utils/helpers";
 import RewardsDashboardPanel from "@/components/account/RewardsDashboardPanel";
+import PartnerOffersSection from "@/components/account/PartnerOffersSection";
 import { canAccessAdminDashboard } from "@/lib/adminAccess";
 
 const AccountPage = () => {
@@ -443,11 +444,9 @@ const AccountPage = () => {
               achievements={rewardsProfile?.achievements ?? []}
               hasRewardsAccess={rewardsProfile?.hasRewardsAccess ?? false}
               availableRewards={rewardsProfile?.availableRewards ?? 0}
-              offers={rewardsProfile?.offers ?? []}
               rewards={rewardsProfile?.rewards ?? []}
               loading={rewardsLoading}
               error={rewardsError}
-              redeeming={redeemingReward}
               onRetry={() => {
                 setRewardsLoading(true);
                 setRewardsError(null);
@@ -461,15 +460,29 @@ const AccountPage = () => {
                   )
                   .finally(() => setRewardsLoading(false));
               }}
+            />
+            <PartnerOffersSection
+              offers={rewardsProfile?.offers ?? []}
+              rewards={rewardsProfile?.rewards ?? []}
+              availableRewards={rewardsProfile?.availableRewards ?? 0}
+              redeeming={redeemingReward}
               onSelectOffer={(rewardGrantId, offer) =>
                 setSelectedReward({ rewardGrantId, offer })
               }
             />
-            <div className="rounded-[30px] border border-[#E5DCD5] bg-[#F8F4F1] p-8">
-              <H2 className="text-[#1A2B3C] mb-4">Profile details</H2>
-              <div className="space-y-4 text-[#0B0B0B]">
+          </div>
+
+          <div className="grid gap-6">
+            <section
+              aria-labelledby="profile-details-title"
+              className="rounded-[24px] border border-[#E5DCD5] bg-white p-6 shadow-sm"
+            >
+              <H3 id="profile-details-title" className="mb-3 text-[#1A2B3C]">
+                Profile details
+              </H3>
+              <div className="grid gap-4 text-[#0B0B0B] sm:grid-cols-2">
                 <div>
-                  <Small className="block text-[#8B0202] uppercase tracking-[0.2em] mb-2">
+                  <Small className="mb-2 block uppercase tracking-[0.2em] text-[#8B0202]">
                     Name
                   </Small>
                   <Body>
@@ -477,24 +490,22 @@ const AccountPage = () => {
                   </Body>
                 </div>
                 <div>
-                  <Small className="block text-[#8B0202] uppercase tracking-[0.2em] mb-2">
-                    Email
-                  </Small>
-                  <Body>{user?.email}</Body>
-                </div>
-                <div>
-                  <Small className="block text-[#8B0202] uppercase tracking-[0.2em] mb-2">
+                  <Small className="mb-2 block uppercase tracking-[0.2em] text-[#8B0202]">
                     Role
                   </Small>
                   <Body>
                     {user?.role === "TENANT" ? "User" : (user?.role ?? "User")}
                   </Body>
                 </div>
+                <div>
+                  <Small className="mb-2 block uppercase tracking-[0.2em] text-[#8B0202]">
+                    Email
+                  </Small>
+                  <Body>{user?.email}</Body>
+                </div>
               </div>
-            </div>
-          </div>
+            </section>
 
-          <div className="grid gap-6">
             <div className="rounded-[24px] border border-[#E5DCD5] bg-[#FFF9F0] p-6 shadow-sm">
               <H3 className="text-[#1A2B3C] mb-3">Report plan</H3>
               <Body>

@@ -1,9 +1,15 @@
-import { AlertCircle, Info } from "lucide-react";
+import {
+  AlertCircle,
+  ArrowDown,
+  CheckCircle2,
+  Info,
+  LockKeyhole,
+  Trophy,
+} from "lucide-react";
 import Button from "@/components/common/Button";
-import { Body, H3, Small } from "@/components/common/Typography";
+import { Body, Small } from "@/components/common/Typography";
 import type {
   Achievement,
-  AffiliateOffer,
   ProfileProgress,
   ReviewReward,
 } from "@/services/affiliate-reward.service";
@@ -13,13 +19,10 @@ interface RewardsDashboardPanelProps {
   achievements: Achievement[];
   hasRewardsAccess: boolean;
   availableRewards: number;
-  offers: AffiliateOffer[];
   rewards: ReviewReward[];
   loading: boolean;
   error: string | null;
-  redeeming: boolean;
   onRetry: () => void;
-  onSelectOffer: (rewardGrantId: string, offer: AffiliateOffer) => void;
 }
 
 const RewardsDashboardPanel = ({
@@ -27,22 +30,39 @@ const RewardsDashboardPanel = ({
   achievements,
   hasRewardsAccess,
   availableRewards,
-  offers,
   rewards,
   loading,
   error,
-  redeeming,
   onRetry,
-  onSelectOffer,
 }: RewardsDashboardPanelProps) => {
-  const availableReward = rewards.find((reward) => !reward.redeemedAt);
+  const currentLevelMinimum = profile?.levelContributionsRequired;
+  const nextLevelMinimum = profile?.nextLevel?.contributionsRequired;
+  const levelProgress = !profile
+    ? null
+    : !profile.nextLevel
+      ? 100
+      : typeof currentLevelMinimum === "number" &&
+          typeof nextLevelMinimum === "number" &&
+          Number.isFinite(currentLevelMinimum) &&
+          Number.isFinite(nextLevelMinimum) &&
+          nextLevelMinimum > currentLevelMinimum
+        ? Math.min(
+            100,
+            Math.max(
+              0,
+              ((profile.contributions - currentLevelMinimum) /
+                (nextLevelMinimum - currentLevelMinimum)) *
+                100,
+            ),
+          )
+        : null;
 
   return (
     <section
       aria-labelledby="my-rewards-title"
       className="rounded-[24px] border border-[#E5DCD5] bg-white p-4 shadow-sm sm:p-6"
     >
-      <div className="rounded-lg bg-[#E4F0FF] px-4 py-3 text-sm font-semibold text-[#1A2B3C]">
+      <div className="flex items-center justify-between gap-3 rounded-lg bg-[#E4F0FF] px-4 py-3 text-sm font-semibold text-[#1A2B3C]">
         <div className="flex items-center gap-2">
           <Info
             className="h-5 w-5 shrink-0 text-[#1473C9]"
@@ -50,6 +70,13 @@ const RewardsDashboardPanel = ({
           />
           <span>Available rewards: {loading ? "…" : availableRewards}</span>
         </div>
+        <a
+          href="#partner-offers"
+          aria-label="Go to partner offers"
+          className="inline-flex shrink-0 items-center justify-center rounded-full p-1 text-[#8B0202] hover:bg-white/70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#8B0202]"
+        >
+          <ArrowDown className="h-5 w-5" aria-hidden="true" />
+        </a>
       </div>
 
       {loading ? (
@@ -68,81 +95,7 @@ const RewardsDashboardPanel = ({
           Your first approved review unlocks My Rewards, and access stays active
           from then on.
         </Body>
-      ) : offers.length === 0 ? (
-        <div className="mt-4 rounded-xl bg-[#F8F4F1] p-4">
-          <p className="font-semibold text-[#1A2B3C]">Partner offers</p>
-          <Body className="mt-1">
-            No active offers are available from partners that have approved
-            RoomReview in Awin yet. Check back when an approved offer is added.
-          </Body>
-        </div>
-      ) : (
-        <div className="mt-4">
-          <div className="mb-3">
-            <p className="font-semibold text-[#1A2B3C]">Partner offers</p>
-            <Small className="mt-1 text-[#64707A]">
-              Offers from partners whose Awin programmes have approved
-              RoomReview.
-            </Small>
-          </div>
-          <ul className="space-y-3">
-            {offers.map((offer) => (
-              <li
-                key={offer.offerId}
-                className="flex flex-col gap-4 rounded-xl border border-[#E5DCD5] p-3 sm:flex-row sm:items-center"
-              >
-                <div className="flex min-w-0 flex-1 items-center gap-3">
-                  {offer.logoUrl ? (
-                    <img
-                      src={offer.logoUrl}
-                      alt={`${offer.storeName} logo`}
-                      className="h-16 w-16 shrink-0 rounded-lg border border-[#E5DCD5] bg-white object-contain p-1"
-                      loading="lazy"
-                    />
-                  ) : (
-                    <div
-                      aria-hidden="true"
-                      className="flex h-16 w-16 shrink-0 items-center justify-center rounded-lg border border-[#E5DCD5] bg-[#FAFAF9] text-lg font-bold text-[#1A2B3C]"
-                    >
-                      {offer.storeName
-                        .split(/\s+/)
-                        .map((word) => word[0])
-                        .join("")
-                        .slice(0, 3)
-                        .toUpperCase()}
-                    </div>
-                  )}
-                  <div className="min-w-0">
-                    <p className="font-bold text-[#1A2B3C]">
-                      {offer.storeName}
-                    </p>
-                    <Small className="mt-1 block text-[#64707A]">
-                      {offer.description}
-                    </Small>
-                    {offer.discountDetails && (
-                      <Small className="mt-1 block font-semibold text-[#1A2B3C]">
-                        Terms: {offer.discountDetails}
-                      </Small>
-                    )}
-                  </div>
-                </div>
-                <Button
-                  size="sm"
-                  className="shrink-0"
-                  disabled={!availableReward || redeeming}
-                  onClick={() =>
-                    availableReward &&
-                    onSelectOffer(availableReward.rewardGrantId, offer)
-                  }
-                >
-                  Shop Now
-                  <span aria-hidden="true">›</span>
-                </Button>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
+      ) : null}
 
       {availableRewards > 0 && (
         <div
@@ -163,48 +116,113 @@ const RewardsDashboardPanel = ({
       )}
 
       {profile && (
-        <div className="mt-6 border-t border-[#E5DCD5] pt-5">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <H3 className="text-[#1A2B3C]">Your profile progress</H3>
-              <Body className="mt-1 text-sm">
-                Approved reviews and completed area reports build your level.
-              </Body>
-            </div>
-            <div className="rounded-xl bg-[#F8F4F1] px-4 py-3 text-sm">
-              <p className="font-bold text-[#1A2B3C]">
-                Level {profile.level}: {profile.levelName}
-              </p>
-              <p className="mt-1 text-[#64707A]">
-                {profile.contributions} contributions
-              </p>
-              {profile.nextLevel && (
-                <p className="mt-1 text-[#64707A]">
-                  {profile.nextLevel.contributionsRemaining} more to{" "}
-                  {profile.nextLevel.name}
+        <section
+          aria-labelledby="profile-progress-title"
+          className="mt-6 rounded-2xl border border-[#E5DCD5] bg-gradient-to-b from-white to-[#FFFCFA] p-4 sm:p-5"
+        >
+          <div className="flex items-center justify-between gap-3 border-b border-[#F0E9E4] pb-4">
+            <div className="flex min-w-0 items-center gap-3">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#FFF1E7] text-[#A52A16]">
+                <Trophy className="h-5 w-5" aria-hidden="true" />
+              </span>
+              <div>
+                <h3 id="profile-progress-title" className="font-bold text-[#1A2B3C]">
+                  Your profile progress
+                </h3>
+                <p className="mt-0.5 text-xs text-[#64707A]">
+                  Reviews and reports help you level up
                 </p>
-              )}
-            </div>
-          </div>
-          <div className="mt-4 grid gap-3 sm:grid-cols-2">
-            {achievements.map((achievement) => (
-              <div
-                key={achievement.id}
-                className={`rounded-xl border p-3 ${achievement.unlocked ? "border-emerald-200 bg-emerald-50" : "border-[#E5DCD5] bg-[#FAFAF9]"}`}
-              >
-                <div className="flex items-center justify-between gap-3">
-                  <p className="font-semibold text-[#1A2B3C]">
-                    {achievement.name}
-                  </p>
-                  <span className="text-xs font-semibold text-[#64707A]">
-                    {achievement.unlocked ? "Unlocked" : "Locked"}
-                  </span>
-                </div>
-                <Small className="mt-1 block text-[#64707A]">
-                  {achievement.description}
-                </Small>
               </div>
-            ))}
+            </div>
+            <span className="shrink-0 rounded-full border border-[#E6B9B2] bg-white px-3 py-1 text-xs font-bold text-[#8B0202]">
+              Level {profile.level}
+            </span>
+          </div>
+
+          <div className="py-5 sm:px-2">
+            <div className="flex flex-wrap items-end justify-between gap-3">
+              <div>
+                <p className="text-2xl font-extrabold tracking-tight text-[#1A2B3C]">
+                  {profile.levelName}
+                </p>
+                <p className="mt-1 text-sm text-[#64707A]">
+                  {profile.contributions} contribution{profile.contributions === 1 ? "" : "s"} completed
+                  {profile.nextLevel
+                    ? ` · ${profile.nextLevel.contributionsRemaining} more to ${profile.nextLevel.name}`
+                    : " · Highest level reached"}
+                </p>
+              </div>
+              <span className="text-sm font-bold text-[#1A2B3C]">
+                {levelProgress === null
+                  ? "Progress unavailable"
+                  : `${Math.round(levelProgress)}%`}
+              </span>
+            </div>
+            {levelProgress === null ? (
+              <p role="status" className="mt-3 text-xs text-[#64707A]">
+                Refresh the page after the rewards service has been updated.
+              </p>
+            ) : (
+              <div
+                className="mt-3 h-3 overflow-hidden rounded-full bg-[#ECEDEF]"
+                role="progressbar"
+                aria-label="Progress to next profile level"
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={Math.round(levelProgress)}
+              >
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-[#A80F13] to-[#D94732] transition-[width]"
+                  style={{ width: `${levelProgress}%` }}
+                />
+              </div>
+            )}
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            {achievements.map((achievement) => {
+              return (
+                <div
+                  key={achievement.id}
+                  className={`flex min-h-[88px] items-start gap-3 rounded-xl border p-3 transition-colors ${
+                    achievement.unlocked
+                      ? "border-emerald-200 bg-emerald-50/80"
+                      : "border-[#E5E7EB] bg-[#F8F9FB]"
+                  }`}
+                >
+                  <span className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${
+                    achievement.unlocked
+                      ? "bg-emerald-100 text-emerald-700"
+                      : "bg-white text-[#475569]"
+                  }`}>
+                    {achievement.unlocked
+                      ? <CheckCircle2 className="h-5 w-5" aria-hidden="true" />
+                      : <LockKeyhole className="h-4 w-4" aria-hidden="true" />}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
+                      <p className="font-bold text-[#1A2B3C]">
+                        {achievement.name}
+                      </p>
+                      <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
+                        achievement.unlocked
+                          ? "bg-emerald-100 text-emerald-800"
+                          : "bg-[#E7E9ED] text-[#64707A]"
+                      }`}>
+                        {achievement.unlocked ? "Unlocked" : "Locked"}
+                      </span>
+                    </div>
+                    <p className="mt-1 text-xs leading-relaxed text-[#64707A]">
+                      {achievement.description}
+                    </p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <div className="mt-4 flex items-center gap-2 rounded-xl bg-[#EEF4FF] px-3 py-2.5 text-xs text-[#31486B]">
+            <Info className="h-4 w-4 shrink-0 text-[#3972B8]" aria-hidden="true" />
+            <p>More achievements unlock as you contribute to RoomReview.</p>
           </div>
           {rewards.length > 0 && (
             <div className="mt-5">
@@ -230,7 +248,7 @@ const RewardsDashboardPanel = ({
               </ul>
             </div>
           )}
-        </div>
+        </section>
       )}
     </section>
   );

@@ -28,9 +28,21 @@ export type PostcodeSort =
   | 'rating-desc';
 
 export const postcodeService = {
-  getAll: async (page: number, limit: number, sortBy: PostcodeSort): Promise<PaginatedResponse<PostcodeListItem>> => {
+  getAll: async (
+    page: number,
+    limit: number,
+    sortBy: PostcodeSort,
+    outcodePrefix?: string,
+  ): Promise<PaginatedResponse<PostcodeListItem>> => {
+    const params = new URLSearchParams({
+      page: String(page),
+      limit: String(limit),
+      sortBy,
+    });
+    if (outcodePrefix) params.set('outcodePrefix', outcodePrefix);
+
     const response = await apiClient.get<PaginatedResponse<PostcodeListItem>>(
-      `/postcodes?page=${page}&limit=${limit}&sortBy=${sortBy}`,
+      `/postcodes?${params.toString()}`,
     );
     return response.data;
   },

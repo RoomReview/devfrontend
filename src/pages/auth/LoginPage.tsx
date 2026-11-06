@@ -77,6 +77,7 @@ const LoginPage = () => {
           placeholder="Email@domain.com"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
+          required
           error={emailError}
         />
 
@@ -87,6 +88,7 @@ const LoginPage = () => {
             placeholder="Enter your password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
+            required
           />
           <div className="text-right mt-2">
             <Link to="/forgot-password" className="text-sm text-secondary font-medium hover:underline">

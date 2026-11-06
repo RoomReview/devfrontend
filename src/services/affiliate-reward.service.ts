@@ -6,6 +6,7 @@ export interface ProfileProgress {
   contributions: number;
   level: number;
   levelName: string;
+  levelContributionsRequired: number;
   nextLevel: {
     level: number;
     name: string;

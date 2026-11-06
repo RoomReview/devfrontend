@@ -193,6 +193,19 @@ const HomePage = () => {
       </section>
 
       <section id="boroughs" className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-[96px] py-16">
+        <nav className="mb-5 text-sm text-[#64707A]" aria-label="Breadcrumb">
+          <ol className="flex items-center gap-2">
+            <li>
+              <Link to="/" className="hover:text-[#8B0202] hover:underline">
+                Home
+              </Link>
+            </li>
+            <li aria-hidden="true">/</li>
+            <li aria-current="page" className="font-semibold text-[#1A2B3C]">
+              Explore boroughs
+            </li>
+          </ol>
+        </nav>
         <H2 className="text-center text-[#0b0b0b] mb-12 tracking-[-0.72px] text-[36px] font-bold">
           Explore boroughs
         </H2>

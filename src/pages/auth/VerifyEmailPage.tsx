@@ -105,7 +105,7 @@ const VerifyEmailPage = () => {
             <Body className="text-sm text-gray-dark/80">
               {isVerifying
                 ? "Verifying your email address..."
-                : <>A verification code has been sent to <strong>{email}</strong>.</>}
+                : <>Enter the verification code sent to <strong>{email}</strong>, or request a new one below.</>}
             </Body>
             {verificationFailed && (
               <Body className="text-sm text-red-700">

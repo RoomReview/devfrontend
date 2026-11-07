@@ -66,6 +66,11 @@ const AccountPage = () => {
     rewardGrantId: string;
     offer: AffiliateOffer;
   } | null>(null);
+  const [unlockedOffer, setUnlockedOffer] = useState<{
+    storeName: string;
+    voucherCode: string | null;
+    trackingUrl: string;
+  } | null>(null);
   const [redeemingReward, setRedeemingReward] = useState(false);
   const [teamManagementOpen, setTeamManagementOpen] = useState(false);
   const [team, setTeam] = useState<TeamDetails | null>(null);
@@ -237,11 +242,29 @@ const AccountPage = () => {
     setRedeemingReward(true);
     setRewardsError(null);
     try {
-      const { trackingUrl } = await affiliateRewardService.redeem(
+      const { trackingUrl, voucherCode } = await affiliateRewardService.redeem(
         selectedReward.rewardGrantId,
         selectedReward.offer.offerId,
       );
-      window.location.assign(trackingUrl);
+      setUnlockedOffer({
+        storeName: selectedReward.offer.storeName,
+        voucherCode,
+        trackingUrl,
+      });
+      setSelectedReward(null);
+      setRewardsProfile((current) =>
+        current
+          ? {
+              ...current,
+              availableRewards: Math.max(0, current.availableRewards - 1),
+              rewards: current.rewards.map((reward) =>
+                reward.rewardGrantId === selectedReward.rewardGrantId
+                  ? { ...reward, redeemedAt: new Date().toISOString() }
+                  : reward,
+              ),
+            }
+          : current,
+      );
     } catch {
       setRewardsError(
         "This reward could not be used. Refresh your rewards and try again.",
@@ -967,12 +990,22 @@ const AccountPage = () => {
             <div className="rounded-[24px] border border-[#E5DCD5] bg-white p-6 shadow-sm">
               <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
                 <H3 className="text-[#1A2B3C]">My reviews</H3>
-                <Link
-                  to="/postcode-search"
-                  className="text-sm font-semibold text-[#8B0202] underline"
-                >
-                  Write a review
-                </Link>
+                <div className="flex flex-wrap items-center gap-4">
+                  {myReviews.length > 3 && (
+                    <Link
+                      to="/account/reviews"
+                      className="text-sm font-semibold text-[#8B0202] underline"
+                    >
+                      View all reviews ({myReviews.length})
+                    </Link>
+                  )}
+                  <Link
+                    to="/postcode-search"
+                    className="text-sm font-semibold text-[#8B0202] underline"
+                  >
+                    Write a review
+                  </Link>
+                </div>
               </div>
               {reviewActionError && (
                 <Body className="mb-3 text-[#8B0202]" role="alert">
@@ -1001,7 +1034,7 @@ const AccountPage = () => {
                 </Body>
               ) : (
                 <ul className="space-y-4">
-                  {myReviews.map((review) => {
+                  {myReviews.slice(0, 3).map((review) => {
                     const statusLabel =
                       review.status === "APPROVED"
                         ? "Published"
@@ -1124,6 +1157,45 @@ const AccountPage = () => {
               <Button
                 isLoading={redeemingReward}
                 onClick={() => void confirmRewardRedemption()}
+              >
+                Continue to Store
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+      {unlockedOffer && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="unlocked-offer-title"
+            className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl"
+          >
+            <H2 id="unlocked-offer-title" className="text-[#1A2B3C]">
+              {unlockedOffer.storeName} offer unlocked
+            </H2>
+            {unlockedOffer.voucherCode ? (
+              <div className="mt-4 rounded-lg bg-[#F8F4F1] p-4">
+                <Small className="block text-[#64707A]">Your code</Small>
+                <p className="mt-1 break-all text-lg font-bold text-[#1A2B3C]">
+                  {unlockedOffer.voucherCode}
+                </p>
+              </div>
+            ) : (
+              <Body className="mt-4">
+                Your reward is unlocked. Continue to the store to use it.
+              </Body>
+            )}
+            <div className="mt-6 flex justify-end gap-3">
+              <Button
+                variant="secondary"
+                onClick={() => setUnlockedOffer(null)}
+              >
+                Close
+              </Button>
+              <Button
+                onClick={() => window.location.assign(unlockedOffer.trackingUrl)}
               >
                 Continue to Store
               </Button>

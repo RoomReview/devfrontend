@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 import {
   adminService,
   type AdminAwinPublisher,
@@ -15,7 +15,10 @@ const getAwinErrorMessage = (error: unknown, fallback: string) => {
   if (/HTTP 401|invalid_token/i.test(message)) {
     return "Awin rejected AWIN_API_TOKEN (401). Generate a valid Awin API token, update the backend secret, and restart the backend.";
   }
-  return fallback;
+  if (/HTTP 429|rate limit/i.test(message)) {
+    return message;
+  }
+  return message.trim() ? message : fallback;
 };
 
 const emptyOffer: AdminAffiliateOfferInput = {
@@ -24,9 +27,27 @@ const emptyOffer: AdminAffiliateOfferInput = {
   logoUrl: null,
   description: "",
   discountDetails: null,
+  voucherCode: null,
   trackingUrl: "",
   awinApproved: false,
   isActive: false,
+};
+
+type AwinOfferSyncResult = Awaited<
+  ReturnType<typeof adminService.syncAwinOffers>
+>;
+type AwinOfferSyncCursor = NonNullable<AwinOfferSyncResult["nextCursor"]>;
+type AwinOfferSyncTotals = Pick<
+  AwinOfferSyncResult,
+  "fetched" | "joined" | "created" | "updated" | "unjoinedAdvertisers"
+>;
+
+const emptyAwinOfferSyncTotals: AwinOfferSyncTotals = {
+  fetched: 0,
+  joined: 0,
+  created: 0,
+  updated: 0,
+  unjoinedAdvertisers: 0,
 };
 
 const getOfferStatus = (offer: AdminAffiliateOffer): string => {
@@ -50,6 +71,8 @@ const AffiliateOffersPanel = () => {
   const [offers, setOffers] = useState<AdminAffiliateOffer[]>([]);
   const [offer, setOffer] = useState<AdminAffiliateOfferInput>(emptyOffer);
   const [editingOfferId, setEditingOfferId] = useState<string | null>(null);
+  const [editingOfferName, setEditingOfferName] = useState<string | null>(null);
+  const offerFormRef = useRef<HTMLFormElement>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -68,6 +91,12 @@ const AffiliateOffersPanel = () => {
   const [syncingOffers, setSyncingOffers] = useState(false);
   const [offersSyncNotice, setOffersSyncNotice] = useState<string | null>(null);
   const [offersSyncError, setOffersSyncError] = useState<string | null>(null);
+  const [offersSyncCursor, setOffersSyncCursor] = useState<{
+    publisherId: number;
+    cursor: AwinOfferSyncCursor;
+  } | null>(null);
+  const [offersSyncTotals, setOffersSyncTotals] =
+    useState<AwinOfferSyncTotals>(emptyAwinOfferSyncTotals);
   const [startDate, setStartDate] = useState(() => {
     const date = new Date();
     date.setUTCDate(date.getUTCDate() - 7);
@@ -157,16 +186,47 @@ const AffiliateOffersPanel = () => {
   };
 
   const syncOffers = async () => {
+    const syncPublisherId = publisherId;
+    let cursor =
+      offersSyncCursor?.publisherId === syncPublisherId
+        ? offersSyncCursor.cursor
+        : undefined;
+    let totals =
+      cursor === undefined ? emptyAwinOfferSyncTotals : offersSyncTotals;
     setSyncingOffers(true);
     setOffersSyncError(null);
-    setOffersSyncNotice(null);
+    setOffersSyncNotice(
+      cursor ? "Loading the next batch of up to 50 promotions." : null,
+    );
     try {
       const result = await adminService.syncAwinOffers({
-        publisherId,
+        publisherId: syncPublisherId,
+        cursor,
       });
-      setOffersSyncNotice(
-        `Imported ${result.created} new offers and updated ${result.updated}; ${result.joined} offers are from joined programmes.`,
+      totals = {
+        fetched: totals.fetched + result.fetched,
+        joined: totals.joined + result.joined,
+        created: totals.created + result.created,
+        updated: totals.updated + result.updated,
+        unjoinedAdvertisers:
+          totals.unjoinedAdvertisers + result.unjoinedAdvertisers,
+      };
+      cursor = result.nextCursor ?? undefined;
+      setOffersSyncTotals(totals);
+      setOffersSyncCursor(
+        cursor ? { publisherId: syncPublisherId, cursor } : null,
       );
+
+      if (cursor) {
+        setOffersSyncNotice(
+          "Batch done. Click for next 50.",
+        );
+      } else {
+        setOffersSyncNotice(
+          "Sync complete.",
+        );
+        setOffersSyncTotals(emptyAwinOfferSyncTotals);
+      }
       await loadOffers();
     } catch (error) {
       setOffersSyncError(
@@ -192,6 +252,7 @@ const AffiliateOffersPanel = () => {
       );
       setOffer(emptyOffer);
       setEditingOfferId(null);
+      setEditingOfferName(null);
       await loadOffers();
     } catch {
       setError(
@@ -209,12 +270,18 @@ const AffiliateOffersPanel = () => {
       logoUrl: existing.logoUrl,
       description: existing.description,
       discountDetails: existing.discountDetails,
+      voucherCode: existing.voucherCode,
       trackingUrl: existing.trackingUrl,
       awinApproved: existing.awinApproved,
       isActive: existing.isActive,
     });
     setEditingOfferId(existing.offerId);
+    setEditingOfferName(existing.storeName);
     setNotice(null);
+    offerFormRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    window.setTimeout(() => {
+      offerFormRef.current?.querySelector<HTMLInputElement>("input")?.focus({ preventScroll: true });
+    }, 0);
   };
 
   const updateText = (
@@ -255,9 +322,15 @@ const AffiliateOffersPanel = () => {
       )}
 
       <form
+        ref={offerFormRef}
         className="mt-5 grid gap-4 sm:grid-cols-2"
         onSubmit={(event) => void submitOffer(event)}
       >
+        {editingOfferId && (
+          <p className="rounded-lg bg-blue-50 p-3 text-sm font-semibold text-blue-900 sm:col-span-2">
+            Editing offer: {editingOfferName}
+          </p>
+        )}
         <label className="text-sm font-semibold text-[#1A2B3C]">
           Store name
           <input
@@ -303,6 +376,20 @@ const AffiliateOffersPanel = () => {
               setOffer((current) => ({
                 ...current,
                 discountDetails: event.target.value || null,
+              }))
+            }
+            className="mt-1 w-full rounded-lg border border-[#D8CCC4] px-3 py-2 font-normal"
+          />
+        </label>
+        <label className="text-sm font-semibold text-[#1A2B3C]">
+          Voucher code (revealed after reward redemption)
+          <input
+            maxLength={100}
+            value={offer.voucherCode ?? ""}
+            onChange={(event) =>
+              setOffer((current) => ({
+                ...current,
+                voucherCode: event.target.value || null,
               }))
             }
             className="mt-1 w-full rounded-lg border border-[#D8CCC4] px-3 py-2 font-normal"
@@ -372,6 +459,7 @@ const AffiliateOffersPanel = () => {
               variant="secondary"
               onClick={() => {
                 setEditingOfferId(null);
+                setEditingOfferName(null);
                 setOffer(emptyOffer);
               }}
             >
@@ -440,9 +528,8 @@ const AffiliateOffersPanel = () => {
       <div className="mt-8 border-t border-[#E5DCD5] pt-5">
         <h3 className="font-bold text-[#1A2B3C]">Awin promotions</h3>
         <Body className="mt-2">
-          Joined-programme promotions for the UK are imported and updated
-          automatically every 12 hours when AWIN_PUBLISHER_ID is configured on
-          the backend. Disable individual offers above when needed.
+          Imports up to 50 joined UK promotions per click. Click again for the
+          next batch.
         </Body>
         {offersSyncError && (
           <p

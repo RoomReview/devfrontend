@@ -37,6 +37,7 @@ export interface ReviewReward {
   earnedAt: string;
   redeemedAt: string | null;
   storeName: string | null;
+  voucherCode: string | null;
 }
 
 export interface RewardsProfile {
@@ -58,8 +59,10 @@ export const affiliateRewardService = {
   redeem: async (
     rewardGrantId: string,
     offerId: string,
-  ): Promise<{ trackingUrl: string }> => {
-    const response = await apiClient.post<{ data: { trackingUrl: string } }>(
+  ): Promise<{ trackingUrl: string; voucherCode: string | null }> => {
+    const response = await apiClient.post<{
+      data: { trackingUrl: string; voucherCode: string | null };
+    }>(
       `/rewards/${encodeURIComponent(rewardGrantId)}/redeem`,
       { offerId },
     );

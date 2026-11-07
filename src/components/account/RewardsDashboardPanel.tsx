@@ -239,6 +239,11 @@ const RewardsDashboardPanel = ({
                       {reward.redeemedAt
                         ? `Used at ${reward.storeName ?? "partner store"}`
                         : "Available to use"}
+                      {reward.redeemedAt && reward.voucherCode && (
+                        <span className="mt-1 block font-semibold text-[#1A2B3C]">
+                          Code: {reward.voucherCode}
+                        </span>
+                      )}
                     </span>
                     <Small className="text-[#64707A]">
                       {new Date(reward.earnedAt).toLocaleDateString("en-GB")}

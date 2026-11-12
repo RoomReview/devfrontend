@@ -5,7 +5,6 @@ import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 
 export const MAX_BLOG_DOCUMENT_SIZE = 20 * 1024 * 1024;
-export const MAX_BLOG_CONTENT_LENGTH = 6_000_000;
 
 const MAX_PDF_PAGE_DIMENSION = 1400;
 const MAX_PDF_IMAGE_QUALITY = 0.78;
@@ -46,11 +45,6 @@ export const extractBlogDocumentContent = async (
       },
     );
     const content = result.value.trim();
-    if (content.length > MAX_BLOG_CONTENT_LENGTH) {
-      throw new Error(
-        'The imported article and images exceed the 6 MB content limit. Reduce the image sizes and try again.',
-      );
-    }
     return content;
   }
 
@@ -60,7 +54,6 @@ export const extractBlogDocumentContent = async (
   const document = await loadingTask.promise;
   try {
     const pageImages: string[] = [];
-    let contentLength = 0;
     for (let pageNumber = 1; pageNumber <= document.numPages; pageNumber += 1) {
       const page = await document.getPage(pageNumber);
       const textContent = await page.getTextContent();
@@ -100,12 +93,6 @@ export const extractBlogDocumentContent = async (
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;');
       const pageImage = `<figure><img src="${image}" alt="${escapedAlt}"></figure>`;
-      contentLength += pageImage.length;
-      if (contentLength > MAX_BLOG_CONTENT_LENGTH) {
-        throw new Error(
-          'The imported PDF pages exceed the 6 MB content limit. Reduce the PDF page count or image quality and try again.',
-        );
-      }
       pageImages.push(pageImage);
     }
 

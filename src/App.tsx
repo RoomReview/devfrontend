@@ -19,6 +19,7 @@ const ReportPage = lazy(() => import('./pages/ReportPage').then((module) => ({ d
 const BuyerReportViewPage = lazy(() => import('./pages/BuyerReportViewPage').then((module) => ({ default: module.BuyerReportViewPage })));
 const InvestorReportViewPage = lazy(() => import('./pages/InvestorReportViewPage').then((module) => ({ default: module.InvestorReportViewPage })));
 const AccountPage = lazy(() => import('./pages/AccountPage'));
+const MyReviewsPage = lazy(() => import('./pages/MyReviewsPage'));
 const TeamInvitePage = lazy(() => import('./pages/TeamInvitePage'));
 const AccountSettingsPage = lazy(() => import('./pages/AccountSettingsPage'));
 const ReviewsPage = lazy(() => import('./pages/ReviewsPage'));
@@ -72,7 +73,7 @@ function PrivateRouteRobots() {
   const { pathname } = useLocation();
 
   useEffect(() => {
-    const isPrivateRoute = /^\/(account(?:\/|$)|admin(?:\/|$)|team-invite$|login$|register$|verify-email$|email-verified$|forgot-password$|auth(?:\/|$)|reset-password$|password-reset-|checkout\/|report\/view$|investor-report\/view$)/i.test(pathname);
+    const isPrivateRoute = /^\/(account(?:\/|$)|admin(?:\/|$)|team-invite$|login$|register$|verify-email$|email-verified$|forgot-password$|auth(?:\/|$)|reset-password$|password-reset-|checkout\/|report\/view$|investor-report\/view$|blog\/preview\/)/i.test(pathname);
     let robots = document.head.querySelector<HTMLMetaElement>('meta[name="robots"]');
     if (!robots) {
       robots = document.createElement('meta');
@@ -136,11 +137,13 @@ function App() {
           <Route path="cookie-policy" element={<CookiesPolicyPage />} />
           <Route path="data-sources" element={<DataSourcesPage />} />
           <Route path="account" element={<AccountPage />} />
+          <Route path="account/reviews" element={<MyReviewsPage />} />
           <Route path="account/settings" element={<AccountSettingsPage />} />
           <Route path="admin" element={<AdminRoute />} />
           <Route path="reviews" element={<ReviewsPage />} />
           <Route path="pricing" element={<PricingPage />} />
           <Route path="blog" element={<BlogPage />} />
+          <Route path="blog/preview/:previewId" element={<BlogPage />} />
           <Route path="blog/:slug" element={<BlogPage />} />
           <Route path="*" element={<NotFoundPage />} />
         </Route>

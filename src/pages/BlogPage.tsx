@@ -20,7 +20,6 @@ import { canCreateBlogPost, canManageBlogPosts } from '@/lib/adminAccess';
 import BlogContentEditor from '@/components/blog/BlogContentEditor';
 import {
   extractBlogDocumentContent,
-  MAX_BLOG_CONTENT_LENGTH,
   MAX_BLOG_DOCUMENT_SIZE,
 } from '@/utils/blogDocumentImport';
 
@@ -125,7 +124,7 @@ const isDatabaseBlogPost = (post: BlogPost) =>
 export const BlogPlatform: React.FC = () => {
   const [searchParams] = useSearchParams();
   const requestedPostId = searchParams.get('post');
-  const { slug } = useParams<{ slug?: string }>();
+  const { slug, previewId } = useParams<{ slug?: string; previewId?: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
@@ -167,12 +166,13 @@ export const BlogPlatform: React.FC = () => {
     (slug && selectedPostDetails.slug === slug)
     || selectedPostDetails.id === selectedPostSummary?.id
     || selectedPostDetails.id === requestedPostId
+    || selectedPostDetails.id === previewId
   )
     ? selectedPostDetails
     : selectedPostSummary;
 
   useEffect(() => {
-    if (!slug && !requestedPostId) {
+    if (!slug && !requestedPostId && !previewId) {
       setSelectedPostDetails(null);
       setSelectedPostError(null);
       setSelectedPostLoading(false);
@@ -183,7 +183,9 @@ export const BlogPlatform: React.FC = () => {
     setSelectedPostLoading(true);
     setSelectedPostError(null);
     let loadPost: Promise<BlogPost>;
-    if (slug) {
+    if (previewId) {
+      loadPost = blogService.getDraftPreview(previewId);
+    } else if (slug) {
       loadPost = blogService.getPostBySlug(slug);
     } else if (requestedPostId) {
       loadPost = blogService.getPost(requestedPostId);
@@ -197,7 +199,11 @@ export const BlogPlatform: React.FC = () => {
       .catch(() => {
         if (isCurrent) {
           setSelectedPostDetails(null);
-          setSelectedPostError('This article could not be loaded. Please try again later.');
+          setSelectedPostError(
+            previewId
+              ? 'This draft preview is unavailable. Sign in with blog access and try again.'
+              : 'This article could not be loaded. Please try again later.',
+          );
         }
       })
       .finally(() => {
@@ -207,7 +213,7 @@ export const BlogPlatform: React.FC = () => {
     return () => {
       isCurrent = false;
     };
-  }, [requestedPostId, slug]);
+  }, [previewId, requestedPostId, slug]);
   useEffect(() => {
     if (!requestedPostId || slug) return;
     const post = selectedPostSummary ?? selectedPostDetails;
@@ -235,7 +241,9 @@ export const BlogPlatform: React.FC = () => {
     ? getWordPressExcerpt(selectedPost.excerpt).slice(0, 160)
     : 'Read RoomReview guides on UK renting, property decisions, neighbourhoods and local housing data.';
   const articlePath = selectedPost
-    ? `/blog/${encodeURIComponent(selectedPost.slug)}`
+    ? previewId
+      ? `/blog/preview/${encodeURIComponent(previewId)}`
+      : `/blog/${encodeURIComponent(selectedPost.slug)}`
     : '/blog';
   const handleDeletePost = async (post: BlogPost) => {
     if (!window.confirm(`Permanently delete "${post.title}"? This cannot be undone.`)) {
@@ -266,11 +274,17 @@ export const BlogPlatform: React.FC = () => {
         title={selectedPost ? `${selectedPost.title} | RoomReview` : 'RoomReview Blog | Renting and Neighbourhood Guides'}
         description={articleDescription}
         path={articlePath}
+        noIndex={Boolean(previewId)}
       />
       
       {/* ---------------- DEEP ARTICLE VIEW ---------------- */}
       {selectedPost ? (
         <article className="mx-auto max-w-[840px] px-6 py-12 space-y-10">
+          {previewId && (
+            <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-900" role="status">
+              Draft preview this article is not published and is only visible to users with blog access.
+            </p>
+          )}
           
           {/* Breadcrumb / Back Navigation */}
           <Link
@@ -328,7 +342,7 @@ export const BlogPlatform: React.FC = () => {
           )}
 
           {/* Social Share & Tags Footer */}
-          <div className="space-y-6 pt-6 border-t border-gray-100">
+          {!previewId && <div className="space-y-6 pt-6 border-t border-gray-100">
             <div className="space-y-2">
               <span className="block text-sm font-bold text-[#1A202C]">Spread the word</span>
               <div className="flex items-center gap-2">
@@ -352,12 +366,16 @@ export const BlogPlatform: React.FC = () => {
                 </span>
               ))}
             </div>
-          </div>
+          </div>}
 
           {/* Newsletter Section */}
-          <NewsletterBanner />
+          {!previewId && <NewsletterBanner />}
 
         </article>
+      ) : previewId ? (
+        <main className="mx-auto max-w-[840px] px-6 py-12" role={selectedPostError ? 'alert' : 'status'}>
+          {selectedPostError ?? 'Loading draft preview...'}
+        </main>
       ) : (
 
         /* ---------------- BLOG OVERVIEW / MAIN FEED ---------------- */
@@ -607,10 +625,15 @@ const BlogPostEditor: React.FC<{
   onPublished: (post: BlogPost) => void;
 }> = ({ onClose, onPublished }) => {
   const [title, setTitle] = useState('');
+  const [author, setAuthor] = useState('RoomReview Editorial');
   const [excerpt, setExcerpt] = useState('');
   const [content, setContent] = useState('');
+  const [featuredImage, setFeaturedImage] = useState<string | null>(null);
+  const [featuredImageFileName, setFeaturedImageFileName] = useState<string | null>(null);
   const [isImporting, setIsImporting] = useState(false);
+  const [isUploadingFeaturedImage, setIsUploadingFeaturedImage] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isCancellingDraft, setIsCancellingDraft] = useState(false);
   const [savedDraft, setSavedDraft] = useState<BlogPost | null>(null);
   const [feedback, setFeedback] = useState<{ kind: 'success' | 'error'; message: string } | null>(null);
 
@@ -624,21 +647,25 @@ const BlogPostEditor: React.FC<{
       setFeedback({ kind: 'error', message: 'Add some article text or an image before saving.' });
       return;
     }
-    if (content.length > MAX_BLOG_CONTENT_LENGTH) {
-      setFeedback({ kind: 'error', message: 'Article content exceeds the 6 MB limit.' });
-      return;
-    }
     setIsSubmitting(true);
     try {
-      const post = await blogService.createPost({ title, excerpt, content });
+      const post = await blogService.createPost({
+        title,
+        author,
+        excerpt,
+        content,
+        featuredImage,
+      });
       setSavedDraft(post);
       setFeedback({
         kind: 'success',
         message: 'Draft saved in the RoomReview database.',
       });
       setTitle('');
+      setAuthor('RoomReview Editorial');
       setExcerpt('');
       setContent('');
+      setFeaturedImage(null);
     } catch (error) {
       setFeedback({ kind: 'error', message: extractApiError(error) });
     } finally {
@@ -657,6 +684,76 @@ const BlogPostEditor: React.FC<{
       setFeedback({ kind: 'error', message: extractApiError(error) });
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleCancelDraft = async () => {
+    if (!savedDraft) return;
+    if (!window.confirm(`Permanently delete draft "${savedDraft.title}"? This cannot be undone.`)) {
+      return;
+    }
+
+    setFeedback(null);
+    setIsCancellingDraft(true);
+    let cancelled = false;
+    try {
+      await blogService.cancelDraft(savedDraft.id);
+      cancelled = true;
+    } catch (error) {
+      setFeedback({ kind: 'error', message: extractApiError(error) });
+    } finally {
+      setIsCancellingDraft(false);
+    }
+    if (cancelled) onClose();
+  };
+
+  const handleFeaturedImageUpload = async (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const allowedTypes = new Set(['image/jpeg', 'image/png', 'image/webp']);
+    if (!allowedTypes.has(file.type)) {
+      setFeedback({
+        kind: 'error',
+        message: 'Choose a JPEG, PNG, or WebP cover image.',
+      });
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setFeedback({
+        kind: 'error',
+        message: 'The cover image must be 5 MB or smaller.',
+      });
+      return;
+    }
+
+    setFeedback(null);
+    setIsUploadingFeaturedImage(true);
+    try {
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          if (typeof reader.result === 'string') resolve(reader.result);
+          else reject(new Error('The cover image could not be read.'));
+        };
+        reader.onerror = () => reject(new Error('The cover image could not be read.'));
+        reader.readAsDataURL(file);
+      });
+      const base64 = dataUrl.slice(dataUrl.indexOf(',') + 1);
+      setFeaturedImage(
+        await blogService.uploadFeaturedImage(file.type, base64),
+      );
+      setFeaturedImageFileName(file.name);
+      setFeedback({
+        kind: 'success',
+        message: `Cover image uploaded: ${file.name}`,
+      });
+    } catch (error) {
+      setFeedback({ kind: 'error', message: extractApiError(error) });
+    } finally {
+      setIsUploadingFeaturedImage(false);
     }
   };
 
@@ -751,6 +848,24 @@ const BlogPostEditor: React.FC<{
                 maxLength={200}
                 value={title}
                 onChange={(event) => setTitle(event.target.value)}
+                disabled={
+                  isSubmitting || isImporting || isUploadingFeaturedImage
+                }
+                className="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm focus:border-[#8B0000] focus:outline-none focus:ring-1 focus:ring-[#8B0000]"
+              />
+            </div>
+
+            <div>
+              <label htmlFor="blog-draft-author" className="mb-1 block text-sm font-semibold text-[#1A202C]">
+                Author
+              </label>
+              <input
+                id="blog-draft-author"
+                type="text"
+                required
+                maxLength={120}
+                value={author}
+                onChange={(event) => setAuthor(event.target.value)}
                 disabled={isSubmitting || isImporting}
                 className="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm focus:border-[#8B0000] focus:outline-none focus:ring-1 focus:ring-[#8B0000]"
               />
@@ -773,6 +888,51 @@ const BlogPostEditor: React.FC<{
           </div>
 
           <div>
+            <label
+              htmlFor="blog-featured-image"
+              className="mb-1 block text-sm font-semibold text-[#1A202C]"
+            >
+              Title image
+            </label>
+            <input
+              id="blog-featured-image"
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              onChange={(event) => void handleFeaturedImageUpload(event)}
+              onClick={(event) => {
+                event.currentTarget.value = '';
+              }}
+              disabled={
+                isSubmitting ||
+                isImporting ||
+                isUploadingFeaturedImage ||
+                Boolean(savedDraft)
+              }
+              className="block w-full rounded-xl border border-gray-300 px-4 py-3 text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-gray-100 file:px-3 file:py-2 file:font-semibold file:text-gray-700"
+            />
+            <p className="mt-1 text-xs text-[#5F6D7A]">
+              Optional · JPEG, PNG, or WebP · max 5 MB · displayed below the title
+            </p>
+            {featuredImageFileName && (
+              <p className="mt-2 text-sm font-medium text-green-800" role="status">
+                Uploaded: {featuredImageFileName}
+              </p>
+            )}
+            {isUploadingFeaturedImage && (
+              <p className="mt-2 text-sm text-gray-600" role="status">
+                Uploading title image...
+              </p>
+            )}
+            {(featuredImage || savedDraft?.image) && (
+              <img
+                src={featuredImage ?? savedDraft?.image}
+                alt="Title image preview"
+                className="mt-3 h-40 w-full rounded-xl object-cover sm:h-56"
+              />
+            )}
+          </div>
+
+          <div>
             <label className="mb-1 block text-sm font-semibold text-[#1A202C]">
               Article content
             </label>
@@ -782,9 +942,6 @@ const BlogPostEditor: React.FC<{
               disabled={isSubmitting || isImporting}
               onError={(message) => setFeedback({ kind: 'error', message })}
             />
-            <p className="mt-1 text-right text-xs text-[#5F6D7A]">
-              {content.length.toLocaleString()} / {MAX_BLOG_CONTENT_LENGTH.toLocaleString()} characters
-            </p>
           </div>
 
           {feedback && (
@@ -796,31 +953,67 @@ const BlogPostEditor: React.FC<{
             </p>
           )}
 
-          <div className="flex justify-end gap-3 pt-2">
+          <div className="flex flex-wrap justify-end gap-3 pt-2">
             <button
               type="button"
               onClick={onClose}
-              disabled={isSubmitting || isImporting}
+              disabled={isSubmitting || isImporting || isCancellingDraft}
               className="rounded-xl border border-gray-300 px-5 py-3 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:opacity-60"
             >
               Close
             </button>
+            {savedDraft && (
+              <button
+                type="button"
+                onClick={() => void handleCancelDraft()}
+                disabled={
+                  isSubmitting ||
+                  isImporting ||
+                  isUploadingFeaturedImage ||
+                  isCancellingDraft
+                }
+                className="rounded-xl border border-red-200 px-5 py-3 text-sm font-semibold text-red-700 transition hover:bg-red-50 disabled:cursor-wait disabled:opacity-60"
+              >
+                {isCancellingDraft ? 'Cancelling...' : 'Cancel draft'}
+              </button>
+            )}
             <button
               type="submit"
-              disabled={isSubmitting || isImporting || Boolean(savedDraft)}
+              disabled={
+                isSubmitting ||
+                isImporting ||
+                isUploadingFeaturedImage ||
+                isCancellingDraft ||
+                Boolean(savedDraft)
+              }
               className="rounded-xl bg-[#8B0000] px-5 py-3 text-sm font-bold text-white transition hover:bg-[#700000] disabled:cursor-wait disabled:opacity-60"
             >
               {isImporting ? 'Importing...' : isSubmitting ? 'Saving...' : 'Save draft'}
             </button>
             {savedDraft && (
-              <button
-                type="button"
-                onClick={() => void handlePublish()}
-                disabled={isSubmitting || isImporting}
-                className="rounded-xl bg-[#1A2B3C] px-5 py-3 text-sm font-bold text-white transition hover:bg-[#263E55] disabled:cursor-wait disabled:opacity-60"
-              >
-                {isSubmitting ? 'Publishing...' : 'Publish'}
-              </button>
+              <>
+                <a
+                  href={`/blog/preview/${encodeURIComponent(savedDraft.id)}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="rounded-xl border border-[#1A2B3C] px-5 py-3 text-sm font-bold text-[#1A2B3C] transition hover:bg-gray-50"
+                >
+                  Preview draft
+                </a>
+                <button
+                  type="button"
+                  onClick={() => void handlePublish()}
+                  disabled={
+                    isSubmitting ||
+                    isImporting ||
+                    isUploadingFeaturedImage ||
+                    isCancellingDraft
+                  }
+                  className="rounded-xl bg-[#1A2B3C] px-5 py-3 text-sm font-bold text-white transition hover:bg-[#263E55] disabled:cursor-wait disabled:opacity-60"
+                >
+                  {isSubmitting ? 'Publishing...' : 'Publish'}
+                </button>
+              </>
             )}
           </div>
         </form>

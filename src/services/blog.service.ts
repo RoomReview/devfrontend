@@ -16,8 +16,10 @@ export interface BlogPost {
 
 export interface CreateBlogPostInput {
   title: string;
+  author: string;
   excerpt: string;
   content: string;
+  featuredImage?: string | null;
 }
 
 interface BlogPostsResponse {
@@ -41,6 +43,13 @@ export const blogService = {
     return response.data.data;
   },
 
+  getDraftPreview: async (id: string): Promise<BlogPost> => {
+    const response = await apiClient.get<{ data: BlogPost }>(
+      `/blog/posts/preview/${encodeURIComponent(id)}`,
+    );
+    return response.data.data;
+  },
+
   getPostBySlug: async (slug: string): Promise<BlogPost> => {
     const response = await apiClient.get<{ data: BlogPost }>(`/blog/posts/slug/${encodeURIComponent(slug)}`);
     return response.data.data;
@@ -51,11 +60,26 @@ export const blogService = {
     return response.data.data;
   },
 
+  uploadFeaturedImage: async (
+    contentType: string,
+    imageBase64: string,
+  ): Promise<string> => {
+    const response = await apiClient.post<{ data: { image: string } }>(
+      '/blog/posts/featured-images',
+      { contentType, imageBase64 },
+    );
+    return response.data.data.image;
+  },
+
   publishPost: async (id: string): Promise<BlogPost> => {
     const response = await apiClient.patch<{ data: BlogPost }>(
       `/blog/posts/${encodeURIComponent(id)}/publish`,
     );
     return response.data.data;
+  },
+
+  cancelDraft: async (id: string): Promise<void> => {
+    await apiClient.delete(`/blog/posts/drafts/${encodeURIComponent(id)}`);
   },
 
   deletePost: async (id: string): Promise<void> => {
